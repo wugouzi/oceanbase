@@ -18,7 +18,7 @@ oceanbase-ce:
     rpc_port: 2882 # Internal port for OceanBase Database. The default value is 2882. DO NOT change this value after the cluster is started.
     zone: zone1
     # if current hardware's memory capacity is smaller than 50G, please use the setting of "mini-single-example.yaml" and do a small adjustment.
-    memory_limit: 14G # The maximum running memory for an observer
+    memory_limit: 12G # The maximum running memory for an observer
     # The reserved system memory. system_memory is reserved for general tenants. The default value is 30G.
     system_memory: 12G
     datafile_size: 150G # The percentage of the data_dir space to the total disk space. This value takes effect only when datafile_size is 0. The default value is 90.
