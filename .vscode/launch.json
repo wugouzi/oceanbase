@@ -8,12 +8,13 @@
             "type": "cppdbg",
             "request": "attach",
             "name": "GDB",
-            // "program": "${workspaceFolder}/${command:AskForProgramName}",
-            // "stopOnEntry": true,
-            // "arguments": "",
             "program": "/root/oceanbase/build_debug/src/observer/observer",
             "processId": "${command:pickProcess}",
             "MIMode": "gdb",
+            "sourceFileMap": {
+                "./build_debug/src/sql/./src/": "/root/oceanbase/src"
+            },
+            "miDebuggerPath": "/usr/bin/gdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
