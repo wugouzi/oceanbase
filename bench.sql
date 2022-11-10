@@ -1,4 +1,6 @@
-sudo setcap cap_sys_ptrace=eip /usr/bin/gdb
+-- sudo setcap cap_sys_ptrace=eip /usr/bin/gdb
+
+drop table lineitem_bulk;
 
 create table lineitem_bulk (
 I_orderkey BIGINT NOT NULL,
