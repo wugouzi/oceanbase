@@ -62,3 +62,4 @@ OceanBase Database is under [MulanPubL - 2.0](http://license.coscl.org.cn/MulanP
 [ ] investigate the execution-path of side load
    start from cmd_executor
 [ ] parallel load data
+[ ] how does ob manage threads?
