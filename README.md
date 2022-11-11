@@ -60,3 +60,5 @@ OceanBase Database is under [MulanPubL - 2.0](http://license.coscl.org.cn/MulanP
 ## TODO
 [ ] learn LSM-tree
 [ ] investigate the execution-path of side load
+   start from cmd_executor
+[ ] parallel load data
