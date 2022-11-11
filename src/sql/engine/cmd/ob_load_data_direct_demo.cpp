@@ -987,6 +987,7 @@ int ObLoadDataDirectDemo::do_load()
       ret = OB_ERR_UNEXPECTED;
       LOG_WARN("unexpected empty buffer", KR(ret));
     } else {
+      // parse whole file
       while (OB_SUCC(ret)) {
         if (OB_FAIL(csv_parser_.get_next_row(buffer_, new_row))) {
           if (OB_UNLIKELY(OB_ITER_END != ret)) {
