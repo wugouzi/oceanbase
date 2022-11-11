@@ -128,7 +128,7 @@ log_info() {
 export OBD_INSTALL_PRE=~/.oceanbase-all-in-one/obd
 source $OBD_INSTALL_PRE/etc/profile.d/obd.sh
 export OBCLIENT_HOME=~/.oceanbase-all-in-one/obclient
-export PATH=$OBD_INSTALL_PRE/usr/bin:$OBCLIENT_HOME/u01/obclient/bin:$PATH
+export PATH=$OBD_INSTALL_PRE/usr/bin:$OBCLIENT_HOME/u01/obclient/bin:$HOME/.cargo/bin:$PATH
 
 export OB_DEBUG_ROOT='/root/oceanbase/build_debug'
 export OB_ROOT='/root/oceanbase'

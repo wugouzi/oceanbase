@@ -57,9 +57,10 @@ OceanBase Database is under [MulanPubL - 2.0](http://license.coscl.org.cn/MulanP
 - OceanBase大赛 | 手摸手带你玩转OceanBase https://zhuanlan.zhihu.com/p/445201899
 
 
-## TODO
-[ ] learn LSM-tree
-[ ] investigate the execution-path of side load
-   start from cmd_executor
-[ ] parallel load data
-[ ] how does ob manage threads?
+## TODO (sort by priority)
+1. [ ] cast_obj_to_datum
+2. [ ] learn LSM-tree
+3. [ ] after read a buffer, sort it directly and write back
+4. [ ] parallel load data
+5. [ ] how does ob manage threads?
+
