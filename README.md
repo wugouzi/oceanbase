@@ -58,9 +58,16 @@ OceanBase Database is under [MulanPubL - 2.0](http://license.coscl.org.cn/MulanP
 
 
 ## TODO (sort by priority)
-1. [ ] cast_obj_to_datum
-2. [ ] learn LSM-tree
-3. [ ] after read a buffer, sort it directly and write back
-4. [ ] parallel load data
-5. [ ] how does ob manage threads?
+1. [ ] sstable use block instead of row
+2. [ ] cast_obj_to_datum
+3. [ ] external_sort
+4. [ ] 读取数据的时候,block block地读
+5. [ ] 读一个buffer数据,先sort,再写回去()
+6. [ ] 读了之后,sort,写回去 -> 我们的文件是不同的sorted的数据,可以merge了 (非常不好写)
+   1. [ ] 读满内存,sort,写回去
+   2. [ ] FILE_BUFFER_SIZE
+7. [ ] learn LSM-tree
+8. [ ] after read a buffer, sort it directly and write back
+9.  [ ] parallel load data
+10. [ ] how does ob manage threads?
 
