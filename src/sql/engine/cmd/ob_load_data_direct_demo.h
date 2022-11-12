@@ -208,7 +208,7 @@ namespace oceanbase
       int do_load();
       int do_load_buffer(int i);
     private:
-      static const int DEMO_BUF_NUM = 10;
+      static const int DEMO_BUF_NUM = 1;
 
       ObLoadSequentialFileReader file_reader_;
       // we have BUF_NUM buffers and we load data simultaneously
