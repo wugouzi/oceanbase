@@ -163,6 +163,7 @@ namespace oceanbase
       storage::ObExternalSort<ObLoadDatumRow, ObLoadDatumRowCompare> external_sort_;
       bool is_closed_;
       bool is_inited_;
+      std::mutex mutex_;
     };
 
     class ObLoadSSTableWriter

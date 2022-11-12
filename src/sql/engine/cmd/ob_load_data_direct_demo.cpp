@@ -973,9 +973,11 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
 
 int ObLoadDataDirectDemo::do_load_buffer(int i)
 {
+  const ObNewRow *new_row = nullptr;
+  const ObLoadDatumRow *datum_row = nullptr;
   int ret = OB_SUCCESS;
   ObLoadDataBuffer &buffer = buffers_[i];
-  if (OB_FAIL(buffer..squash())) {
+  if (OB_FAIL(buffer.squash())) {
     LOG_WARN("fail to squash buffer", KR(ret));
   } else if (OB_FAIL(file_reader_.read_next_buffer(buffer))) {
     if (OB_UNLIKELY(OB_ITER_END != ret)) {
@@ -985,8 +987,7 @@ int ObLoadDataDirectDemo::do_load_buffer(int i)
         ret = OB_ERR_UNEXPECTED;
         LOG_WARN("unexpected incomplate data", KR(ret));
       }
-      ret = OB_SUCCESS;
-      break;
+      return ret;
     }
   } else if (OB_UNLIKELY(buffer.empty())) {
     ret = OB_ERR_UNEXPECTED;
