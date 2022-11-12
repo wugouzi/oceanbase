@@ -136,7 +136,7 @@ export OB_ROOT='/root/oceanbase'
 export TARGET_CSV='/root/1m.csv'
 alias cddebug='cd $OB_DEBUG_ROOT'
 alias cdroot='cd $OB_ROOT'
-alias m='(log_info MAKE && cddebug && make -j8 && make install DESTDIR=.) || true'
+alias m='log_info MAKE && cddebug && make -j8 && (make install DESTDIR=. || true)'
 alias dep='log_info DEPLOY && cddebug && obd mirror create -n oceanbase-ce -V 4.0.0.0 -p ./usr/local/ -f -t final_2022 && obd cluster autodeploy final_2022 -c ../final_2022.yaml -f'
 alias res='log_info RESTART && obd cluster restart final_2022'
 alias des='(log_info DESTROY && obd cluster destroy final_2022) || true'
@@ -152,5 +152,8 @@ alias zc="vim ~/.zshrc && source ~/.zshrc"
 alias mwdk="tmux new -s wdk"
 alias wdk="tmux a -t wdk"
 alias gpm='git pull && m'
+
+export LOG_ROOT='/data/final/final_2022/log/'
+alias log='cd $LOG_ROOT && rg MMMMM'
 
 alias pc="proxychains4"
