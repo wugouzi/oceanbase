@@ -206,6 +206,7 @@ ob_set_subtarget(ob_sql engine_cmd
   engine/cmd/ob_variable_set_executor.cpp
   engine/cmd/ob_xa_executor.cpp
   engine/cmd/ob_context_executor.cpp
+  engine/cmd/ob_load_data_direct_demo.cpp
 )
 
 ob_set_subtarget(ob_sql engine_dml
