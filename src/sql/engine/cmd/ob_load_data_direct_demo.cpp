@@ -1020,7 +1020,7 @@ int ObLoadDataDirectDemo::do_load()
   while (OB_SUCC(ret)) {
     std::vector<std::future<int>> threads;
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
-      threads.push_back(std::async(&ObLoadDataDirectDemo::do_load_buffer, i));
+      threads.push_back(std::async(&ObLoadDataDirectDemo::do_load_buffer, this, i));
     }
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
       if (OB_SUCC(threads[i].get()) && OB_UNLIKELY(OB_ITER_END != ret)) {
