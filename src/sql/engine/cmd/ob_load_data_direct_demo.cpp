@@ -1,4 +1,7 @@
 
+#include "ob_load_data_direct_demo.h"
+#include <future>
+#include <vector>
 #define USING_LOG_PREFIX SQL_ENG
 
 #include "sql/engine/cmd/ob_load_data_direct_demo.h"
@@ -966,9 +969,10 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   return ret;
 }
 
-int ObLoadDataDirectDemo::do_load_buffer(ObLoadDataBuffer &buffer)
+int ObLoadDataDirectDemo::do_load_buffer(int i)
 {
   int ret = OB_SUCCESS;
+  ObLoadDataBuffer &buffer = buffers_[i];
   if (OB_FAIL(buffer_.squash())) {
     LOG_WARN("fail to squash buffer", KR(ret));
   } else if (OB_FAIL(file_reader_.read_next_buffer(buffer_))) {
@@ -1011,47 +1015,21 @@ int ObLoadDataDirectDemo::do_load()
   const ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
   while (OB_SUCC(ret)) {
-    
-  }
-  while (OB_SUCC(ret)) {
-    if (OB_FAIL(buffer_.squash())) {
-      LOG_WARN("fail to squash buffer", KR(ret));
-    } else if (OB_FAIL(file_reader_.read_next_buffer(buffer_))) {
-      if (OB_UNLIKELY(OB_ITER_END != ret)) {
-        LOG_WARN("fail to read next buffer", KR(ret));
-      } else {
-        if (OB_UNLIKELY(!buffer_.empty())) {
-          ret = OB_ERR_UNEXPECTED;
-          LOG_WARN("unexpected incomplate data", KR(ret));
-        }
-        ret = OB_SUCCESS;
-        break;
-      }
-    } else if (OB_UNLIKELY(buffer_.empty())) {
-      ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("unexpected empty buffer", KR(ret));
-    } else {
-      // parse whole file
-      while (OB_SUCC(ret)) {
-        if (OB_FAIL(csv_parser_.get_next_row(buffer_, new_row))) {
-          if (OB_UNLIKELY(OB_ITER_END != ret)) {
-            LOG_WARN("fail to get next row", KR(ret));
-          } else {
-            ret = OB_SUCCESS;
-            break;
-          }
-        } else if (OB_FAIL(row_caster_.get_casted_row(*new_row, datum_row))) {
-          LOG_WARN("fail to cast row", KR(ret));
-        } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
-          LOG_WARN("fail to append row", KR(ret));
+    std::vector<std::future<int>> threads;
+    for (int i = 0; i < DEMO_BUF_NUM; i++) {
+      threads.push_back(std::async(&this->do_load_buffer, buffers_[i]));
+    }
+    for (int i = 0; i < DEMO_BUF_NUM; i++) {
+      if (OB_SUCC(threads[i].get()) && OB_UNLIKELY(OB_ITER_END != ret)) {
+        for (int j = i + 1; j < DEMO_BUF_NUM; j++) {
+          threads[j].get();
+          return ret;
         }
       }
     }
   }
-  if (OB_SUCC(ret)) {
-    if (OB_FAIL(external_sort_.close())) {
+  if (OB_FAIL(external_sort_.close())) {
       LOG_WARN("fail to close external sort", KR(ret));
-    }
   }
   while (OB_SUCC(ret)) {
     if (OB_FAIL(external_sort_.get_next_row(datum_row))) {

@@ -203,13 +203,13 @@ namespace oceanbase
     private:
       int inner_init(ObLoadDataStmt &load_stmt);
       int do_load();
-      int do_load_buffer(ObLoadDataBuffer &buffer);
+      int do_load_buffer(int i);
     private:
-      static const int BUF_NUM = 10;
+      static const int DEMO_BUF_NUM = 10;
       ObLoadCSVPaser csv_parser_;
       ObLoadSequentialFileReader file_reader_;
       // we have BUF_NUM buffers and we load data simultaneously
-      ObLoadDataBuffer buffers_[BUF_NUM];
+      ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
       // ObLoadDataBuffer buffer_;
       ObLoadRowCaster row_caster_;
       ObLoadExternalSort external_sort_;
