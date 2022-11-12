@@ -80,6 +80,11 @@ cd ioprof
 ```
 其中, /dev/vda1 是服务器的磁盘设备名, 可以通过`df -h`来判断想要监控哪个磁盘设备。`-r 300`是表示监控接下来300s的这个设备的IO。
 
+如果想要测试大量的顺序读，可以使用如下指令：
+
+```sh
+fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --direct=1 --group_reporting
+```
 
 ## TODO (sort by priority)
 1. [ ] sstable use block instead of row
