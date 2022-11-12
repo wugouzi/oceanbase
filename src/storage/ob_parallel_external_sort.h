@@ -311,7 +311,7 @@ int ObFragmentWriterV2<T>::flush_buffer()
     io_info.io_desc_.set_category(common::ObIOCategory::SYS_IO);
     io_info.io_desc_.set_wait_event(ObWaitEventIds::DB_FILE_INDEX_BUILD_WRITE);
     if (OB_FAIL(FILE_MANAGER_INSTANCE_V2.aio_write(io_info, file_io_handle_))) {
-      STORAGE_LOG(WARN, "fail to do aio write macro file", K(ret), K(io_info));
+      STORAGE_LOG(WARN, "MMMMM fail to do aio write macro file", K(ret), K(io_info));
     } else {
       macro_buffer_writer_.assign(ObExternalSortConstant::BUF_HEADER_LENGTH, buf_size_, buf_);
     }

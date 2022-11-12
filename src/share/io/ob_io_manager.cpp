@@ -200,7 +200,7 @@ int ObIOManager::aio_write(const ObIOInfo &info, ObIOHandle &handle)
     LOG_WARN("io manager not working", K(ret), K(is_working_));
   } else if (OB_UNLIKELY(!info.is_valid())) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument", K(ret), K(info), K(lbt()));
+    LOG_WARN("MMMMM invalid argument", K(ret), K(info), K(lbt()));
   } else if (OB_FAIL(tenant_aio(info, handle))) {
     LOG_WARN("inner aio failed", K(ret), K(info));
   }
