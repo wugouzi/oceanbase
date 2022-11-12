@@ -950,7 +950,7 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   }
 
   // init file_reader_
-  else if (OB_FAIL(file_reader_.open(load_args.full_file_path_))) {
+  if (OB_FAIL(file_reader_.open(load_args.full_file_path_))) {
     LOG_WARN("fail to open file", KR(ret), K(load_args.full_file_path_));
   }
   // init buffer_
