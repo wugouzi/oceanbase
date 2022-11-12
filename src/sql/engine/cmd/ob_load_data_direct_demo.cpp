@@ -110,6 +110,7 @@ int ObLoadSequentialFileReader::open(const ObString &filepath)
 
 int ObLoadSequentialFileReader::read_next_buffer(ObLoadDataBuffer &buffer)
 {
+  std::lock_guard<std::mutex> guard(mutex_);
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(!file_reader_.is_opened())) {
     ret = OB_FILE_NOT_OPENED;
@@ -601,7 +602,8 @@ int ObLoadExternalSort::init(const ObTableSchema *table_schema, int64_t mem_size
 }
 
 int ObLoadExternalSort::append_row(const ObLoadDatumRow &datum_row)
-{
+{ 
+  std::lock_guard<std::mutex> guard(mutex_);
   int ret = OB_SUCCESS;
   if (IS_NOT_INIT) {
     ret = OB_NOT_INIT;
@@ -964,11 +966,53 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   return ret;
 }
 
+int ObLoadDataDirectDemo::do_load_buffer(ObLoadDataBuffer &buffer)
+{
+  int ret = OB_SUCCESS;
+  if (OB_FAIL(buffer_.squash())) {
+    LOG_WARN("fail to squash buffer", KR(ret));
+  } else if (OB_FAIL(file_reader_.read_next_buffer(buffer_))) {
+    if (OB_UNLIKELY(OB_ITER_END != ret)) {
+      LOG_WARN("fail to read next buffer", KR(ret));
+    } else {
+      if (OB_UNLIKELY(!buffer_.empty())) {
+        ret = OB_ERR_UNEXPECTED;
+        LOG_WARN("unexpected incomplate data", KR(ret));
+      }
+      ret = OB_SUCCESS;
+      break;
+    }
+  } else if (OB_UNLIKELY(buffer_.empty())) {
+    ret = OB_ERR_UNEXPECTED;
+    LOG_WARN("unexpected empty buffer", KR(ret));
+  } else {
+    // parse whole file
+    while (OB_SUCC(ret)) {
+      if (OB_FAIL(csv_parser_.get_next_row(buffer_, new_row))) {
+        if (OB_UNLIKELY(OB_ITER_END != ret)) {
+          LOG_WARN("fail to get next row", KR(ret));
+        } else {
+          ret = OB_SUCCESS;
+          break;
+        }
+      } else if (OB_FAIL(row_caster_.get_casted_row(*new_row, datum_row))) {
+        LOG_WARN("fail to cast row", KR(ret));
+      } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
+        LOG_WARN("fail to append row", KR(ret));
+      }
+    }
+  }
+  return ret;
+}
+
 int ObLoadDataDirectDemo::do_load()
 {
   int ret = OB_SUCCESS;
   const ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
+  while (OB_SUCC(ret)) {
+    
+  }
   while (OB_SUCC(ret)) {
     if (OB_FAIL(buffer_.squash())) {
       LOG_WARN("fail to squash buffer", KR(ret));

@@ -7,6 +7,8 @@
 #include "storage/blocksstable/ob_index_block_builder.h"
 #include "storage/ob_parallel_external_sort.h"
 #include "storage/tx_storage/ob_ls_handle.h"
+#include <future>
+#include <thread>
 
 namespace oceanbase
 {
@@ -49,6 +51,7 @@ namespace oceanbase
       common::ObFileReader file_reader_;
       int64_t offset_;
       bool is_read_end_;
+      std::mutex mutex_;
     };
 
     class ObLoadCSVPaser
