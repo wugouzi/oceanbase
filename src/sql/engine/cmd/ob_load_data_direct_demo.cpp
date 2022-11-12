@@ -1026,8 +1026,8 @@ int ObLoadDataDirectDemo::do_load()
       if (OB_SUCC(threads[i].get()) && OB_UNLIKELY(OB_ITER_END != ret)) {
         for (int j = i + 1; j < DEMO_BUF_NUM; j++) {
           threads[j].get();
-          return ret;
         }
+        break;
       }
     }
   }
