@@ -1014,9 +1014,9 @@ int ObLoadDataDirectDemo::do_load_buffer(int i)
 
 int ObLoadDataDirectDemo::do_load()
 {
-  int ret = OB_SUCCESS;
   const ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
+  int ret = OB_SUCCESS;
   while (OB_SUCC(ret)) {
     std::vector<std::future<int>> threads;
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
