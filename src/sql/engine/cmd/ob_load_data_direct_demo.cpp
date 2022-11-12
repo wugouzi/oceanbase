@@ -1,7 +1,3 @@
-
-#include "ob_load_data_direct_demo.h"
-#include <future>
-#include <vector>
 #define USING_LOG_PREFIX SQL_ENG
 
 #include "sql/engine/cmd/ob_load_data_direct_demo.h"
