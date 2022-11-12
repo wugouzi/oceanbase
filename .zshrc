@@ -150,3 +150,5 @@ alias clash='cd archieve/clash && ./clash-linux-amd64-v1.10.0 -f glados.yaml -d 
 alias zc="vim ~/.zshrc && source ~/.zshrc"
 alias mwdk="tmux new -s wdk"
 alias wdk="tmux a -t wdk"
+
+alias pc="proxychains4"
