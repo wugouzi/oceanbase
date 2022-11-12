@@ -69,6 +69,12 @@ yum install perl-Digest-MD5 -y
 yum install perl-Thread-Queue -y
 ```
 
+ioprof 本体下载：
+
+```
+gcl https://github.com/intel/ioprof
+```
+
 工具使用:
 
 ```shell
