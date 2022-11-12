@@ -10,6 +10,8 @@ project("OceanBase_CE"
   LANGUAGES CXX C ASM)
 message(STATUS "open source build enabled")
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 
 if(ENABLE_COMPILE_DLL_MODE)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOMPILE_DLL_MODE")
