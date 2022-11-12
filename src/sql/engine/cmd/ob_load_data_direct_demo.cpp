@@ -1029,7 +1029,7 @@ int ObLoadDataDirectDemo::do_load()
       threads.push_back(std::async(&ObLoadDataDirectDemo::do_load_buffer, this, i));
     }
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
-      if (OB_SUCC(threads[i].get()) && OB_UNLIKELY(OB_ITER_END != ret)) {
+      if (OB_FAIL(threads[i].get()) && OB_ITER_END != ret) {
         for (int j = i + 1; j < DEMO_BUF_NUM; j++) {
           threads[j].get();
         }
