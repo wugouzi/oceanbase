@@ -54,7 +54,31 @@ OceanBase Database is under [MulanPubL - 2.0](http://license.coscl.org.cn/MulanP
 
 ## Refs
 
+### OceanBase
+
 - OceanBase大赛 | 手摸手带你玩转OceanBase https://zhuanlan.zhihu.com/p/445201899
+
+### Profiling
+
+- 分析IO的工具 ioprof https://bean-li.github.io/ioprof/
+
+依赖的Perl 库安装：
+
+```
+yum install perl-Digest-MD5 -y
+yum install perl-Thread-Queue -y
+```
+
+工具使用:
+
+```shell
+gcl https://github.com/intel/ioprof.git
+cd ioprof
+./ioprof.pl -m trace -d /dev/vda1 -r 300 # 开始profiling，生成vda1.tar数据文件
+./ioprof.pl -m post -t vda1.tar    # (可选)在终端根据生成的数据文件，展示heatmap进行可视化
+./ioprof.pl -m post -t vda1.tar -p # (可选，且需要安装gnuplot和texlive) 在pdf中对数据进行可视化
+```
+其中, /dev/vda1 是服务器的磁盘设备名, 可以通过`df -h`来判断想要监控哪个磁盘设备。`-r 300`是表示监控接下来300s的这个设备的IO。
 
 
 ## TODO (sort by priority)
@@ -71,4 +95,3 @@ OceanBase Database is under [MulanPubL - 2.0](http://license.coscl.org.cn/MulanP
 9.  [ ] parallel load data
 10. [ ] how does ob manage threads?
 11. [ ] src/storage/ob_parallel_external_sort.h:513 看一下sstable这个item啥时候回收
-
