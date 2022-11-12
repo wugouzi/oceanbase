@@ -148,3 +148,5 @@ alias b='log_info BEGIN TEST && chmod 777 $TARGET_CSV && cdroot && obc < bench.s
 alias mmm='tmux a -t mmm'
 alias clash='cd archieve/clash && ./clash-linux-amd64-v1.10.0 -f glados.yaml -d .'
 alias zc="vim ~/.zshrc && source ~/.zshrc"
+alias mwdk="tmux new -s wdk"
+alias wdk="tmux a -t wdk"
