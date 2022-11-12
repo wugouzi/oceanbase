@@ -8,6 +8,7 @@
 #include "storage/ob_parallel_external_sort.h"
 #include "storage/tx_storage/ob_ls_handle.h"
 #include <future>
+#include <mutex>
 #include <thread>
 
 namespace oceanbase
@@ -38,6 +39,7 @@ namespace oceanbase
       int64_t begin_pos_;
       int64_t end_pos_;
       int64_t capacity_;
+      std::mutex mutex_;
     };
 
     class ObLoadSequentialFileReader

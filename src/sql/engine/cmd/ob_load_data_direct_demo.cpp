@@ -951,11 +951,13 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
     LOG_WARN("fail to open file", KR(ret), K(load_args.full_file_path_));
   }
   // init buffer_
-  else if (OB_FAIL(buffer_.create(FILE_BUFFER_SIZE))) {
-    LOG_WARN("fail to create buffer", KR(ret));
+  for (int i = 0; i < DEMO_BUF_NUM; i++) {
+    if (OB_FAIL(buffers_[i].create(FILE_BUFFER_SIZE))) {
+      LOG_WARN("fail to create buffer", KR(ret));
+    }
   }
   // init row_caster_
-  else if (OB_FAIL(row_caster_.init(table_schema, field_or_var_list))) {
+  if (OB_FAIL(row_caster_.init(table_schema, field_or_var_list))) {
     LOG_WARN("fail to init row caster", KR(ret));
   }
   // init external_sort_
@@ -973,26 +975,26 @@ int ObLoadDataDirectDemo::do_load_buffer(int i)
 {
   int ret = OB_SUCCESS;
   ObLoadDataBuffer &buffer = buffers_[i];
-  if (OB_FAIL(buffer_.squash())) {
+  if (OB_FAIL(buffer..squash())) {
     LOG_WARN("fail to squash buffer", KR(ret));
-  } else if (OB_FAIL(file_reader_.read_next_buffer(buffer_))) {
+  } else if (OB_FAIL(file_reader_.read_next_buffer(buffer))) {
     if (OB_UNLIKELY(OB_ITER_END != ret)) {
       LOG_WARN("fail to read next buffer", KR(ret));
     } else {
-      if (OB_UNLIKELY(!buffer_.empty())) {
+      if (OB_UNLIKELY(!buffer.empty())) {
         ret = OB_ERR_UNEXPECTED;
         LOG_WARN("unexpected incomplate data", KR(ret));
       }
       ret = OB_SUCCESS;
       break;
     }
-  } else if (OB_UNLIKELY(buffer_.empty())) {
+  } else if (OB_UNLIKELY(buffer.empty())) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("unexpected empty buffer", KR(ret));
   } else {
     // parse whole file
     while (OB_SUCC(ret)) {
-      if (OB_FAIL(csv_parser_.get_next_row(buffer_, new_row))) {
+      if (OB_FAIL(csv_parser_.get_next_row(buffer, new_row))) {
         if (OB_UNLIKELY(OB_ITER_END != ret)) {
           LOG_WARN("fail to get next row", KR(ret));
         } else {
@@ -1017,7 +1019,7 @@ int ObLoadDataDirectDemo::do_load()
   while (OB_SUCC(ret)) {
     std::vector<std::future<int>> threads;
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
-      threads.push_back(std::async(&this->do_load_buffer, buffers_[i]));
+      threads.push_back(std::async(&ObLoadDataDirectDemo::do_load_buffer, buffers_[i]));
     }
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
       if (OB_SUCC(threads[i].get()) && OB_UNLIKELY(OB_ITER_END != ret)) {
