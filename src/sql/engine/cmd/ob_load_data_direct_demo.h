@@ -209,12 +209,13 @@ namespace oceanbase
       int do_load_buffer(int i);
     private:
       static const int DEMO_BUF_NUM = 10;
-      ObLoadCSVPaser csv_parser_;
+
       ObLoadSequentialFileReader file_reader_;
       // we have BUF_NUM buffers and we load data simultaneously
       ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
+      ObLoadCSVPaser csv_parsers_[DEMO_BUF_NUM];
+      ObLoadRowCaster row_casters_[DEMO_BUF_NUM];
       // ObLoadDataBuffer buffer_;
-      ObLoadRowCaster row_caster_;
       ObLoadExternalSort external_sort_;
       ObLoadSSTableWriter sstable_writer_;
     };

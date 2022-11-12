@@ -942,10 +942,13 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
     LOG_WARN("not support heap table", KR(ret));
   }
   // init csv_parser_
-  else if (OB_FAIL(csv_parser_.init(load_stmt.get_data_struct_in_file(), field_or_var_list.count(),
+  for (int i = 0; i < DEMO_BUF_NUM; i++) {
+    if (OB_FAIL(csv_parsers_[i].init(load_stmt.get_data_struct_in_file(), field_or_var_list.count(),
                                     load_args.file_cs_type_))) {
-    LOG_WARN("fail to init csv parser", KR(ret));
+      LOG_WARN("fail to init csv parser", KR(ret));
+    }
   }
+
   // init file_reader_
   else if (OB_FAIL(file_reader_.open(load_args.full_file_path_))) {
     LOG_WARN("fail to open file", KR(ret), K(load_args.full_file_path_));
@@ -957,11 +960,14 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
     }
   }
   // init row_caster_
-  if (OB_FAIL(row_caster_.init(table_schema, field_or_var_list))) {
-    LOG_WARN("fail to init row caster", KR(ret));
+  for (int i = 0; i < DEMO_BUF_NUM; i++) {
+    if (OB_FAIL(row_casters_[i].init(table_schema, field_or_var_list))) {
+      LOG_WARN("fail to init row caster", KR(ret));
+    }
   }
+
   // init external_sort_
-  else if (OB_FAIL(external_sort_.init(table_schema, MEM_BUFFER_SIZE, FILE_BUFFER_SIZE))) {
+  if (OB_FAIL(external_sort_.init(table_schema, MEM_BUFFER_SIZE, FILE_BUFFER_SIZE))) {
     LOG_WARN("fail to init row caster", KR(ret));
   }
   // init sstable_writer_
@@ -995,14 +1001,14 @@ int ObLoadDataDirectDemo::do_load_buffer(int i)
   } else {
     // parse whole file
     while (OB_SUCC(ret)) {
-      if (OB_FAIL(csv_parser_.get_next_row(buffer, new_row))) {
+      if (OB_FAIL(csv_parsers_[i].get_next_row(buffer, new_row))) {
         if (OB_UNLIKELY(OB_ITER_END != ret)) {
           LOG_WARN("fail to get next row", KR(ret));
         } else {
           ret = OB_SUCCESS;
           break;
         }
-      } else if (OB_FAIL(row_caster_.get_casted_row(*new_row, datum_row))) {
+      } else if (OB_FAIL(row_casters_[i].get_casted_row(*new_row, datum_row))) {
         LOG_WARN("fail to cast row", KR(ret));
       } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
         LOG_WARN("fail to append row", KR(ret));
