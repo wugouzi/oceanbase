@@ -607,7 +607,7 @@ int ObLoadExternalSort::init(const ObTableSchema *table_schema, int64_t mem_size
 
 int ObLoadExternalSort::append_row(const ObLoadDatumRow &datum_row)
 { 
-  std::lock_guard<std::mutex> guard(mutex_);
+  // std::lock_guard<std::mutex> guard(mutex_);
   int ret = OB_SUCCESS;
   if (IS_NOT_INIT) {
     ret = OB_NOT_INIT;
@@ -975,13 +975,13 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   else if (OB_FAIL(sstable_writer_.init(table_schema))) {
     LOG_WARN("fail to init sstable writer", KR(ret));
   }
+  // init datum_row_buffers_
+  datum_row_buffers_.resize(DEMO_BUF_NUM);
   return ret;
 }
 
 int ObLoadDataDirectDemo::do_load_buffer(int i)
 {
-  ObNewRow *new_row = nullptr;
-  ObLoadDatumRow *datum_row = nullptr;
   int ret = OB_SUCCESS;
   ObLoadDataBuffer &buffer = buffers_[i];
   if (OB_FAIL(buffer.squash())) {
@@ -998,70 +998,69 @@ int ObLoadDataDirectDemo::do_load_buffer(int i)
   } else if (OB_UNLIKELY(buffer.empty())) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("MMMMM unexpected empty buffer", KR(ret));
-  } else {
-    // parse whole file
-    int cnt = 0;
-    while (OB_SUCC(ret)) {
-      if (OB_FAIL(csv_parsers_[i].get_next_row(buffer, new_row))) {
-        if (OB_UNLIKELY(OB_ITER_END != ret)) {
-          LOG_WARN("MMMMM fail to get next row", KR(ret));
-        } else {
-          ret = OB_SUCCESS;
-          break;
-        }
-      } else if (OB_FAIL(row_casters_[i].get_casted_row(*new_row, datum_row))) {
-        LOG_WARN("MMMMM fail to cast row", KR(ret));
-      } /*else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
-        LOG_WARN("MMMMM fail to append row", KR(ret));
-      } */else {
-        datum_row_buffers_[i].push_back(datum_row);
-        cnt++;
-      }
-    }
-    LOG_WARN("MMMMM add rows", K(cnt));
   }
   return ret;
 }
+
+int ObLoadDataDirectDemo::do_parse_buffer(int i)
+{
+  // parse whole file
+  int cnt = 0;
+  int ret = OB_SUCCESS;
+  ObLoadDataBuffer &buffer = buffers_[i];
+  const ObNewRow *new_row = nullptr;
+  const ObLoadDatumRow *datum_row = nullptr;
+  while (OB_SUCC(ret)) {
+    if (OB_FAIL(csv_parsers_[i].get_next_row(buffer, new_row))) {
+      if (OB_UNLIKELY(OB_ITER_END != ret)) {
+        LOG_WARN("MMMMM fail to get next row", KR(ret));
+      } else {
+        ret = OB_SUCCESS;
+        break;
+      }
+    } else if (OB_FAIL(row_casters_[i].get_casted_row(*new_row, datum_row))) {
+      LOG_WARN("MMMMM fail to cast row", KR(ret));
+    } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
+      LOG_WARN("MMMMM fail to append row", KR(ret));
+    } else {
+      // datum_row_buffers_[i].push_back(datum_row);
+      cnt++;
+    }
+  }
+  LOG_WARN("MMMMM add rows", K(cnt));
+  return ret;
+}
+
 
 int ObLoadDataDirectDemo::do_load()
 {
   const ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
   int ret = OB_SUCCESS;
+  int fail_ret = OB_SUCCESS;
   int cnt = 0;
-  while (OB_SUCC(ret)) {
+  while (OB_SUCC(fail_ret)) {
     std::vector<std::future<int>> threads;
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
       threads.push_back(
           std::async(&ObLoadDataDirectDemo::do_load_buffer, this, i));
     }
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
-      ret = threads[i].get();
+      int ret = threads[i].get();
       // ret = do_load_buffer(i);
       LOG_WARN("MMMMM thread ret", KR(ret));
-      if (OB_SUCC(ret)) {
-        for (auto &datum_row : datum_row_buffers_[i]) {
-          if (OB_FAIL(external_sort_.append_row(*datum_row)) {
-            LOG_WARN("MMMMM fail to append row", KR(ret));
-            break;    
-          }
-        }
-        datum_row_buffers_[i].clear();
-      }
       if (OB_FAIL(ret)) {
-        LOG_WARN("MMMMM read fails in", K(cnt));        
-        for (int j = i + 1; j < DEMO_BUF_NUM; j++) {
-          threads[j].get();
-        }
-        break;
+        fail_ret = ret;
+      } else if (OB_FAIL(do_parse_buffer(i))) {
+        fail_ret = ret;
       } else {
         cnt++;
-        LOG_WARN("MMMMM read", K(cnt));
+        LOG_WARN("MMMMM cnt", K(cnt));
       }
     }
   }
   if (OB_FAIL(external_sort_.close())) {
-      LOG_WARN("fail to close external sort", KR(ret));
+      LOG_WARN("MMMMM fail to close external sort", KR(ret));
   }
   while (OB_SUCC(ret)) {
     if (OB_FAIL(external_sort_.get_next_row(datum_row))) {
@@ -1072,7 +1071,7 @@ int ObLoadDataDirectDemo::do_load()
         break;
       }
     } else if (OB_FAIL(sstable_writer_.append_row(*datum_row))) {
-      LOG_WARN("fail to append row", KR(ret));
+      LOG_WARN("MMMMM fail to append row", KR(ret));
     }
   }
   if (OB_SUCC(ret)) {

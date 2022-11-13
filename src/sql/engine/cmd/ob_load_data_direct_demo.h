@@ -197,8 +197,8 @@ namespace oceanbase
 
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
-      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G
-      static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
+      static const int64_t MEM_BUFFER_SIZE = (1LL << 31);  // 1G -> 2G
+      static const int64_t FILE_BUFFER_SIZE = (2LL << 22); // 2M -> 8M
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -207,6 +207,7 @@ namespace oceanbase
       int inner_init(ObLoadDataStmt &load_stmt);
       int do_load();
       int do_load_buffer(int i);
+      int do_parse_buffer(int i);
     private:
       static const int DEMO_BUF_NUM = 1;
 
@@ -215,6 +216,7 @@ namespace oceanbase
       ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
       ObLoadCSVPaser csv_parsers_[DEMO_BUF_NUM];
       ObLoadRowCaster row_casters_[DEMO_BUF_NUM];
+      std::vector<std::vector<const ObLoadDatumRow*>> datum_row_buffers_;
       // ObLoadDataBuffer buffer_;
       ObLoadExternalSort external_sort_;
       ObLoadSSTableWriter sstable_writer_;
