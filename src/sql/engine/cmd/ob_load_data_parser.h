@@ -262,6 +262,8 @@ int ObCSVGeneralParser::scan_proto(const char *&str,
       if(found_pos){
         str = found_pos + len;
         is_line_start_found = true;
+      }else{
+        str += len;
       }
       if (!is_line_start_found) {
         if (is_end_file) {
