@@ -988,7 +988,7 @@ int ObParseDataTask::process()
   const ObLoadDatumRow *datum_row = nullptr;
   while (OB_SUCC(ret)) {
     if (OB_FAIL(buffer_.squash())) {
-      LOG_info("MMMMM fail to squash buffer", KR(ret));
+      LOG_INFO("MMMMM fail to squash buffer", KR(ret));
     } else if (OB_FAIL(file_reader_.read_next_buffer(buffer_))) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
         LOG_INFO("MMMMM fail to read next buffer", KR(ret));
@@ -1002,7 +1002,7 @@ int ObParseDataTask::process()
       }
     } else if (OB_UNLIKELY(buffer_.empty())) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_info("MMMMM unexpected empty buffer", KR(ret));
+      LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
     } else {
       // parse whole file
       int cnt = 0;
@@ -1036,34 +1036,96 @@ share::ObAsyncTask *ObParseDataTask::deep_copy(char *buf, const int64_t buf_size
   memcpy((void*)task, (void*)this, sizeof(*this));
   LOG_MMMMM("deep copy");
   return task;
+} 
+
+void ObParseDataThread::run(int64_t idx)
+{
+  int ret = OB_SUCCESS;
+  LOG_INFO("MMMMM process", KR(ret));
+  const ObNewRow *new_row = nullptr;
+  const ObLoadDatumRow *datum_row = nullptr;
+  ObLoadDataBuffer &buffer = buffers_[idx];
+  ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
+  ObLoadRowCaster &row_caster = row_casters_[idx];
+  while (OB_SUCC(ret)) {
+    if (OB_FAIL(buffer.squash())) {
+      LOG_INFO("MMMMM fail to squash buffer", KR(ret));
+    } else if (OB_FAIL(file_reader_.read_next_buffer(buffer))) {
+      if (OB_UNLIKELY(OB_ITER_END != ret)) {
+        LOG_INFO("MMMMM fail to read next buffer", KR(ret));
+      } else {
+        if (OB_UNLIKELY(!buffer.empty())) {
+          ret = OB_ERR_UNEXPECTED;
+          LOG_INFO("MMMMM unexpected incomplate data", KR(ret));
+        }
+        break;
+      }
+    } else if (OB_UNLIKELY(buffer.empty())) {
+      ret = OB_ERR_UNEXPECTED;
+      LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
+    } else {
+      // parse whole file
+      LOG_INFO("begin parse");
+      int cnt = 0;
+      while (OB_SUCC(ret)) {
+        if (OB_FAIL(csv_parser.get_next_row(buffer, new_row))) {
+          if (OB_UNLIKELY(OB_ITER_END != ret)) {
+            LOG_INFO("MMMMM fail to get next row", KR(ret));
+          } else {
+            ret = OB_SUCCESS;
+            break;
+          }
+        } else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
+          LOG_INFO("MMMMM fail to cast row", KR(ret));
+        } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
+          LOG_INFO("MMMMM fail to append row", KR(ret));
+        } else {
+          cnt++;
+        }
+      }
+      LOG_INFO("MMMMM external sort append lines", K(cnt), KR(ret));
+    }
+  }
+  LOG_INFO("MMMMM run", KR(ret));  
+  rets_[idx] = ret;
+  while (!ATOMIC_LOAD(&has_set_stop()));
+  // return OB_SUCCESS;
 }
-
-
 
 int ObLoadDataDirectDemo::do_load()
 {
   // const ObNewRow *new_row = nullptr;
   // const ObLoadDatumRow *datum_row = nullptr;
   int ret = OB_SUCCESS;
+  int cnt = 0;
   while (OB_SUCC(ret)) {
-    ObWorkQueue queue;
-    queue.init(DEMO_BUF_NUM, 1024*1024);
+    cnt++;
     int rets[DEMO_BUF_NUM];
     memset(rets, 0, sizeof(rets));
-    for (int i = 0; i < DEMO_BUF_NUM; i++) {
-      queue.add_async_task(ObParseDataTask(buffers_[i], csv_parsers_[i],
-                                          row_casters_[i], external_sort_, 
-                                          rets[i], file_reader_));
-    }
-    if (OB_FAIL(queue.start())) {
-      LOG_WARN("MMMMM queue start fail");
-    } else if (OB_FAIL(queue.wait())) {
-      LOG_WARN("MMMMM queue wait fail");
-    } else if (OB_FAIL(queue.destroy())) {
-      LOG_WARN("MMMMM queue destroy fail");
-    } else {
-      LOG_INFO("MMMMM queue succeed");
-    }
+    ObParseDataThread threads(buffers_, csv_parsers_, row_casters_, external_sort_, file_reader_, rets);
+    threads.set_thread_count(DEMO_BUF_NUM);
+    threads.set_run_wrapper(MTL_CTX());
+    threads.start();
+    threads.stop();
+    threads.wait();
+    LOG_INFO("MMMMM threads succeed", K(cnt));
+    // queue_cnt++;
+    // ObWorkQueue queue;
+    // queue.init(DEMO_BUF_NUM, 1024*1024);
+    
+    // for (int i = 0; i < DEMO_BUF_NUM; i++) {
+    //   queue.add_async_task(ObParseDataTask(buffers_[i], csv_parsers_[i],
+    //                                       row_casters_[i], external_sort_, 
+    //                                       rets[i], file_reader_));
+    // }
+    // if (OB_FAIL(queue.start())) {
+    //   LOG_WARN("MMMMM queue start fail");
+    // } else if (OB_FAIL(queue.wait())) {
+    //   LOG_WARN("MMMMM queue wait fail");
+    // } else {
+    //   LOG_INFO("MMMMM queue succeed", K(queue_cnt), K(rets[0]), K(rets[1]));
+    // }
+    // queue.destroy();
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
       ret = rets[i] == OB_SUCCESS ? ret : rets[i];
     }

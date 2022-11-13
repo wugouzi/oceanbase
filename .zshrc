@@ -133,7 +133,7 @@ export PATH=$OBD_INSTALL_PRE/usr/bin:$OBCLIENT_HOME/u01/obclient/bin:$HOME/.carg
 
 export OB_DEBUG_ROOT='/root/oceanbase/build_debug'
 export OB_ROOT='/root/oceanbase'
-export TARGET_CSV='/root/archieve/10.csv'
+export TARGET_CSV='/root/1m.csv'
 alias cddebug='cd $OB_DEBUG_ROOT'
 alias cdroot='cd $OB_ROOT'
 alias m='log_info MAKE && cddebug && make -j8 && (make install DESTDIR=. || true)'
