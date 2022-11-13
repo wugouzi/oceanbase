@@ -257,12 +257,11 @@ int ObCSVGeneralParser::scan_proto(const char *&str,
 
     if (!format_.line_start_str_.empty()) {
       bool is_line_start_found = false;
-      for (; str + format_.line_start_str_.length() <= end; str++) {
-        if (0 == MEMCMP(str, format_.line_start_str_.ptr(), format_.line_start_str_.length())) {
-          str += format_.line_start_str_.length();
-          is_line_start_found = true;
-          break;
-        }
+      auto len = format_.line_start_str_.length();
+      auto found_pos = strstr(str,format_.line_start_str_.ptr());
+      if(found_pos){
+        str = found_pos + len;
+        is_line_start_found = true;
       }
       if (!is_line_start_found) {
         if (is_end_file) {

@@ -71,4 +71,4 @@ OceanBase Database is under [MulanPubL - 2.0](http://license.coscl.org.cn/MulanP
 9.  [ ] parallel load data
 10. [ ] how does ob manage threads?
 11. [ ] src/storage/ob_parallel_external_sort.h:513 看一下sstable这个item啥时候回收
-
+12. [ ] 优化scan_proto
