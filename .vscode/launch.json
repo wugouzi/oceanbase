@@ -12,7 +12,8 @@
             "processId": "${command:pickProcess}",
             "MIMode": "gdb",
             "sourceFileMap": {
-                "./build_debug/src/sql/./src/": "/root/oceanbase/src"
+                "./build_debug/src/sql/./src/": "/root/oceanbase/src",
+                "./build_debug/deps/oblib/src/lib/./deps": "/root/oceanbase/deps"
             },
             "miDebuggerPath": "/usr/bin/gdb",
             "setupCommands": [
