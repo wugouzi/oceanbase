@@ -186,8 +186,10 @@ int ObLoadCSVPaser::get_next_row(ObLoadDataBuffer &buffer, const ObNewRow *&row)
 {
   int ret = OB_SUCCESS;
   row = nullptr;
+  buffer.lock();
   if (buffer.empty()) {
     ret = OB_ITER_END;
+    buffer.unlock();
   } else {
     const char *str = buffer.begin();
     const char *end = buffer.end();
@@ -195,13 +197,17 @@ int ObLoadCSVPaser::get_next_row(ObLoadDataBuffer &buffer, const ObNewRow *&row)
     if (OB_FAIL(csv_parser_.scan(str, end, nrows, nullptr, nullptr, unused_row_handler_,
                                  err_records_, false))) {
       LOG_WARN("MMMMM fail to scan buffer", KR(ret));
+      buffer.unlock();
     } else if (OB_UNLIKELY(!err_records_.empty())) {
       ret = err_records_.at(0).err_code;
       LOG_WARN("MMMMM fail to parse line", KR(ret));
+      buffer.unlock();
     } else if (0 == nrows) {
       ret = OB_ITER_END;
+      buffer.unlock();
     } else {
       buffer.consume(str - buffer.begin());
+      buffer.unlock();
       const ObIArray<ObCSVGeneralParser::FieldValue> &field_values_in_file =
         csv_parser_.get_fields_per_line();
       for (int64_t i = 0; i < row_.count_; ++i) {
@@ -994,7 +1000,7 @@ void ObParseDataThread::run(int64_t idx)
   int cnt = 0;
   while (OB_SUCC(ret)) {
     {
-      std::lock_guard<std::mutex> guard(mutex_);
+      // std::lock_guard<std::mutex> guard(mutex_);
       ret = csv_parser.get_next_row(buffer_, new_row);
     }
     if (OB_FAIL(ret)) {

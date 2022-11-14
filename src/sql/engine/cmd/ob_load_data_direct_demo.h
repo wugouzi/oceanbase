@@ -36,6 +36,9 @@ namespace oceanbase
       OB_INLINE int64_t get_remain_size() const { return capacity_ - end_pos_; }
       OB_INLINE void consume(int64_t size) { begin_pos_ += size; }
       OB_INLINE void produce(int64_t size) { end_pos_ += size; }
+
+      void lock() { mutex_.lock(); }
+      void unlock() { mutex_.unlock(); }
     private:
       common::ObArenaAllocator allocator_;
       char *data_;
