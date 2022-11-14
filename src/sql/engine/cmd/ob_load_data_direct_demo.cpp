@@ -1069,7 +1069,7 @@ int ObLoadDataDirectDemo::do_load()
     threads.set_thread_count(DEMO_BUF_NUM);
     threads.set_run_wrapper(MTL_CTX());
     threads.start();
-    threads.stop();
+    // threads.stop();
     threads.wait();
     LOG_INFO("MMMMM threads succeed", K(cnt));
     // queue_cnt++;

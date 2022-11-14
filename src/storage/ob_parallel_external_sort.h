@@ -101,6 +101,8 @@ private:
   int64_t buf_pos_;
   int64_t buf_cap_;
   DISALLOW_COPY_AND_ASSIGN(ObMacroBufferWriter);
+  // threads
+  static const WRITER_THREAD_NUM = 2;
 };
 
 template<typename T>
@@ -112,6 +114,64 @@ ObMacroBufferWriter<T>::ObMacroBufferWriter()
 template<typename T>
 ObMacroBufferWriter<T>::~ObMacroBufferWriter()
 {
+}
+
+// naive implementation: serialize 10 and then write 10
+// better strategy: serialization thread continue to serialize
+template<typename T>
+class ObMacroBufferWriterSerializeThreads : Threads 
+{
+public: 
+  ObMacroBufferWriterSerializeThreads(const ObVector<T *> &items, int start_idx,
+                                      int *rets, char *buf, int64_t cap,
+                                      unordered_map<int, int64_t> pos_map)
+    : items_(items), start_idx_(start_idx), rets_(rets), buf_(buf), cap_(cap),
+      pos_map_(pos_map)  {}
+  void run(int64_t idx) final {
+    rets[idx] = items_[idx + start_idx_].serialze(bufs_, cap_, pos_map_[idx]);
+  }
+private: 
+  const ObVector<T *> &items_;
+  int start_idx_;
+  int *rets_;
+  char *buf_;
+  int64_t cap_;
+  unordered_map<int, int64_t> pos_map_;
+}
+
+// threads -> generate serialized bufs
+template<typename T>
+int ObMacroBufferWriter<T>::write_items(const ObVector<T *> &items)
+{
+  int ret = common::OB_SUCCESS;
+  int rets[WRITER_THREAD_NUM];
+  memset(rets, 0, sizeof(rets));
+
+  /*
+  if (item.get_serialize_size() + buf_pos_ > buf_cap_) {
+    ret = common::OB_EAGAIN;
+  }
+  */
+
+  int n = items.size();
+  int cnt = 0;
+  while (cnt < n && OB_SUCC(ret)) {
+    int N = min(WRITER_THREAD_NUM, n - cnt);
+    unordered_map<int, int64_t> pos_map;
+    int64_t base = pos_;
+    for (int i = 0; i < N; i++) {
+      pos_map[i] = base;
+      base += items[cnt + i]->get_serialize_size();
+      if (base > buf_cap_) {
+        return common::OB_EAGAIN;
+      }
+    }
+    ObMacroBufferWriterSerializeThreads threads(items, cnt, rets, buf_, buf_cap_, pos_map);
+    threads.set_thread_count(WRITER_THREAD_NUM);
+    threads.set_run_wrapper(MTL_CTX());
+    threads.start();
+    threads.wait();
+  }
 }
 
 template<typename T>
@@ -188,6 +248,7 @@ private:
   int64_t dir_id_;
   uint64_t tenant_id_;
   DISALLOW_COPY_AND_ASSIGN(ObFragmentWriterV2);
+  static const WRITE_THREAD_NUM = 2;
 };
 
 template<typename T>
@@ -1068,6 +1129,28 @@ int ObExternalSortRound<T, Compare>::init(
     tenant_id_ = tenant_id;
     is_writer_opened_ = false;
     merger_.reset();
+  }
+  return ret;
+}
+
+template<typename T, typename Compare>
+int ObExternalSortRound<T, Compare>::add_items(const ObVector<T *> &item)
+{
+  int ret = common::OB_SUCCESS;
+  if (OB_UNLIKELY(!is_inited_)) {
+    ret = common::OB_NOT_INIT;
+    STORAGE_LOG(WARN, "ObExternalSortRound has not been inited", K(ret));
+  } else if (ObExternalSortConstant::is_timeout(expire_timestamp_)) {
+    ret = common::OB_TIMEOUT;
+    STORAGE_LOG(WARN, "ObExternalSortRound timeout", K(ret), K(expire_timestamp_));
+  } else if (!is_writer_opened_ && OB_FAIL(writer_.open(file_buf_size_ * item.size(),
+      expire_timestamp_, tenant_id_, dir_id_))) {
+    STORAGE_LOG(WARN, "fail to open writer", K(ret), K_(tenant_id), K_(dir_id));
+  } else {
+    is_writer_opened_ = true;
+    if (OB_FAIL(writer_.write_item(item))) {
+      STORAGE_LOG(WARN, "fail to write item", K(ret));
+    }
   }
   return ret;
 }
