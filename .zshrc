@@ -132,9 +132,11 @@ export PATH=$OBD_INSTALL_PRE/usr/bin:$OBCLIENT_HOME/u01/obclient/bin:$HOME/.carg
 # export PATH=/root/cmake/bin:$PATH
 
 export OB_DEBUG_ROOT='/root/oceanbase/build_debug'
+export OB_RELEASE_ROOT='/root/oceanbase/build_release'
 export OB_ROOT='/root/oceanbase'
-export TARGET_CSV='/root/1m.csv'
+export TARGET_CSV='/root/archieve/2m.csv'
 alias cddebug='cd $OB_DEBUG_ROOT'
+alias cdrelease='cd $OB_RELEASE_ROOT'
 alias cdroot='cd $OB_ROOT'
 alias m='log_info MAKE && cddebug && make -j8 && (make install DESTDIR=. || true)'
 alias dep='log_info DEPLOY && cddebug && obd mirror create -n oceanbase-ce -V 4.0.0.0 -p ./usr/local/ -f -t final_2022 && obd cluster autodeploy final_2022 -c ../final_2022.yaml -f'
@@ -153,6 +155,15 @@ alias zc="vim ~/.zshrc && source ~/.zshrc"
 alias mwdk="tmux new -s wdk"
 alias wdk="tmux a -t wdk"
 alias gpm='git pull && m'
+
+export RELEASE_TARGET_CSV='/root/archieve/2m.csv'
+alias chmoddr='chmod 777 $RELEASE_TARGET_CSV'
+alias br='cd /root && log_info BEGIN TEST && chmoddr && chmoddr && cdroot && obc < bench_rel.sql'
+alias mr='log_info MAKE && cdrelease && make -j8 && (make install DESTDIR=. || true)'
+alias depr='log_info DEPLOY && cdrelease && obd mirror create -n oceanbase-ce -V 4.0.0.0 -p ./usr/local/ -f -t final_2022 && obd cluster autodeploy final_2022 -c ../final_2022.yaml -f'
+alias dr='desr && dep'
+alias mdr='mr && dr'
+alias mdbr='mr && dr && b'
 
 export LOG_ROOT='/data/final/final_2022/log/'
 alias log='cd $LOG_ROOT && rg MMMMM'
