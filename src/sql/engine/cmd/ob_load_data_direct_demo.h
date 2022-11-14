@@ -247,7 +247,7 @@ namespace oceanbase
 
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
-      static const int64_t MEM_BUFFER_SIZE = (1LL << 31);  // 1G -> 2G
+      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G
       static const int64_t FILE_BUFFER_SIZE = (2LL << 22); // 2M -> 8M
     public:
       ObLoadDataDirectDemo();

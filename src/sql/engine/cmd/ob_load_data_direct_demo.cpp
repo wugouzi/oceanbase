@@ -186,6 +186,7 @@ int ObLoadCSVPaser::get_next_row(ObLoadDataBuffer &buffer, const ObNewRow *&row)
 {
   int ret = OB_SUCCESS;
   row = nullptr;
+  // LOG_INFO("MMMMM csv");
   buffer.lock();
   if (buffer.empty()) {
     ret = OB_ITER_END;
@@ -505,6 +506,7 @@ int ObLoadRowCaster::init_column_schemas_and_idxs(
 int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRow *&datum_row)
 {
   int ret = OB_SUCCESS;
+  // LOG_INFO("MMMMM cast row");
   if (IS_NOT_INIT) {
     ret = OB_NOT_INIT;
     LOG_WARN("ObLoadRowCaster not init", KR(ret));
@@ -609,6 +611,7 @@ int ObLoadExternalSort::init(const ObTableSchema *table_schema, int64_t mem_size
 
 int ObLoadExternalSort::append_row(const ObLoadDatumRow &datum_row)
 { 
+  // LOG_INFO("MMMMM append row");
   std::lock_guard<std::mutex> guard(mutex_);
   int ret = OB_SUCCESS;
   if (IS_NOT_INIT) {
@@ -996,9 +999,9 @@ void ObParseDataThread::run(int64_t idx)
   ObLoadRowCaster &row_caster = row_casters_[idx];
 
   // parse whole file
-  LOG_INFO("begin parse");
   int cnt = 0;
   while (OB_SUCC(ret)) {
+    // LOG_INFO("MMMMM run", K(idx), K(cnt), KR(ret));
     {
       // std::lock_guard<std::mutex> guard(mutex_);
       ret = csv_parser.get_next_row(buffer_, new_row);
@@ -1020,7 +1023,7 @@ void ObParseDataThread::run(int64_t idx)
   }
   LOG_INFO("MMMMM external sort append lines", K(cnt), KR(ret), K(idx));
 
-  LOG_INFO("MMMMM run", KR(ret), K(idx));  
+  // LOG_INFO("MMMMM run", KR(ret), K(idx));  
   rets_[idx] = ret;
   while (!ATOMIC_LOAD(&has_set_stop()));
   // return OB_SUCCESS;
@@ -1044,6 +1047,7 @@ int ObLoadDataDirectDemo::do_load_buffer()
     ret = OB_ERR_UNEXPECTED;
     LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
   } 
+  LOG_INFO("MMMMM load buffer");
   return ret;
 }
 
@@ -1060,6 +1064,7 @@ int ObLoadDataDirectDemo::do_load()
     if (OB_FAIL(do_load_buffer())) {
       break;
     }
+    
     ObParseDataThread threads(buffer_, csv_parsers_, row_casters_, external_sort_, file_reader_, rets);
     threads.set_thread_count(DEMO_BUF_NUM);
     threads.set_run_wrapper(MTL_CTX());
@@ -1088,27 +1093,32 @@ int ObLoadDataDirectDemo::do_load()
       ret = rets[i] == OB_SUCCESS ? ret : rets[i];
     }
   }
-  LOG_INFO("finish reading", KR(ret));
+  LOG_INFO("MMMMM finish reading", KR(ret));
   if (OB_FAIL(external_sort_.close())) {
-      LOG_MMMMM("fail to close external sort", KR(ret));
+      LOG_INFO("MMMMM fail to close external sort", KR(ret));
   }
-  LOG_MMMMM("sort done", KR(ret));
+  LOG_INFO("MMMMM sort done", KR(ret));
   const ObLoadDatumRow *datum_row = nullptr;
+  cnt = 0;
   while (OB_SUCC(ret)) {
+    cnt++;
+    if (cnt % 10000 == 0) {
+      LOG_INFO("MMMMM sstable append", K(cnt));
+    }
     if (OB_FAIL(external_sort_.get_next_row(datum_row))) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
-        LOG_MMMMM("fail to get next row", KR(ret));
+        LOG_INFO("MMMMM fail to get next row", KR(ret));
       } else {
         ret = OB_SUCCESS;
         break;
       }
     } else if (OB_FAIL(sstable_writer_.append_row(*datum_row))) {
-      LOG_MMMMM("fail to append row", KR(ret));
+      LOG_INFO("MMMMM fail to append row", KR(ret));
     }
   }
   if (OB_SUCC(ret)) {
     if (OB_FAIL(sstable_writer_.close())) {
-      LOG_MMMMM("fail to close sstable writer", KR(ret));
+      LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
     }
   }
   return ret;

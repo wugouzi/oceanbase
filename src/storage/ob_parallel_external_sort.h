@@ -1524,7 +1524,7 @@ int ObMemorySortRound<T, Compare>::build_fragment()
       ret = compare_->result_code_;
     } else {
       const int64_t sort_fragment_time = common::ObTimeUtility::current_time() - start;
-      STORAGE_LOG(INFO, "ObMemorySortRound", K(sort_fragment_time));
+      STORAGE_LOG(INFO, "MMMMM ObMemorySortRound", K(sort_fragment_time));
     }
 
     start = common::ObTimeUtility::current_time();
