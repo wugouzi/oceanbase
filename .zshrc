@@ -134,7 +134,7 @@ export PATH=$OBD_INSTALL_PRE/usr/bin:$OBCLIENT_HOME/u01/obclient/bin:$HOME/.carg
 export OB_DEBUG_ROOT='/root/oceanbase/build_debug'
 export OB_RELEASE_ROOT='/root/oceanbase/build_release'
 export OB_ROOT='/root/oceanbase'
-export TARGET_CSV='/root/archieve/2m.csv'
+export TARGET_CSV='/root/archieve/demo.csv'
 alias cddebug='cd $OB_DEBUG_ROOT'
 alias cdrelease='cd $OB_RELEASE_ROOT'
 alias cdroot='cd $OB_ROOT'
@@ -144,11 +144,11 @@ alias res='log_info RESTART && obd cluster restart final_2022'
 alias des='(log_info DESTROY && obd cluster destroy -f final_2022) || true'
 alias d='des && dep'
 alias md='m && d'
-alias mdb='m && d && b'
+
 alias zcc='source ~/oceanbase/.zshrc'
 alias chmodd='chmod 777 $TARGET_CSV'
 alias obc='log_info OBC START && chmodd && obclient -h127.0.0.1 -P2881 -uroot -Doceanbase'
-alias b='cd /root && log_info BEGIN TEST && chmodd && chmodd && cdroot && obc < bench.sql'
+alias b='cd /root && log_info BEGIN TEST $TARGET_CSV && chmodd && chmodd && cdroot && obc < bench.sql'
 alias mmm='tmux a -t mmm'
 alias clash='cd archieve/clash && ./clash-linux-amd64-v1.10.0 -f glados.yaml -d .'
 alias zc="vim ~/.zshrc && source ~/.zshrc"
@@ -156,16 +156,20 @@ alias mwdk="tmux new -s wdk"
 alias wdk="tmux a -t wdk"
 alias gpm='git pull && m'
 
-export RELEASE_TARGET_CSV='/root/archieve/2m.csv'
+export RELEASE_TARGET_CSV='/root/archieve/demo.csv'
 alias chmoddr='chmod 777 $RELEASE_TARGET_CSV'
 alias br='cd /root && log_info BEGIN TEST && chmoddr && chmoddr && cdroot && obc < bench_rel.sql'
 alias mr='log_info MAKE && cdrelease && make -j8 && (make install DESTDIR=. || true)'
 alias depr='log_info DEPLOY && cdrelease && obd mirror create -n oceanbase-ce -V 4.0.0.0 -p ./usr/local/ -f -t final_2022 && obd cluster autodeploy final_2022 -c ../final_2022.yaml -f'
-alias dr='desr && dep'
+alias dr='des && depr'
 alias mdr='mr && dr'
-alias mdbr='mr && dr && b'
+
 
 export LOG_ROOT='/data/final/final_2022/log/'
-alias log='cd $LOG_ROOT && rg MMMMM'
+alias log='cd $LOG_ROOT && rg MMMMM observer.log'
+alias logm='cd $LOG_ROOT && tail -f observer.log | grep MMMMM'
+
+alias mdb='m && d && b && logm'
+alias mdbr='mr && dr && logm'
 
 alias pc="proxychains4"
