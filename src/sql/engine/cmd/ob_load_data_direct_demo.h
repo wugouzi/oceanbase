@@ -201,21 +201,23 @@ namespace oceanbase
     class ObParseDataThread : public lib::Threads 
     {
     public:
-      ObParseDataThread(ObLoadDataBuffer *buffers, ObLoadCSVPaser *csv_parsers, 
+      ObParseDataThread(ObLoadDataBuffer &buffer, ObLoadCSVPaser *csv_parsers, 
                         ObLoadRowCaster *row_casters, ObLoadExternalSort &external_sort,
                         ObLoadSequentialFileReader &file_reader, int *rets)
-                        : buffers_(buffers), csv_parsers_(csv_parsers),
+                        : buffer_(buffer), csv_parsers_(csv_parsers),
                           row_casters_(row_casters), external_sort_(external_sort),
                           file_reader_(file_reader), rets_(rets) 
                         {}
       void run(int64_t idx) final;
     private:
-      ObLoadDataBuffer *buffers_;
+      // ObLoadDataBuffer *buffers_;
+      ObLoadDataBuffer &buffer_;
       ObLoadCSVPaser *csv_parsers_;
       ObLoadRowCaster *row_casters_;
       ObLoadExternalSort &external_sort_;
       ObLoadSequentialFileReader &file_reader_;
       int *rets_;
+      std::mutex mutex_;
     };
     
     class ObParseDataTask : public share::ObAsyncTask 
@@ -236,6 +238,7 @@ namespace oceanbase
       ObLoadExternalSort &external_sort_;
       int &ret_;
       ObLoadSequentialFileReader &file_reader_;
+      std::mutex mutex_;
     };
     
 
@@ -250,14 +253,16 @@ namespace oceanbase
     private:
       int inner_init(ObLoadDataStmt &load_stmt);
       int do_load();
+      int do_load_buffer();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int DEMO_BUF_NUM = 1;
+      static const int DEMO_BUF_NUM = 10;
 
       ObLoadSequentialFileReader file_reader_;
       // we have BUF_NUM buffers and we load data simultaneously
-      ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
+      // ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
+      ObLoadDataBuffer buffer_;
       ObLoadCSVPaser csv_parsers_[DEMO_BUF_NUM];
       ObLoadRowCaster row_casters_[DEMO_BUF_NUM];
       // ObLoadDataBuffer buffer_;

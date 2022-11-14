@@ -113,7 +113,7 @@ int ObLoadSequentialFileReader::open(const ObString &filepath)
 
 int ObLoadSequentialFileReader::read_next_buffer(ObLoadDataBuffer &buffer)
 {
-  std::lock_guard<std::mutex> guard(mutex_);
+  // std::lock_guard<std::mutex> guard(mutex_);
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(!file_reader_.is_opened())) {
     ret = OB_FILE_NOT_OPENED;
@@ -131,7 +131,7 @@ int ObLoadSequentialFileReader::read_next_buffer(ObLoadDataBuffer &buffer)
     } else {
       offset_ += read_size;
       buffer.produce(read_size);
-      LOG_WARN("MMMMM buffer size", K(read_size));
+      LOG_WARN("MMMMM buffer size", K(read_size), K(offset_), K(buffer.data()));
     }
   }
   return ret;
@@ -955,10 +955,13 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
     LOG_WARN("fail to open file", KR(ret), K(load_args.full_file_path_));
   }
   // init buffer_
-  for (int i = 0; i < DEMO_BUF_NUM; i++) {
-    if (OB_FAIL(buffers_[i].create(FILE_BUFFER_SIZE))) {
-      LOG_WARN("fail to create buffer", KR(ret));
-    }
+  // for (int i = 0; i < DEMO_BUF_NUM; i++) {
+  //   if (OB_FAIL(buffers_[i].create(FILE_BUFFER_SIZE))) {
+  //     LOG_WARN("fail to create buffer", KR(ret));
+  //   }
+  // }
+  if (OB_FAIL(buffer_.create(FILE_BUFFER_SIZE))) {
+    LOG_WARN("fail to create buffer", KR(ret));
   }
   // init row_caster_
   for (int i = 0; i < DEMO_BUF_NUM; i++) {
@@ -980,116 +983,66 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   return ret;
 }
 
-int ObParseDataTask::process() 
-{
-  int ret = OB_SUCCESS;
-  LOG_INFO("MMMMM process", KR(ret));
-  const ObNewRow *new_row = nullptr;
-  const ObLoadDatumRow *datum_row = nullptr;
-  while (OB_SUCC(ret)) {
-    if (OB_FAIL(buffer_.squash())) {
-      LOG_INFO("MMMMM fail to squash buffer", KR(ret));
-    } else if (OB_FAIL(file_reader_.read_next_buffer(buffer_))) {
-      if (OB_UNLIKELY(OB_ITER_END != ret)) {
-        LOG_INFO("MMMMM fail to read next buffer", KR(ret));
-      } else {
-        if (OB_UNLIKELY(!buffer_.empty())) {
-          ret = OB_ERR_UNEXPECTED;
-          LOG_INFO("MMMMM unexpected incomplate data", KR(ret));
-        }
-        ret = OB_SUCCESS;
-        break;
-      }
-    } else if (OB_UNLIKELY(buffer_.empty())) {
-      ret = OB_ERR_UNEXPECTED;
-      LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
-    } else {
-      // parse whole file
-      int cnt = 0;
-      while (OB_SUCC(ret)) {
-        if (OB_FAIL(csv_parser_.get_next_row(buffer_, new_row))) {
-          if (OB_UNLIKELY(OB_ITER_END != ret)) {
-            LOG_INFO("MMMMM fail to get next row", KR(ret));
-          } else {
-            ret = OB_SUCCESS;
-            break;
-          }
-        } else if (OB_FAIL(row_caster_.get_casted_row(*new_row, datum_row))) {
-          LOG_INFO("MMMMM fail to cast row", KR(ret));
-        } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
-          LOG_INFO("MMMMM fail to append row", KR(ret));
-        } else {
-          cnt++;
-        }
-      }
-      LOG_INFO("MMMMM external sort append lines", K(cnt), KR(ret));
-    }
-  }
-  ret_ = ret;
-  return OB_SUCCESS;
-}
-
-share::ObAsyncTask *ObParseDataTask::deep_copy(char *buf, const int64_t buf_size) const 
-{
-  UNUSED(buf_size);
-  ObAsyncTask *task = new (buf)ObParseDataTask(buffer_, csv_parser_, row_caster_, external_sort_, ret_, file_reader_);
-  memcpy((void*)task, (void*)this, sizeof(*this));
-  LOG_MMMMM("deep copy");
-  return task;
-} 
-
 void ObParseDataThread::run(int64_t idx)
 {
   int ret = OB_SUCCESS;
-  LOG_INFO("MMMMM process", KR(ret));
+  // LOG_INFO("MMMMM process", KR(ret), K(idx));
   const ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
-  ObLoadDataBuffer &buffer = buffers_[idx];
+  // ObLoadDataBuffer &buffer = buffers_[idx];
   ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
   ObLoadRowCaster &row_caster = row_casters_[idx];
+
+  // parse whole file
+  LOG_INFO("begin parse");
+  int cnt = 0;
   while (OB_SUCC(ret)) {
-    if (OB_FAIL(buffer.squash())) {
-      LOG_INFO("MMMMM fail to squash buffer", KR(ret));
-    } else if (OB_FAIL(file_reader_.read_next_buffer(buffer))) {
+    {
+      std::lock_guard<std::mutex> guard(mutex_);
+      ret = csv_parser.get_next_row(buffer_, new_row);
+    }
+    if (OB_FAIL(ret)) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
-        LOG_INFO("MMMMM fail to read next buffer", KR(ret));
+        LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
       } else {
-        if (OB_UNLIKELY(!buffer.empty())) {
-          ret = OB_ERR_UNEXPECTED;
-          LOG_INFO("MMMMM unexpected incomplate data", KR(ret));
-        }
+        ret = OB_SUCCESS;
         break;
       }
-    } else if (OB_UNLIKELY(buffer.empty())) {
-      ret = OB_ERR_UNEXPECTED;
-      LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
+    } else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
+      LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx));
+    } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
+      LOG_INFO("MMMMM fail to append row", KR(ret), K(idx));
     } else {
-      // parse whole file
-      LOG_INFO("begin parse");
-      int cnt = 0;
-      while (OB_SUCC(ret)) {
-        if (OB_FAIL(csv_parser.get_next_row(buffer, new_row))) {
-          if (OB_UNLIKELY(OB_ITER_END != ret)) {
-            LOG_INFO("MMMMM fail to get next row", KR(ret));
-          } else {
-            ret = OB_SUCCESS;
-            break;
-          }
-        } else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
-          LOG_INFO("MMMMM fail to cast row", KR(ret));
-        } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
-          LOG_INFO("MMMMM fail to append row", KR(ret));
-        } else {
-          cnt++;
-        }
-      }
-      LOG_INFO("MMMMM external sort append lines", K(cnt), KR(ret));
+      cnt++;
     }
   }
-  LOG_INFO("MMMMM run", KR(ret));  
+  LOG_INFO("MMMMM external sort append lines", K(cnt), KR(ret), K(idx));
+
+  LOG_INFO("MMMMM run", KR(ret), K(idx));  
   rets_[idx] = ret;
   while (!ATOMIC_LOAD(&has_set_stop()));
   // return OB_SUCCESS;
+}
+
+int ObLoadDataDirectDemo::do_load_buffer() 
+{
+  int ret = OB_SUCCESS;
+  if (OB_FAIL(buffer_.squash())) {
+    LOG_INFO("MMMMM fail to squash buffer", KR(ret));
+  } else if (OB_FAIL(file_reader_.read_next_buffer(buffer_))) {
+    if (OB_UNLIKELY(OB_ITER_END != ret)) {
+      LOG_INFO("MMMMM fail to read next buffer", KR(ret));
+    } else {
+      if (OB_UNLIKELY(!buffer_.empty())) {
+        ret = OB_ERR_UNEXPECTED;
+        LOG_INFO("MMMMM unexpected incomplate data", KR(ret));
+      }
+    }
+  } else if (OB_UNLIKELY(buffer_.empty())) {
+    ret = OB_ERR_UNEXPECTED;
+    LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
+  } 
+  return ret;
 }
 
 int ObLoadDataDirectDemo::do_load()
@@ -1102,7 +1055,10 @@ int ObLoadDataDirectDemo::do_load()
     cnt++;
     int rets[DEMO_BUF_NUM];
     memset(rets, 0, sizeof(rets));
-    ObParseDataThread threads(buffers_, csv_parsers_, row_casters_, external_sort_, file_reader_, rets);
+    if (OB_FAIL(do_load_buffer())) {
+      break;
+    }
+    ObParseDataThread threads(buffer_, csv_parsers_, row_casters_, external_sort_, file_reader_, rets);
     threads.set_thread_count(DEMO_BUF_NUM);
     threads.set_run_wrapper(MTL_CTX());
     threads.start();
@@ -1235,3 +1191,61 @@ int ObLoadDataDirectDemo::do_load()
 //       datum_row_buffers_[i].clear();
 //     }
 //   }
+
+// int ObParseDataTask::process() 
+// {
+//   int ret = OB_SUCCESS;
+//   LOG_INFO("MMMMM process", KR(ret));
+//   const ObNewRow *new_row = nullptr;
+//   const ObLoadDatumRow *datum_row = nullptr;
+//   while (OB_SUCC(ret)) {
+//     if (OB_FAIL(buffer_.squash())) {
+//       LOG_INFO("MMMMM fail to squash buffer", KR(ret));
+//     } else if (OB_FAIL(file_reader_.read_next_buffer(buffer_))) {
+//       if (OB_UNLIKELY(OB_ITER_END != ret)) {
+//         LOG_INFO("MMMMM fail to read next buffer", KR(ret));
+//       } else {
+//         if (OB_UNLIKELY(!buffer_.empty())) {
+//           ret = OB_ERR_UNEXPECTED;
+//           LOG_INFO("MMMMM unexpected incomplate data", KR(ret));
+//         }
+//         ret = OB_SUCCESS;
+//         break;
+//       }
+//     } else if (OB_UNLIKELY(buffer_.empty())) {
+//       ret = OB_ERR_UNEXPECTED;
+//       LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
+//     } else {
+//       // parse whole file
+//       int cnt = 0;
+//       while (OB_SUCC(ret)) {
+//         if (OB_FAIL(csv_parser_.get_next_row(buffer_, new_row))) {
+//           if (OB_UNLIKELY(OB_ITER_END != ret)) {
+//             LOG_INFO("MMMMM fail to get next row", KR(ret));
+//           } else {
+//             ret = OB_SUCCESS;
+//             break;
+//           }
+//         } else if (OB_FAIL(row_caster_.get_casted_row(*new_row, datum_row))) {
+//           LOG_INFO("MMMMM fail to cast row", KR(ret));
+//         } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
+//           LOG_INFO("MMMMM fail to append row", KR(ret));
+//         } else {
+//           cnt++;
+//         }
+//       }
+//       LOG_INFO("MMMMM external sort append lines", K(cnt), KR(ret));
+//     }
+//   }
+//   ret_ = ret;
+//   return OB_SUCCESS;
+// }
+
+// share::ObAsyncTask *ObParseDataTask::deep_copy(char *buf, const int64_t buf_size) const 
+// {
+//   UNUSED(buf_size);
+//   ObAsyncTask *task = new (buf)ObParseDataTask(buffer_, csv_parser_, row_caster_, external_sort_, ret_, file_reader_);
+//   memcpy((void*)task, (void*)this, sizeof(*this));
+//   LOG_MMMMM("deep copy");
+//   return task;
+// } 
