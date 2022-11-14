@@ -106,3 +106,4 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 9.  [ ] parallel load data
 10. [ ] how does ob manage threads?
 11. [ ] src/storage/ob_parallel_external_sort.h:513 看一下sstable这个item啥时候回收
+12. [ ] copy in squash
