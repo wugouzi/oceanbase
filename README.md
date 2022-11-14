@@ -94,6 +94,8 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 
 ## TODO (sort by priority)
 1. [ ] sstable use block instead of row
+   - 动机：逐行写入在压缩和IO上都有瓶颈。
+   - 方法：维护一个任务队列，每写入若干行，进行一次真正的IO。同时，每次任务进入队列的时候，都可以异步地进行压缩。参考TCP和Flink watermark等，维护一个始终顺序的窗口，进行写入。
 2. [ ] cast_obj_to_datum
 3. [ ] external_sort
 4. [ ] 读取数据的时候,block block地读
