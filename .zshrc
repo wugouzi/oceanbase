@@ -131,10 +131,10 @@ export OBCLIENT_HOME=~/.oceanbase-all-in-one/obclient
 export PATH=$OBD_INSTALL_PRE/usr/bin:$OBCLIENT_HOME/u01/obclient/bin:$HOME/.cargo/bin:$PATH
 # export PATH=/root/cmake/bin:$PATH
 
-export OB_DEBUG_ROOT='/root/oceanbase/build_debug'
-export OB_RELEASE_ROOT='/root/oceanbase/build_release'
-export OB_ROOT='/root/oceanbase'
-export TARGET_CSV='/root/archieve/demo.csv'
+export OB_ROOT=$HOME/oceanbase
+export OB_DEBUG_ROOT=$OB_ROOT/build_debug
+export OB_RELEASE_ROOT=$OB_ROOT/build_release
+export TARGET_CSV=$HOME/archieve/10m.csv
 alias cddebug='cd $OB_DEBUG_ROOT'
 alias cdrelease='cd $OB_RELEASE_ROOT'
 alias cdroot='cd $OB_ROOT'
