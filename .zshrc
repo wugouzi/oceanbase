@@ -129,7 +129,6 @@ export OBD_INSTALL_PRE=~/.oceanbase-all-in-one/obd
 source $OBD_INSTALL_PRE/etc/profile.d/obd.sh
 export OBCLIENT_HOME=~/.oceanbase-all-in-one/obclient
 export PATH=$OBD_INSTALL_PRE/usr/bin:$OBCLIENT_HOME/u01/obclient/bin:$HOME/.cargo/bin:$PATH
-# export PATH=/root/cmake/bin:$PATH
 
 export OB_ROOT=$HOME/oceanbase
 export OB_DEBUG_ROOT=$OB_ROOT/build_debug
@@ -148,7 +147,7 @@ alias md='m && d'
 alias zcc='source ~/oceanbase/.zshrc'
 alias chmodd='chmod 777 $TARGET_CSV'
 alias obc='log_info OBC START && chmodd && obclient -h127.0.0.1 -P2881 -uroot -Doceanbase'
-alias b='cd /root && log_info BEGIN TEST $TARGET_CSV && chmodd && chmodd && cdroot && obc < bench.sql'
+alias b='cd $HOME && log_info BEGIN TEST $TARGET_CSV && chmodd && chmodd && cdroot && obc < bench.sql'
 alias mmm='tmux a -t mmm'
 alias clash='cd archieve/clash && ./clash-linux-amd64-v1.10.0 -f glados.yaml -d .'
 alias zc="vim ~/.zshrc && source ~/.zshrc"
@@ -156,9 +155,9 @@ alias mwdk="tmux new -s wdk"
 alias wdk="tmux a -t wdk"
 alias gpm='git pull && m'
 
-export RELEASE_TARGET_CSV='/root/archieve/demo.csv'
+export RELEASE_TARGET_CSV='$HOME/archieve/demo.csv'
 alias chmoddr='chmod 777 $RELEASE_TARGET_CSV'
-alias br='cd /root && log_info BEGIN TEST && chmoddr && chmoddr && cdroot && obc < bench_rel.sql'
+alias br='cd $HOME && log_info BEGIN TEST && chmoddr && chmoddr && cdroot && obc < bench_rel.sql'
 alias mr='log_info MAKE && cdrelease && make -j8 && (make install DESTDIR=. || true)'
 alias depr='log_info DEPLOY && cdrelease && obd mirror create -n oceanbase-ce -V 4.0.0.0 -p ./usr/local/ -f -t final_2022 && obd cluster autodeploy final_2022 -c ../final_2022.yaml -f'
 alias dr='des && depr'
