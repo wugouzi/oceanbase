@@ -1102,7 +1102,7 @@ int ObLoadDataDirectDemo::do_load()
   cnt = 0;
   while (OB_SUCC(ret)) {
     cnt++;
-    if (cnt % 10000 == 0) {
+    if (cnt % 100000 == 0) {
       LOG_INFO("MMMMM sstable append", K(cnt));
     }
     if (OB_FAIL(external_sort_.get_next_row(datum_row))) {
