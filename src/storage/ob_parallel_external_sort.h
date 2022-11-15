@@ -25,6 +25,8 @@
 #include "blocksstable/ob_block_sstable_struct.h"
 #include "blocksstable/ob_tmp_file.h"
 #include "share/config/ob_server_config.h"
+#include <chrono>
+#include <thread>
 
 
 namespace oceanbase
@@ -268,6 +270,9 @@ private:
   int64_t dir_id_;
   uint64_t tenant_id_;
   DISALLOW_COPY_AND_ASSIGN(ObFragmentWriterV2);
+
+  // for debug
+  int write_cnt_ = 0;
 };
 
 template<typename T>
@@ -372,10 +377,14 @@ int ObFragmentWriterV2<T>::write_item(const T &item)
         STORAGE_LOG(WARN, "switch next macro buffer failed", K(ret));
       } else if (OB_FAIL(macro_buffer_writer_.write_item(item))) {
         STORAGE_LOG(WARN, "fail to write item", K(ret));
+      } else {
+        write_cnt_++;
       }
     } else {
       STORAGE_LOG(WARN, "fail to write item", K(ret));
     }
+  } else {
+    write_cnt_++;
   }
 
   if (OB_SUCC(ret) && !has_sample_item_) {
@@ -412,6 +421,8 @@ int ObFragmentWriterV2<T>::flush_buffer()
 {
   int ret = common::OB_SUCCESS;
   int64_t timeout_ms = 0;
+  LOG_INFO("MMMMM flush buffer", K(write_cnt_));
+  // write_cnt_ = 0;
   if (OB_UNLIKELY(!is_inited_)) {
     ret = common::OB_NOT_INIT;
     STORAGE_LOG(WARN, "ObFragmentWriterV2 has not been inited", K(ret));
@@ -430,10 +441,15 @@ int ObFragmentWriterV2<T>::flush_buffer()
     io_info.buf_ = buf_;
     io_info.io_desc_.set_category(common::ObIOCategory::SYS_IO);
     io_info.io_desc_.set_wait_event(ObWaitEventIds::DB_FILE_INDEX_BUILD_WRITE);
+    int64_t start = common::ObTimeUtility::current_time();
     if (OB_FAIL(FILE_MANAGER_INSTANCE_V2.aio_write(io_info, file_io_handle_))) {
       STORAGE_LOG(WARN, "MMMMM fail to do aio write macro file", K(ret), K(io_info));
     } else {
+      int64_t dif = common::ObTimeUtility::current_time() - start;
+      LOG_INFO("AIO time", K(dif));
       macro_buffer_writer_.assign(ObExternalSortConstant::BUF_HEADER_LENGTH, buf_size_, buf_);
+      dif = common::ObTimeUtility::current_time() - start - dif;
+      LOG_INFO("buf time", K(dif));
     }
   }
   return ret;
@@ -1543,6 +1559,54 @@ int ObMemoryFragmentIterator<T>::get_next_item(const T *&item)
 }
 
 template<typename T, typename Compare>
+class ObMemorySortRoundAddItems : public lib::Threads 
+{
+  ObMemorySortRoundAddItems(): next_round_(NULL) {}
+  void init(ExternalSortRound *next_round) {
+    next_round_ = next_round;
+  }
+
+  void push(ObVector<T *> item_list, common::ObArenaAllocator &allocator) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    item_list_.push(std::move(item_list));
+    allocators.push(std::move(allocator));
+  }
+
+  void run(int64_t idx) {
+    while (!ATOMIC_LOAD(&has_set_stop()) || size() > 0) {
+      while (size() == 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      mutex_.lock();
+      ObVector<T *> &item_list = item_lists_.front();
+      common::ObArenaAllocator &allocator = allocators_.front();
+      mutex_.unlcok();
+      LOG_INFO("MMMMM build fragment", K(item_list_.size()));
+      for (int64_t i = 0; OB_SUCC(ret) && i < item_list_.size(); ++i) {
+        if (OB_FAIL(next_round_->add_item(*item_list_.at(i)))) {
+          STORAGE_LOG(WARN, "fail to add item", K(ret));
+        }
+      }
+      next_round_->build_fragment();
+      allocator.free();
+      mutex_.lock();
+      item_lists_.pop();
+      mutex_.unlock();
+    }
+  }
+
+  int size() {
+    std::lock_guard<std::mutex> guard(mutex_);
+    return item_lists_.size();
+  }
+private:
+  ExternalSortRound *next_round_;
+  std::queue<ObVector<T *>> item_lists_;
+  std::queue<common::ObArenaAllocator> allocators_;
+  std::mutex mutex_;
+}
+
+template<typename T, typename Compare>
 class ObMemorySortRound
 {
 public:
@@ -1574,6 +1638,8 @@ private:
   common::ObVector<T *> item_list_;
   Compare *compare_;
   ObMemoryFragmentIterator<T> *iter_;
+
+  // ObMemorySortRoundAddItems add_item_thread_;
 };
 
 template<typename T, typename Compare>
@@ -1587,6 +1653,8 @@ ObMemorySortRound<T, Compare>::ObMemorySortRound()
 template<typename T, typename Compare>
 ObMemorySortRound<T, Compare>::~ObMemorySortRound()
 {
+  // add_item_thread_.stop();
+  // add_item_thread_.wait();
 }
 
 template<typename T, typename Compare>
@@ -1613,7 +1681,13 @@ int ObMemorySortRound<T, Compare>::init(
     expire_timestamp_ = expire_timestamp;
     compare_ = compare;
     next_round_ = next_round;
+    // add_item_thread_.init(next_round_);
+    // add_item_thread_.set_run_wrapper(MTL_CTX());
+    // add_item_thread_.set_thread_count(1);
+    // add_item_thread_.start();
+  
     iter_ = NULL;
+    
   }
   return ret;
 }
@@ -1680,6 +1754,8 @@ int ObMemorySortRound<T, Compare>::build_fragment()
     LOG_INFO("MMMMM Memory sort build fragment", KR(ret));
     */
     
+
+    // here, we can create a thread, move the item_list_ into thread, and append, since it's irrelevant
     LOG_INFO("MMMMM build fragment", K(item_list_.size()));
     for (int64_t i = 0; OB_SUCC(ret) && i < item_list_.size(); ++i) {
       if (OB_FAIL(next_round_->add_item(*item_list_.at(i)))) {
