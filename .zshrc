@@ -140,7 +140,7 @@ alias cdroot='cd $OB_ROOT'
 alias m='log_info MAKE && cddebug && make -j8 && (make install DESTDIR=. || true)'
 alias dep='log_info DEPLOY && cddebug && obd mirror create -n oceanbase-ce -V 4.0.0.0 -p ./usr/local/ -f -t final_2022 && obd cluster autodeploy final_2022 -c ../final_2022.yaml -f'
 alias res='log_info RESTART && obd cluster restart final_2022'
-alias des='(log_info DESTROY && obd cluster destroy -f final_2022) || true'
+alias des='(log_info DESTROY && obd cluster destroy -f final_2022 && rm -rf /root/.obd) || true'
 alias d='des && dep'
 alias md='m && d'
 

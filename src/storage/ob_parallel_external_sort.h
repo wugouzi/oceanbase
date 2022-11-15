@@ -19,11 +19,14 @@
 #include "lib/container/ob_se_array.h"
 #include "lib/container/ob_heap.h"
 #include "lib/container/ob_vector.h"
+#include "lib/thread/threads.h"
 #include "share/io/ob_io_manager.h"
 #include "share/scheduler/ob_dag_scheduler.h"
 #include "blocksstable/ob_block_sstable_struct.h"
 #include "blocksstable/ob_tmp_file.h"
 #include "share/config/ob_server_config.h"
+#include <chrono>
+#include <thread>
 
 
 namespace oceanbase
@@ -92,15 +95,23 @@ public:
   ObMacroBufferWriter();
   virtual ~ObMacroBufferWriter();
   int write_item(const T &item);
+  int write_items(const ObVector<T *> &items, int idx);
   void assign(const int64_t buf_pos, const int64_t buf_cap, char *buf);
   int serialize_header();
   bool has_item();
   TO_STRING_KV(KP(buf_), K(buf_pos_), K(buf_cap_));
+
+  int just_write() { return just_write_; }
 private:
   char *buf_;
   int64_t buf_pos_;
   int64_t buf_cap_;
   DISALLOW_COPY_AND_ASSIGN(ObMacroBufferWriter);
+  // threads
+  static const int WRITER_THREAD_NUM = 10;
+  // for failure and flush
+  // the written index of array
+  int just_write_ = 0;
 };
 
 template<typename T>
@@ -114,11 +125,81 @@ ObMacroBufferWriter<T>::~ObMacroBufferWriter()
 {
 }
 
+// naive implementation: serialize 10 and then write 10
+// better strategy: serialization thread continue to serialize
+template<typename T>
+class ObMacroBufferWriterSerializeThreads : public lib::Threads 
+{
+public: 
+  ObMacroBufferWriterSerializeThreads(const ObVector<T *> &items, int start_idx,
+                                      int *rets, char *buf, int64_t cap,
+                                      std::unordered_map<int, int64_t> pos_map)
+    : items_(items), start_idx_(start_idx), rets_(rets), buf_(buf), cap_(cap),
+      pos_map_(pos_map)  {}
+  void run(int64_t idx) final {
+    rets_[idx] = items_[idx + start_idx_]->serialize(buf_, cap_, pos_map_[idx]);
+  }
+private: 
+  const ObVector<T *> &items_;
+  int start_idx_;
+  int *rets_;
+  char *buf_;
+  int64_t cap_;
+  std::unordered_map<int, int64_t> pos_map_;
+};
+
+// threads -> generate serialized bufs
+template<typename T>
+int ObMacroBufferWriter<T>::write_items(const ObVector<T *> &items, int idx)
+{
+  int ret = common::OB_SUCCESS;
+  int rets[WRITER_THREAD_NUM];
+  memset(rets, 0, sizeof(rets));
+  LOG_INFO("MMMMM macro buffer write", K(items.size()), K(idx));
+
+  if (idx == 0) {
+    just_write_ = 0;
+  }
+
+  // TODO: int pos_map[NUM]
+  int n = items.size();
+  int cnt = idx;
+  int i = 0;
+  while (cnt < n && OB_SUCC(ret)) {
+    int N = min(WRITER_THREAD_NUM, n - cnt);
+    std::unordered_map<int, int64_t> pos_map;
+    int64_t base = buf_pos_;
+    for (int i = 0; i < N; i++) {
+      pos_map[i] = base;
+      base += items[cnt + i]->get_serialize_size();
+      if (base > buf_cap_) {
+        LOG_INFO("MMMMM macro buffer full", K(cnt), K(items.size()));
+        return common::OB_EAGAIN;
+      }
+    }
+    ObMacroBufferWriterSerializeThreads<T> threads(items, cnt, rets, buf_, buf_cap_, pos_map);
+    threads.set_thread_count(WRITER_THREAD_NUM);
+    threads.set_run_wrapper(MTL_CTX());
+    threads.start();
+    threads.wait();
+    cnt += N;
+    just_write_ = cnt;
+    buf_pos_ = base;
+    i++;
+    if (i % 10000 == 0) {
+      LOG_INFO("MMMMM macro buffer write", K(N), K(cnt), K(n));
+    } 
+  }
+  return ret;
+}
+
 template<typename T>
 int ObMacroBufferWriter<T>::write_item(const T &item)
 {
   int ret = common::OB_SUCCESS;
-  if (item.get_serialize_size() + buf_pos_ > buf_cap_) {
+  int64_t size = item.get_serialize_size();
+  if (size + buf_pos_ > buf_cap_) {
+    LOG_INFO("MMMMM macro writer full");
     ret = common::OB_EAGAIN;
   } else if (OB_FAIL(item.serialize(buf_, buf_cap_, buf_pos_))) {
     STORAGE_LOG(WARN, "fail to serialize item", K(ret));
@@ -166,6 +247,7 @@ public:
   int open(const int64_t buf_size, const int64_t expire_timestamp,
       const uint64_t tenant_id, const int64_t dir_id);
   int write_item(const T &item);
+  int write_items(const ObVector<T *> &items);
   int sync();
   void reset();
   int64_t get_fd() const { return fd_; }
@@ -188,6 +270,9 @@ private:
   int64_t dir_id_;
   uint64_t tenant_id_;
   DISALLOW_COPY_AND_ASSIGN(ObFragmentWriterV2);
+
+  // for debug
+  int write_cnt_ = 0;
 };
 
 template<typename T>
@@ -240,6 +325,46 @@ int ObFragmentWriterV2<T>::open(const int64_t buf_size, const int64_t expire_tim
 }
 
 template<typename T>
+int ObFragmentWriterV2<T>::write_items(const ObVector<T *> &items)
+{
+  int ret = common::OB_SUCCESS;
+  if (OB_UNLIKELY(!is_inited_)) {
+    ret = common::OB_NOT_INIT;
+    STORAGE_LOG(WARN, "ObFragmentWriter has not been inited", K(ret));
+  } else if (OB_FAIL(macro_buffer_writer_.write_items(items, 0))) {
+    for (int i = 0; i < 40; i++) {
+      if (common::OB_EAGAIN == ret) {
+        if (OB_FAIL(flush_buffer())) {
+          STORAGE_LOG(WARN, "MMMMM switch next macro buffer failed", K(ret));
+        } else if (OB_FAIL(macro_buffer_writer_.write_items(items, 
+                                                            macro_buffer_writer_.just_write() + 1))) {
+          STORAGE_LOG(WARN, "MMMMM fail to write item", K(ret));
+        }
+      } else {
+        STORAGE_LOG(WARN, "MMMMM fail to write item", K(ret));
+        break;
+      }
+    }
+  }
+
+  if (OB_SUCC(ret) && !has_sample_item_) {
+    const T& item = *(items[0]);
+    const int64_t buf_len = item.get_deep_copy_size(); // deep copy size may be 0
+    char *buf = NULL;
+    int64_t pos = 0;
+    if (buf_len > 0 && OB_ISNULL(buf = static_cast<char *>(allocator_.alloc(buf_len)))) {
+      ret = common::OB_ALLOCATE_MEMORY_FAILED;
+      STORAGE_LOG(WARN, "failed to alloc buf", K(ret), K(buf_len));
+    } else if (OB_FAIL(sample_item_.deep_copy(item, buf, buf_len, pos))) {
+      STORAGE_LOG(WARN, "failed to deep copy item", K(ret));
+    } else {
+      has_sample_item_ = true;
+    }
+  }
+  return ret;
+}
+
+template<typename T>
 int ObFragmentWriterV2<T>::write_item(const T &item)
 {
   int ret = common::OB_SUCCESS;
@@ -252,10 +377,14 @@ int ObFragmentWriterV2<T>::write_item(const T &item)
         STORAGE_LOG(WARN, "switch next macro buffer failed", K(ret));
       } else if (OB_FAIL(macro_buffer_writer_.write_item(item))) {
         STORAGE_LOG(WARN, "fail to write item", K(ret));
+      } else {
+        write_cnt_++;
       }
     } else {
       STORAGE_LOG(WARN, "fail to write item", K(ret));
     }
+  } else {
+    write_cnt_++;
   }
 
   if (OB_SUCC(ret) && !has_sample_item_) {
@@ -292,6 +421,8 @@ int ObFragmentWriterV2<T>::flush_buffer()
 {
   int ret = common::OB_SUCCESS;
   int64_t timeout_ms = 0;
+  LOG_INFO("MMMMM flush buffer", K(write_cnt_));
+  // write_cnt_ = 0;
   if (OB_UNLIKELY(!is_inited_)) {
     ret = common::OB_NOT_INIT;
     STORAGE_LOG(WARN, "ObFragmentWriterV2 has not been inited", K(ret));
@@ -310,10 +441,15 @@ int ObFragmentWriterV2<T>::flush_buffer()
     io_info.buf_ = buf_;
     io_info.io_desc_.set_category(common::ObIOCategory::SYS_IO);
     io_info.io_desc_.set_wait_event(ObWaitEventIds::DB_FILE_INDEX_BUILD_WRITE);
+    int64_t start = common::ObTimeUtility::current_time();
     if (OB_FAIL(FILE_MANAGER_INSTANCE_V2.aio_write(io_info, file_io_handle_))) {
       STORAGE_LOG(WARN, "MMMMM fail to do aio write macro file", K(ret), K(io_info));
     } else {
+      int64_t dif = common::ObTimeUtility::current_time() - start;
+      LOG_INFO("AIO time", K(dif));
       macro_buffer_writer_.assign(ObExternalSortConstant::BUF_HEADER_LENGTH, buf_size_, buf_);
+      dif = common::ObTimeUtility::current_time() - start - dif;
+      LOG_INFO("buf time", K(dif));
     }
   }
   return ret;
@@ -1006,6 +1142,7 @@ public:
   int64_t get_fragment_count();
   int add_fragment_iter(ObFragmentIterator<T> *iter);
   int transfer_final_sorted_fragment_iter(ObExternalSortRound &dest_round);
+  int add_items(const ObVector<T *> &item);
 private:
   typedef ObFragmentReaderV2<T> FragmentReader;
   typedef ObFragmentIterator<T> FragmentIterator;
@@ -1073,6 +1210,29 @@ int ObExternalSortRound<T, Compare>::init(
 }
 
 template<typename T, typename Compare>
+int ObExternalSortRound<T, Compare>::add_items(const ObVector<T *> &items)
+{
+  int ret = common::OB_SUCCESS;
+  if (OB_UNLIKELY(!is_inited_)) {
+    ret = common::OB_NOT_INIT;
+    STORAGE_LOG(WARN, "ObExternalSortRound has not been inited", K(ret));
+  } else if (ObExternalSortConstant::is_timeout(expire_timestamp_)) {
+    ret = common::OB_TIMEOUT;
+    STORAGE_LOG(WARN, "ObExternalSortRound timeout", K(ret), K(expire_timestamp_));
+  } else if (!is_writer_opened_ && OB_FAIL(writer_.open(file_buf_size_,
+      expire_timestamp_, tenant_id_, dir_id_))) {
+    STORAGE_LOG(WARN, "fail to open writer", K(ret), K_(tenant_id), K_(dir_id));
+  } else {
+    is_writer_opened_ = true;
+    if (OB_FAIL(writer_.write_items(items))) {
+      STORAGE_LOG(WARN, "fail to write item", K(ret));
+    }
+    LOG_INFO("MMMMM external sort round add items", KR(ret));
+  }
+  return ret;
+}
+
+template<typename T, typename Compare>
 int ObExternalSortRound<T, Compare>::add_item(const T &item)
 {
   int ret = common::OB_SUCCESS;
@@ -1088,7 +1248,7 @@ int ObExternalSortRound<T, Compare>::add_item(const T &item)
   } else {
     is_writer_opened_ = true;
     if (OB_FAIL(writer_.write_item(item))) {
-      STORAGE_LOG(WARN, "fail to write item", K(ret));
+      STORAGE_LOG(WARN, "fail to write items", K(ret));
     }
   }
   return ret;
@@ -1398,6 +1558,54 @@ int ObMemoryFragmentIterator<T>::get_next_item(const T *&item)
   return ret;
 }
 
+// template<typename T, typename Compare>
+// class ObMemorySortRoundAddItems : public lib::Threads 
+// {
+//   ObMemorySortRoundAddItems(): next_round_(NULL) {}
+//   void init(ExternalSortRound *next_round) {
+//     next_round_ = next_round;
+//   }
+
+//   void push(ObVector<T *> item_list, common::ObArenaAllocator &allocator) {
+//     std::lock_guard<std::mutex> guard(mutex_);
+//     item_list_.push(std::move(item_list));
+//     allocators.push(std::move(allocator));
+//   }
+
+//   void run(int64_t idx) {
+//     while (!ATOMIC_LOAD(&has_set_stop()) || size() > 0) {
+//       while (size() == 0) {
+//         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+//       }
+//       mutex_.lock();
+//       ObVector<T *> &item_list = item_lists_.front();
+//       common::ObArenaAllocator &allocator = allocators_.front();
+//       mutex_.unlcok();
+//       LOG_INFO("MMMMM build fragment", K(item_list_.size()));
+//       for (int64_t i = 0; OB_SUCC(ret) && i < item_list_.size(); ++i) {
+//         if (OB_FAIL(next_round_->add_item(*item_list_.at(i)))) {
+//           STORAGE_LOG(WARN, "fail to add item", K(ret));
+//         }
+//       }
+//       next_round_->build_fragment();
+//       allocator.free();
+//       mutex_.lock();
+//       item_lists_.pop();
+//       mutex_.unlock();
+//     }
+//   }
+
+//   int size() {
+//     std::lock_guard<std::mutex> guard(mutex_);
+//     return item_lists_.size();
+//   }
+// private:
+//   ExternalSortRound *next_round_;
+//   std::queue<ObVector<T *>> item_lists_;
+//   std::queue<common::ObArenaAllocator> allocators_;
+//   std::mutex mutex_;
+// }
+
 template<typename T, typename Compare>
 class ObMemorySortRound
 {
@@ -1430,6 +1638,8 @@ private:
   common::ObVector<T *> item_list_;
   Compare *compare_;
   ObMemoryFragmentIterator<T> *iter_;
+
+  // ObMemorySortRoundAddItems add_item_thread_;
 };
 
 template<typename T, typename Compare>
@@ -1443,6 +1653,8 @@ ObMemorySortRound<T, Compare>::ObMemorySortRound()
 template<typename T, typename Compare>
 ObMemorySortRound<T, Compare>::~ObMemorySortRound()
 {
+  // add_item_thread_.stop();
+  // add_item_thread_.wait();
 }
 
 template<typename T, typename Compare>
@@ -1469,7 +1681,13 @@ int ObMemorySortRound<T, Compare>::init(
     expire_timestamp_ = expire_timestamp;
     compare_ = compare;
     next_round_ = next_round;
+    // add_item_thread_.init(next_round_);
+    // add_item_thread_.set_run_wrapper(MTL_CTX());
+    // add_item_thread_.set_thread_count(1);
+    // add_item_thread_.start();
+  
     iter_ = NULL;
+    
   }
   return ret;
 }
@@ -1524,22 +1742,34 @@ int ObMemorySortRound<T, Compare>::build_fragment()
       ret = compare_->result_code_;
     } else {
       const int64_t sort_fragment_time = common::ObTimeUtility::current_time() - start;
-      STORAGE_LOG(INFO, "MMMMM ObMemorySortRound", K(sort_fragment_time));
+      // STORAGE_LOG(INFO, "MMMMM ObMemorySortRound", K(sort_fragment_time));
     }
 
     start = common::ObTimeUtility::current_time();
+    
+    /*
+    if (OB_FAIL(next_round_->add_items(item_list_))) {
+      STORAGE_LOG(WARN, "fail to add item", K(ret));
+    }
+    LOG_INFO("MMMMM Memory sort build fragment", KR(ret));
+    */
+    
+
+    // here, we can create a thread, move the item_list_ into thread, and append, since it's irrelevant
+    LOG_INFO("MMMMM build fragment", K(item_list_.size()));
     for (int64_t i = 0; OB_SUCC(ret) && i < item_list_.size(); ++i) {
       if (OB_FAIL(next_round_->add_item(*item_list_.at(i)))) {
         STORAGE_LOG(WARN, "fail to add item", K(ret));
       }
     }
+    
 
     if (OB_SUCC(ret)) {
       if (OB_FAIL(next_round_->build_fragment())) {
         STORAGE_LOG(WARN, "fail to build fragment", K(ret));
       } else {
         const int64_t write_fragment_time = common::ObTimeUtility::current_time() - start;
-        STORAGE_LOG(INFO, "ObMemorySortRound", K(write_fragment_time));
+        STORAGE_LOG(INFO, "MMMMM ObMemorySortRound", K(write_fragment_time));
         item_list_.reset();
         allocator_.reuse();
       }

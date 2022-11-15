@@ -965,7 +965,7 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   //     LOG_WARN("fail to create buffer", KR(ret));
   //   }
   // }
-  if (OB_FAIL(buffer_.create(FILE_BUFFER_SIZE))) {
+  if (OB_FAIL(buffer_.create(BUF_SIZE))) {
     LOG_WARN("fail to create buffer", KR(ret));
   }
   // init row_caster_
@@ -1025,7 +1025,7 @@ void ObParseDataThread::run(int64_t idx)
 
   // LOG_INFO("MMMMM run", KR(ret), K(idx));  
   rets_[idx] = ret;
-  while (!ATOMIC_LOAD(&has_set_stop()));
+  // while (!ATOMIC_LOAD(&has_set_stop()));
   // return OB_SUCCESS;
 }
 
@@ -1069,7 +1069,7 @@ int ObLoadDataDirectDemo::do_load()
     threads.set_thread_count(DEMO_BUF_NUM);
     threads.set_run_wrapper(MTL_CTX());
     threads.start();
-    threads.stop();
+    // threads.stop();
     threads.wait();
     LOG_INFO("MMMMM threads succeed", K(cnt));
     // queue_cnt++;
