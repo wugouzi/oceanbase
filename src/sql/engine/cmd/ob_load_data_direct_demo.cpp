@@ -965,7 +965,7 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   //     LOG_WARN("fail to create buffer", KR(ret));
   //   }
   // }
-  if (OB_FAIL(buffer_.create(FILE_BUFFER_SIZE))) {
+  if (OB_FAIL(buffer_.create(BUF_SIZE))) {
     LOG_WARN("fail to create buffer", KR(ret));
   }
   // init row_caster_

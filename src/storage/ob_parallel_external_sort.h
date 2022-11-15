@@ -1558,53 +1558,53 @@ int ObMemoryFragmentIterator<T>::get_next_item(const T *&item)
   return ret;
 }
 
-template<typename T, typename Compare>
-class ObMemorySortRoundAddItems : public lib::Threads 
-{
-  ObMemorySortRoundAddItems(): next_round_(NULL) {}
-  void init(ExternalSortRound *next_round) {
-    next_round_ = next_round;
-  }
+// template<typename T, typename Compare>
+// class ObMemorySortRoundAddItems : public lib::Threads 
+// {
+//   ObMemorySortRoundAddItems(): next_round_(NULL) {}
+//   void init(ExternalSortRound *next_round) {
+//     next_round_ = next_round;
+//   }
 
-  void push(ObVector<T *> item_list, common::ObArenaAllocator &allocator) {
-    std::lock_guard<std::mutex> guard(mutex_);
-    item_list_.push(std::move(item_list));
-    allocators.push(std::move(allocator));
-  }
+//   void push(ObVector<T *> item_list, common::ObArenaAllocator &allocator) {
+//     std::lock_guard<std::mutex> guard(mutex_);
+//     item_list_.push(std::move(item_list));
+//     allocators.push(std::move(allocator));
+//   }
 
-  void run(int64_t idx) {
-    while (!ATOMIC_LOAD(&has_set_stop()) || size() > 0) {
-      while (size() == 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      }
-      mutex_.lock();
-      ObVector<T *> &item_list = item_lists_.front();
-      common::ObArenaAllocator &allocator = allocators_.front();
-      mutex_.unlcok();
-      LOG_INFO("MMMMM build fragment", K(item_list_.size()));
-      for (int64_t i = 0; OB_SUCC(ret) && i < item_list_.size(); ++i) {
-        if (OB_FAIL(next_round_->add_item(*item_list_.at(i)))) {
-          STORAGE_LOG(WARN, "fail to add item", K(ret));
-        }
-      }
-      next_round_->build_fragment();
-      allocator.free();
-      mutex_.lock();
-      item_lists_.pop();
-      mutex_.unlock();
-    }
-  }
+//   void run(int64_t idx) {
+//     while (!ATOMIC_LOAD(&has_set_stop()) || size() > 0) {
+//       while (size() == 0) {
+//         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+//       }
+//       mutex_.lock();
+//       ObVector<T *> &item_list = item_lists_.front();
+//       common::ObArenaAllocator &allocator = allocators_.front();
+//       mutex_.unlcok();
+//       LOG_INFO("MMMMM build fragment", K(item_list_.size()));
+//       for (int64_t i = 0; OB_SUCC(ret) && i < item_list_.size(); ++i) {
+//         if (OB_FAIL(next_round_->add_item(*item_list_.at(i)))) {
+//           STORAGE_LOG(WARN, "fail to add item", K(ret));
+//         }
+//       }
+//       next_round_->build_fragment();
+//       allocator.free();
+//       mutex_.lock();
+//       item_lists_.pop();
+//       mutex_.unlock();
+//     }
+//   }
 
-  int size() {
-    std::lock_guard<std::mutex> guard(mutex_);
-    return item_lists_.size();
-  }
-private:
-  ExternalSortRound *next_round_;
-  std::queue<ObVector<T *>> item_lists_;
-  std::queue<common::ObArenaAllocator> allocators_;
-  std::mutex mutex_;
-}
+//   int size() {
+//     std::lock_guard<std::mutex> guard(mutex_);
+//     return item_lists_.size();
+//   }
+// private:
+//   ExternalSortRound *next_round_;
+//   std::queue<ObVector<T *>> item_lists_;
+//   std::queue<common::ObArenaAllocator> allocators_;
+//   std::mutex mutex_;
+// }
 
 template<typename T, typename Compare>
 class ObMemorySortRound
