@@ -249,7 +249,7 @@ namespace oceanbase
     {
       static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
-      static const int64_t BUF_SIZE = (2LL << 22); // 32M
+      static const int64_t BUF_SIZE = (2LL << 24); // 
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -261,7 +261,7 @@ namespace oceanbase
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int DEMO_BUF_NUM = 8;
+      static const int DEMO_BUF_NUM = 16;
 
       ObLoadSequentialFileReader file_reader_;
       // we have BUF_NUM buffers and we load data simultaneously

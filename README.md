@@ -112,4 +112,5 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 
 ## benchmark
 1. 8MB sort buffer 54m7s
-2. 2MB sort buffer
+2. 2MB sort buffer 49m56s
+3. 1MB sort buffer
