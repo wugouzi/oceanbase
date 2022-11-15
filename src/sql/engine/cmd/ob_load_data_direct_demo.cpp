@@ -1025,7 +1025,7 @@ void ObParseDataThread::run(int64_t idx)
 
   // LOG_INFO("MMMMM run", KR(ret), K(idx));  
   rets_[idx] = ret;
-  while (!ATOMIC_LOAD(&has_set_stop()));
+  // while (!ATOMIC_LOAD(&has_set_stop()));
   // return OB_SUCCESS;
 }
 
