@@ -71,6 +71,8 @@ namespace oceanbase
       int init(const ObDataInFileStruct &format, int64_t column_count,
                common::ObCollationType collation_type);
       int get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
+      int fast_get_next_row(ObLoadDataBuffer &buffer);
+      int parse_next_row(const common::ObNewRow *&row);
     private:
       struct UnusedRowHandler
       {
@@ -88,6 +90,8 @@ namespace oceanbase
       UnusedRowHandler unused_row_handler_;
       common::ObSEArray<ObCSVGeneralParser::LineErrRec, 1> err_records_;
       bool is_inited_;
+      const char *str_;
+      const char *end_;
     };
 
     class ObLoadDatumRow
@@ -261,7 +265,7 @@ namespace oceanbase
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int DEMO_BUF_NUM = 16;
+      static const int DEMO_BUF_NUM = 2;
 
       ObLoadSequentialFileReader file_reader_;
       // we have BUF_NUM buffers and we load data simultaneously
