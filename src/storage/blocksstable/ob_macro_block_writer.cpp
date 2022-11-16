@@ -407,9 +407,10 @@ int ObMacroBlockWriter::append_row(const ObDatumRow &row, const int64_t split_si
   } else if (split_size < data_store_desc_->micro_block_size_) {
     ret = OB_INVALID_ARGUMENT;
     STORAGE_LOG(WARN, "invalid split_size", K(ret), K(split_size));
-  } else if (OB_FAIL(check_order(row))) {
-    STORAGE_LOG(WARN, "macro block writer fail to check order.", K(row));
-  }
+    // HACK 去掉check
+  // } else if (OB_FAIL(check_order(row))) {
+  //   STORAGE_LOG(WARN, "macro block writer fail to check order.", K(row));
+  // }
   if (OB_SUCC(ret) ){
     is_macro_or_micro_block_reused_ = false;
     const ObStorageDatumUtils &datum_utils = read_info_.get_datum_utils();
