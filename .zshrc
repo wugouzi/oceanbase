@@ -150,6 +150,7 @@ alias chmodd='chmod 777 $TARGET_CSV'
 alias obc='log_info OBC START && chmodd && obclient -h127.0.0.1 -P2881 -uroot -Doceanbase'
 alias b='cd /root && log_info BEGIN TEST $TARGET_CSV && chmodd && chmodd && cdroot && obc < bench.sql'
 alias mmm='tmux a -t mmm'
+alias mmd='tmux a -t mmd'
 alias clash='cd archieve/clash && ./clash-linux-amd64-v1.10.0 -f glados.yaml -d .'
 alias zc="vim ~/.zshrc && source ~/.zshrc"
 alias mwdk="tmux new -s wdk"

@@ -69,7 +69,7 @@ namespace oceanbase
       ~ObLoadCSVPaser();
       void reset();
       int init(const ObDataInFileStruct &format, int64_t column_count,
-               common::ObCollationType collation_type, field_num);
+               common::ObCollationType collation_type, int field_num);
       int get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row(ObLoadDataBuffer &buffer);
       int parse_next_row(const common::ObNewRow *&row);
