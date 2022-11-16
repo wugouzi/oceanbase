@@ -197,9 +197,9 @@ template<typename T>
 int ObMacroBufferWriter<T>::write_item(const T &item)
 {
   int ret = common::OB_SUCCESS;
-  // int64_t size = item.get_serialize_size();
+  int64_t size = item.get_serialize_size();
   // LOG_INFO("MMMMM serialize_size", K(size));
-  int64_t size = 350;
+  // int64_t size = 350;
   if (size + buf_pos_ > buf_cap_) {
     LOG_INFO("MMMMM macro writer full");
     ret = common::OB_EAGAIN;
