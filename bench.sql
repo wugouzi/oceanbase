@@ -24,6 +24,6 @@ I_linenumber));
 
 SET GLOBAL secure_file_priv = "";
 set global ob_query_timeout=60000000;
-load data infile "/root/archieve/10m.csv" into table lineitem_bulk fields terminated by "|";
+load data infile "/root/archieve/1m.csv" into table lineitem_bulk fields terminated by "|";
 select count(*) from lineitem_bulk;
 
