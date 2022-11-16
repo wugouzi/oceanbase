@@ -210,6 +210,7 @@ namespace oceanbase
     class ObParseDataThread : public lib::Threads 
     {
     public:
+    /*
       ObParseDataThread(ObLoadDataBuffer &buffer, ObLoadCSVPaser *csv_parsers, 
                         ObLoadRowCaster *row_casters, ObLoadExternalSort *external_sorts,
                         ObLoadSequentialFileReader &file_reader, int *rets, int sort_num)
@@ -217,13 +218,22 @@ namespace oceanbase
                           row_casters_(row_casters), external_sorts_(external_sorts),
                           file_reader_(file_reader), rets_(rets), sort_num_(sort_num) 
                         {}
+    */
+      ObParseDataThread(ObLoadDataBuffer &buffer, ObLoadCSVPaser *csv_parsers, 
+                        ObLoadRowCaster *row_casters, ObLoadExternalSort &external_sort,
+                        ObLoadSequentialFileReader &file_reader, int *rets)
+                        : buffer_(buffer), csv_parsers_(csv_parsers),
+                          row_casters_(row_casters), external_sort_(external_sort),
+                          file_reader_(file_reader), rets_(rets)
+                        {}
       void run(int64_t idx) final;
     private:
       // ObLoadDataBuffer *buffers_;
       ObLoadDataBuffer &buffer_;
       ObLoadCSVPaser *csv_parsers_;
       ObLoadRowCaster *row_casters_;
-      ObLoadExternalSort *external_sorts_;
+      // ObLoadExternalSort *external_sorts_;
+      ObLoadExternalSort &external_sort_;
       ObLoadSequentialFileReader &file_reader_;
       int *rets_;
       std::mutex mutex_;
@@ -232,7 +242,7 @@ namespace oceanbase
 
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
-      static const int DEMO_THREAD_LOG = 3;
+      static const int DEMO_THREAD_LOG = 4;
       static const int DEMO_BUF_NUM = 1 << DEMO_THREAD_LOG;
       static const int SORT_NUM = 2;
       static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G

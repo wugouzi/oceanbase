@@ -1054,11 +1054,11 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   }
 
   // init external_sort_
-  for (int i = 0; i < SORT_NUM; i++) {
+  /*for (int i = 0; i < SORT_NUM; i++) {
     if (OB_FAIL(external_sorts_[i].init(table_schema, MEM_THREAD_BUFFER_SIZE, FILE_BUFFER_SIZE))) {
       LOG_WARN("fail to init row caster", KR(ret));
     }
-  }
+  }*/
   if (OB_FAIL(external_final_sort_.init(table_schema, MEM_BUFFER_SIZE, FILE_BUFFER_SIZE))) {
     LOG_WARN("fail to init row caster", KR(ret));
   }
@@ -1081,7 +1081,8 @@ void ObParseDataThread::run(int64_t idx)
   // ObLoadDataBuffer &buffer = buffers_[idx];
   ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
   ObLoadRowCaster &row_caster = row_casters_[idx];
-  ObLoadExternalSort &external_sort = external_sorts_[idx % sort_num_];
+  ObLoadExternalSort &external_sort = external_sort_;
+  // ObLoadExternalSort &external_sort = external_sorts_[idx % sort_num_];
 
   // parse whole file
   int cnt = 0;
@@ -1160,8 +1161,8 @@ int ObLoadDataDirectDemo::do_load()
       break;
     }
     
-    // ObParseDataThread threads(buffer_, csv_parsers_, row_casters_, external_final_sort_, file_reader_, rets);
-    ObParseDataThread threads(buffer_, csv_parsers_, row_casters_, external_sorts_, file_reader_, rets, SORT_NUM);
+    ObParseDataThread threads(buffer_, csv_parsers_, row_casters_, external_final_sort_, file_reader_, rets);
+    // ObParseDataThread threads(buffer_, csv_parsers_, row_casters_, external_sorts_, file_reader_, rets, SORT_NUM);
     threads.set_thread_count(DEMO_BUF_NUM);
     threads.set_run_wrapper(MTL_CTX());
     threads.start();
@@ -1172,11 +1173,10 @@ int ObLoadDataDirectDemo::do_load()
       ret = rets[i] == OB_SUCCESS ? ret : rets[i];
     }
   }
-  
-  
+  /*
   for (int i = 0; i < SORT_NUM; i++) {
     external_final_sort_.combine_sort(external_sorts_[i]);
-  }
+  }*/
 
   LOG_INFO("MMMMM finish reading", KR(ret));
   if (OB_FAIL(external_final_sort_.close())) {
