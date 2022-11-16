@@ -454,6 +454,15 @@ bool ObLoadDatumRowCompare::operator()(const ObLoadDatumRow *lhs, const ObLoadDa
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("unexpected column count", KR(ret), KPC(lhs), KPC(rhs), K_(rowkey_column_num));
   } else {
+    // skip many checks in ObDatumRowkey
+    const ObStoreCmpFuncs &cmp_funcs = datum_utils_->get_cmp_funcs();
+    int64_t cmp_cnt = rowkey_column_num_;
+    for (int64_t i = 0; OB_SUCC(ret) && i < cmp_cnt && 0 == cmp_ret; ++i) {
+      if (OB_FAIL(cmp_funcs.at(i).compare(lhs->datums_[i], rhs->datums_[i], cmp_ret))) {
+        STORAGE_LOG(WARN, "Failed to compare datum rowkey", K(ret), K(i), K(*lhs), K(*rhs));
+      }
+    }
+    /*
     if (OB_FAIL(lhs_rowkey_.assign(lhs->datums_, rowkey_column_num_))) {
       LOG_WARN("fail to assign datum rowkey", KR(ret), K(lhs), K_(rowkey_column_num));
     } else if (OB_FAIL(rhs_rowkey_.assign(rhs->datums_, rowkey_column_num_))) {
@@ -461,6 +470,7 @@ bool ObLoadDatumRowCompare::operator()(const ObLoadDatumRow *lhs, const ObLoadDa
     } else if (OB_FAIL(lhs_rowkey_.compare(rhs_rowkey_, *datum_utils_, cmp_ret))) {
       LOG_WARN("fail to compare rowkey", KR(ret), K(rhs_rowkey_), K(rhs_rowkey_), KP(datum_utils_));
     }
+    */
   }
   if (OB_FAIL(ret)) {
     result_code_ = ret;
