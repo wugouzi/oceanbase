@@ -182,6 +182,8 @@ int ObLoadCSVPaser::init(const ObDataInFileStruct &format, int64_t column_count,
   return ret;
 }
 
+// actually this double the io, so not fast actually
+// and to perform correctly, we need to know the number of fields in advance
 int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer)
 {
   if (buffer.empty()) {
@@ -195,6 +197,7 @@ int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer)
     end++;
   }
   buffer.consume(end - str_);
+  assert(*(end-1) == '\n');
 
   return OB_SUCCESS;
 }
@@ -204,13 +207,13 @@ int ObLoadCSVPaser::parse_next_row(const common::ObNewRow *&row)
   int ret = OB_SUCCESS;
   row = nullptr;
   int64_t nrows = 1;
-  LOG_INFO("parse next row", K(str_));
+  // LOG_INFO("parse next row", K(str_));
   if (OB_FAIL(csv_parser_.scan(str_, end_, nrows, nullptr, nullptr, unused_row_handler_,
                                 err_records_, false))) {
     LOG_WARN("MMMMM fail to scan buffer", KR(ret));
   } else if (OB_UNLIKELY(!err_records_.empty())) {
     ret = err_records_.at(0).err_code;
-    LOG_WARN("MMMMM fail to parse line", KR(ret));
+    
   } else if (0 == nrows) {
     ret = OB_ITER_END;
   } else {
@@ -243,10 +246,6 @@ int ObLoadCSVPaser::get_next_row(ObLoadDataBuffer &buffer, const ObNewRow *&row)
   } else {
     const char *str = buffer.begin();
     const char *end = buffer.end();
-    const char *test = str;
-    while (test < end && *test != '\n') test++;
-    if (test < end) test++;
-    LOG_INFO("MMMMM get next row 1", K(str));
     int64_t nrows = 1;
     if (OB_FAIL(csv_parser_.scan(str, end, nrows, nullptr, nullptr, unused_row_handler_,
                                  err_records_, false))) {
@@ -260,8 +259,6 @@ int ObLoadCSVPaser::get_next_row(ObLoadDataBuffer &buffer, const ObNewRow *&row)
       ret = OB_ITER_END;
       buffer.unlock();
     } else {
-      LOG_INFO("MMMMM test", K(test == end), K(test == str));
-      // LOG_INFO("MMMMM get next row 2", K(str[0]));
       buffer.consume(str - buffer.begin());
       buffer.unlock();
       const ObIArray<ObCSVGeneralParser::FieldValue> &field_values_in_file =
@@ -1058,9 +1055,9 @@ void ObParseDataThread::run(int64_t idx)
   while (OB_SUCC(ret)) {
     // LOG_INFO("MMMMM run", K(idx), K(cnt), KR(ret));
     {
-      std::lock_guard<std::mutex> guard(mutex_);
-      ret = csv_parser.fast_get_next_row(buffer_);
-      // ret = csv_parser.get_next_row(buffer_, new_row);
+      // std::lock_guard<std::mutex> guard(mutex_);
+      // ret = csv_parser.fast_get_next_row(buffer_);
+      ret = csv_parser.get_next_row(buffer_, new_row);
     }
     if (OB_FAIL(ret)) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
@@ -1069,7 +1066,7 @@ void ObParseDataThread::run(int64_t idx)
         ret = OB_SUCCESS;
         break;
       }
-    } else if (OB_FAIL(csv_parser.parse_next_row(new_row))) {
+    } /*else if (OB_FAIL(csv_parser.parse_next_row(new_row))) {
       // LOG_INFO("MMMMM fail to parse row", KR(ret), K(idx));
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
         LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
@@ -1077,7 +1074,7 @@ void ObParseDataThread::run(int64_t idx)
         ret = OB_SUCCESS;
         break;
       }
-    } else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
+    } */else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
       LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx));
     } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
       LOG_INFO("MMMMM fail to append row", KR(ret), K(idx));
