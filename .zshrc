@@ -173,3 +173,5 @@ alias mdbr='mr && dr && logm'
 
 alias pc="proxychains4"
 alias zc="vim ~/.zshrc && source ~/.zshrc"
+
+alias ana='rg 'start load' && rg 'finish reading' && rg 'sort done' && rg 'load done''

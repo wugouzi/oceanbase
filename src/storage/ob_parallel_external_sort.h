@@ -198,6 +198,8 @@ int ObMacroBufferWriter<T>::write_item(const T &item)
 {
   int ret = common::OB_SUCCESS;
   int64_t size = item.get_serialize_size();
+  // LOG_INFO("MMMMM serialize_size", K(size));
+  // int64_t size = 300;
   if (size + buf_pos_ > buf_cap_) {
     LOG_INFO("MMMMM macro writer full");
     ret = common::OB_EAGAIN;
@@ -1141,6 +1143,7 @@ public:
   int get_next_item(const T *&item);
   int64_t get_fragment_count();
   int add_fragment_iter(ObFragmentIterator<T> *iter);
+  int combine_round(ObExternalSortRound<T, Compare> &round);
   int transfer_final_sorted_fragment_iter(ObExternalSortRound &dest_round);
   int add_items(const ObVector<T *> &item);
 private:
@@ -1283,6 +1286,18 @@ int ObExternalSortRound<T, Compare>::build_fragment()
       writer_.reset();
       is_writer_opened_ = false;
     }
+  }
+  return ret;
+}
+
+// TODO: checks
+template<typename T, typename Compare>
+int ObExternalSortRound<T, Compare>::combine_round(ObExternalSortRound<T, Compare> &round)
+{
+  int ret = common::OB_SUCCESS;
+
+  for (int i = 0; i < round.iters_.size(); i++) {
+    iters_.push_back(round.iters_[i]);
   }
   return ret;
 }
@@ -1907,6 +1922,7 @@ public:
   int get_current_round(ExternalSortRound *&round);
   TO_STRING_KV(K(is_inited_), K(file_buf_size_), K(buf_mem_limit_), K(expire_timestamp_),
       K(merge_count_per_round_), KP(tenant_id_), KP(compare_));
+  int combine_sort(ObExternalSort<T, Compare> &sort);
 private:
   static const int64_t EXTERNAL_SORT_ROUND_CNT = 2;
   bool is_inited_;
@@ -1922,6 +1938,15 @@ private:
   bool is_empty_;
   uint64_t tenant_id_;
 };
+
+template<typename T, typename Compare>
+int ObExternalSort<T, Compare>::combine_sort(ObExternalSort<T, Compare> &sort)
+{
+  int ret = common::OB_SUCCESS;
+  sort.memory_sort_round_.build_fragment();
+  curr_round_->combine_round(*sort.curr_round_);
+  return ret;
+}
 
 template<typename T, typename Compare>
 ObExternalSort<T, Compare>::ObExternalSort()

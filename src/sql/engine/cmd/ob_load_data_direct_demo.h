@@ -71,6 +71,8 @@ namespace oceanbase
       int init(const ObDataInFileStruct &format, int64_t column_count,
                common::ObCollationType collation_type);
       int get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
+      int fast_get_next_row(ObLoadDataBuffer &buffer);
+      int parse_next_row(const common::ObNewRow *&row);
     private:
       struct UnusedRowHandler
       {
@@ -88,6 +90,8 @@ namespace oceanbase
       UnusedRowHandler unused_row_handler_;
       common::ObSEArray<ObCSVGeneralParser::LineErrRec, 1> err_records_;
       bool is_inited_;
+      const char *str_;
+      const char *end_;
     };
 
     class ObLoadDatumRow
@@ -162,6 +166,7 @@ namespace oceanbase
       int append_row(const ObLoadDatumRow &datum_row);
       int close();
       int get_next_row(const ObLoadDatumRow *&datum_row);
+      int combine_sort(ObLoadExternalSort &sort);
     private:
       common::ObArenaAllocator allocator_;
       blocksstable::ObStorageDatumUtils datum_utils_;
@@ -205,11 +210,11 @@ namespace oceanbase
     {
     public:
       ObParseDataThread(ObLoadDataBuffer &buffer, ObLoadCSVPaser *csv_parsers, 
-                        ObLoadRowCaster *row_casters, ObLoadExternalSort &external_sort,
-                        ObLoadSequentialFileReader &file_reader, int *rets)
+                        ObLoadRowCaster *row_casters, ObLoadExternalSort *external_sorts,
+                        ObLoadSequentialFileReader &file_reader, int *rets, int sort_num)
                         : buffer_(buffer), csv_parsers_(csv_parsers),
-                          row_casters_(row_casters), external_sort_(external_sort),
-                          file_reader_(file_reader), rets_(rets) 
+                          row_casters_(row_casters), external_sorts_(external_sorts),
+                          file_reader_(file_reader), rets_(rets), sort_num_(sort_num) 
                         {}
       void run(int64_t idx) final;
     private:
@@ -217,37 +222,20 @@ namespace oceanbase
       ObLoadDataBuffer &buffer_;
       ObLoadCSVPaser *csv_parsers_;
       ObLoadRowCaster *row_casters_;
-      ObLoadExternalSort &external_sort_;
+      ObLoadExternalSort *external_sorts_;
       ObLoadSequentialFileReader &file_reader_;
       int *rets_;
       std::mutex mutex_;
+      int sort_num_;
     };
-    
-    class ObParseDataTask : public share::ObAsyncTask 
-    {
-    public:
-      ObParseDataTask(ObLoadDataBuffer &buffer, ObLoadCSVPaser &csv_parser, 
-                      ObLoadRowCaster &row_caster, ObLoadExternalSort &external_sort, 
-                      int &ret, ObLoadSequentialFileReader &file_reader)
-                      : buffer_(buffer), csv_parser_(csv_parser), row_caster_(row_caster),
-                        external_sort_(external_sort), ret_(ret), file_reader_(file_reader) {}
-      int process() override;
-      int64_t get_deep_copy_size() const { return sizeof(ObParseDataTask); }
-      share::ObAsyncTask *deep_copy(char *buf, const int64_t buf_size) const;
-    protected:
-      ObLoadDataBuffer &buffer_;
-      ObLoadCSVPaser &csv_parser_;
-      ObLoadRowCaster &row_caster_;
-      ObLoadExternalSort &external_sort_;
-      int &ret_;
-      ObLoadSequentialFileReader &file_reader_;
-      std::mutex mutex_;
-    };
-    
 
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
-      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G
+      static const int DEMO_THREAD_LOG = 3;
+      static const int DEMO_BUF_NUM = 1 << DEMO_THREAD_LOG;
+      static const int SORT_NUM = 2;
+      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G
+      static const int64_t MEM_THREAD_BUFFER_SIZE = (1LL << 30);
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       static const int64_t BUF_SIZE = (2LL << 24); // 
     public:
@@ -261,8 +249,7 @@ namespace oceanbase
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int DEMO_BUF_NUM = 16;
-
+      
       ObLoadSequentialFileReader file_reader_;
       // we have BUF_NUM buffers and we load data simultaneously
       // ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
@@ -270,7 +257,8 @@ namespace oceanbase
       ObLoadCSVPaser csv_parsers_[DEMO_BUF_NUM];
       ObLoadRowCaster row_casters_[DEMO_BUF_NUM];
       // ObLoadDataBuffer buffer_;
-      ObLoadExternalSort external_sort_;
+      ObLoadExternalSort external_sorts_[SORT_NUM];
+      ObLoadExternalSort external_final_sort_;
       ObLoadSSTableWriter sstable_writer_;
     };
 
