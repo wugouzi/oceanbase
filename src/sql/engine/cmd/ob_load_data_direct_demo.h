@@ -69,7 +69,7 @@ namespace oceanbase
       ~ObLoadCSVPaser();
       void reset();
       int init(const ObDataInFileStruct &format, int64_t column_count,
-               common::ObCollationType collation_type);
+               common::ObCollationType collation_type, field_num);
       int get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row(ObLoadDataBuffer &buffer);
       int parse_next_row(const common::ObNewRow *&row);
@@ -92,6 +92,7 @@ namespace oceanbase
       bool is_inited_;
       const char *str_;
       const char *end_;
+      int field_num_;
     };
 
     class ObLoadDatumRow
@@ -235,7 +236,7 @@ namespace oceanbase
       static const int DEMO_BUF_NUM = 1 << DEMO_THREAD_LOG;
       static const int SORT_NUM = 2;
       static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G
-      static const int64_t MEM_THREAD_BUFFER_SIZE = (1LL << 30);
+      static const int64_t MEM_THREAD_BUFFER_SIZE = (1LL << 27);
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       static const int64_t BUF_SIZE = (2LL << 24); // 
     public:

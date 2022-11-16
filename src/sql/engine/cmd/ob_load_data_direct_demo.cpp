@@ -157,7 +157,7 @@ void ObLoadCSVPaser::reset()
 }
 
 int ObLoadCSVPaser::init(const ObDataInFileStruct &format, int64_t column_count,
-                         ObCollationType collation_type)
+                         ObCollationType collation_type, int field_num)
 {
   int ret = OB_SUCCESS;
   if (IS_INIT) {
@@ -177,6 +177,7 @@ int ObLoadCSVPaser::init(const ObDataInFileStruct &format, int64_t column_count,
       row_.count_ = column_count;
       collation_type_ = collation_type;
       is_inited_ = true;
+      field_num_ = field_num;
     }
   }
   return ret;
@@ -1018,7 +1019,7 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   // init csv_parser_
   for (int i = 0; i < DEMO_BUF_NUM; i++) {
     if (OB_FAIL(csv_parsers_[i].init(load_stmt.get_data_struct_in_file(), field_or_var_list.count(),
-                                    load_args.file_cs_type_))) {
+                                    load_args.file_cs_type_, 16))) {
       LOG_WARN("fail to init csv parser", KR(ret));
     }
   }

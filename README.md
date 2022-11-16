@@ -115,3 +115,4 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 2. 2MB sort buffer 49m56s
 3. 2MB sort buffer + compare w/o serialize 47m39s
 4. 2MB sort buffer + compare + w/o serialize 
+5. 2MB sort buffer + compare + parallel sort 45m
