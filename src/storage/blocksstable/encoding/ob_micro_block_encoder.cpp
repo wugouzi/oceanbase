@@ -127,6 +127,7 @@ int ObMicroBlockEncoder::init(const ObMicroBlockEncodingCtx &ctx, common::ObArra
   }
 
   encoders_ = encoders;
+  encoders_from_outside_ = true;
   if (OB_UNLIKELY(!ctx.is_valid())) {
     ret = OB_INVALID_ARGUMENT;
     LOG_WARN("invalid encoder context", K(ret), K(ctx));
@@ -238,7 +239,7 @@ void ObMicroBlockEncoder::reset()
   row_buf_holder_.reset();
   fix_data_encoders_.reset();
   var_data_encoders_.reset();
-  // free_encoders();
+  free_encoders();
   encoders_.reset();
   hashtables_.reset();
   multi_prefix_trees_.reset();
@@ -269,7 +270,7 @@ void ObMicroBlockEncoder::reuse()
   // row_buf_holder_ no need to reuse
   fix_data_encoders_.reuse();
   var_data_encoders_.reuse();
-  // free_encoders();
+  free_encoders();
   encoders_.reuse();
   hashtables_.reuse();
   multi_prefix_trees_.reuse();
@@ -1260,7 +1261,7 @@ int ObMicroBlockEncoder::encoder_detection()
       }
     }
     if (OB_FAIL(ret)) {
-      // free_encoders();
+      free_encoders();
     }
   }
 
@@ -1775,6 +1776,9 @@ int ObMicroBlockEncoder::choose_encoder(const int64_t column_idx,
 void ObMicroBlockEncoder::free_encoders()
 {
   int ret = OB_SUCCESS;
+  if (encoders_from_outside_) {
+    return;
+  }
   FOREACH(e, encoders_) {
     free_encoder(*e);
   }
