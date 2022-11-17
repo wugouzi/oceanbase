@@ -66,6 +66,7 @@ public:
 
   // Valid to double init. will call reuse() every time befor initialization.
   int init(const ObMicroBlockEncodingCtx &ctx);
+  int init(const ObMicroBlockEncodingCtx &ctx, common::ObArray<ObIColumnEncoder *> &encoders);
   // return OB_BUF_NOT_ENOUGH if exceed micro block size
   virtual int append_row(const ObDatumRow &row);
   virtual int build_block(char *&buf, int64_t &size);
@@ -81,6 +82,8 @@ public:
   virtual int64_t get_column_count() const { return ctx_.column_cnt_;}
   virtual int64_t get_original_size() const { return estimate_size_; }
   virtual void dump_diagnose_info() const override;
+  common::ObArray<ObIColumnEncoder *> build_encoders();
+  // void set_encoders(common::ObArray<ObIColumnEncoder *> &encoders) { encoders_ = encoders; }
 private:
   int inner_init();
   int reserve_header(const ObMicroBlockEncodingCtx &ctx);

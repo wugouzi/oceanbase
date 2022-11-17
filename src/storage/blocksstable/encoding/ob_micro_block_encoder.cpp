@@ -116,6 +116,47 @@ int64_t ObMicroBlockEncoder::get_data_size() const {
   }
   return data_size;
 }
+
+int ObMicroBlockEncoder::init(const ObMicroBlockEncodingCtx &ctx, common::ObArray<ObIColumnEncoder *> &encoders)
+{
+  // can be init twice
+  int ret = OB_SUCCESS;
+  if (is_inited_) {
+    reuse();
+    is_inited_ = false;
+  }
+
+  encoders_ = encoders;
+  if (OB_UNLIKELY(!ctx.is_valid())) {
+    ret = OB_INVALID_ARGUMENT;
+    LOG_WARN("invalid encoder context", K(ret), K(ctx));
+  } /*else if (OB_FAIL(encoders_.reserve(ctx.column_cnt_))) {
+    LOG_WARN("reserve array failed", K(ret), "size", ctx.column_cnt_);
+  } */else if (OB_FAIL(encoder_allocator_.init())) {
+    LOG_WARN("encoder_allocator init failed", K(ret));
+  } else if (OB_FAIL(hashtables_.reserve(ctx.column_cnt_))) {
+    LOG_WARN("reserve array failed", K(ret), "size", ctx.column_cnt_);
+  } else if (OB_FAIL(multi_prefix_trees_.reserve(ctx.column_cnt_))) {
+    LOG_WARN("reserve array failed", K(ret), "size", ctx.column_cnt_);
+  } else if (OB_FAIL(col_ctxs_.reserve(ctx.column_cnt_))) {
+    LOG_WARN("reserve array failed", K(ret), "size", ctx.column_cnt_);
+  } else if (OB_FAIL(init_all_col_values(ctx))) {
+    LOG_WARN("init all_col_values failed", K(ret), K(ctx));
+  } else if (OB_FAIL(row_buf_holder_.init(ctx.macro_block_size_))) {
+    LOG_WARN("init row buf holder failed", K(ret));
+  } else {
+    // TODO bin.lb: shrink all_col_values_ size
+    estimate_base_store_size_ = 0;
+    for (int64_t i = 0; i < ctx.column_cnt_; ++i) {
+      estimate_base_store_size_
+          += get_estimate_base_store_size_map()[ctx.col_descs_->at(i).col_type_.get_type()];
+    }
+    ctx_ = ctx;
+    is_inited_ = true;
+  }
+  return ret;
+}
+
 int ObMicroBlockEncoder::init(const ObMicroBlockEncodingCtx &ctx)
 {
   // can be init twice
@@ -197,7 +238,7 @@ void ObMicroBlockEncoder::reset()
   row_buf_holder_.reset();
   fix_data_encoders_.reset();
   var_data_encoders_.reset();
-  free_encoders();
+  // free_encoders();
   encoders_.reset();
   hashtables_.reset();
   multi_prefix_trees_.reset();
@@ -228,7 +269,7 @@ void ObMicroBlockEncoder::reuse()
   // row_buf_holder_ no need to reuse
   fix_data_encoders_.reuse();
   var_data_encoders_.reuse();
-  free_encoders();
+  // free_encoders();
   encoders_.reuse();
   hashtables_.reuse();
   multi_prefix_trees_.reuse();
@@ -558,7 +599,7 @@ int ObMicroBlockEncoder::build_block(char *&buf, int64_t &size)
     LOG_WARN("pivot rows to columns failed", K(ret));
   } else if (OB_FAIL(row_indexs_.reserve(datum_rows_.count()))) {
     LOG_WARN("array reserve failed", K(ret), "count", datum_rows_.count());
-  } else if (OB_FAIL(encoder_detection())) {
+  } else if (encoders_.size() == 0 && OB_FAIL(encoder_detection())) {
     LOG_WARN("detect column encoding failed", K(ret));
   } else {
     STORAGE_LOG(DEBUG, "[debug] build micro block", K_(estimate_size), K_(header_size), K_(expand_pct),
@@ -1123,6 +1164,53 @@ int ObMicroBlockEncoder::prescan(const int64_t column_index)
   return ret;
 }
 
+common::ObArray<ObIColumnEncoder *> ObMicroBlockEncoder::build_encoders() {
+  int ret = common::OB_SUCCESS;
+  common::ObArray<ObIColumnEncoder *> encoders;
+  for (int64_t i = 0; OB_SUCC(ret) && i < ctx_.column_cnt_; ++i) {
+    if (OB_FAIL(prescan(i))) {
+      LOG_WARN("failed to prescan", K(ret));
+    }
+  }
+  if (OB_SUCC(ret)) {
+    int64_t extend_value_bit = 1;
+    FOREACH(c, col_ctxs_) {
+      if (c->nope_cnt_ > 0) {
+        extend_value_bit = 2;
+        break;
+      }
+    }
+    FOREACH(c, col_ctxs_) {
+      c->extend_value_bit_ = extend_value_bit;
+    }
+  }
+  for (int64_t i = 0; OB_SUCC(ret) && i <ctx_.column_cnt_; ++i) {
+    if (col_ctxs_.at(i).is_out_row_column_) {
+      // Use raw encoding for out row locator
+      ObIColumnEncoder *e = nullptr;
+      if (OB_FAIL(try_encoder<ObRawEncoder>(e, i))) {
+        LOG_WARN("failed to try column out row encoder", K(ret));
+      } else if (OB_FAIL(encoders.push_back(e))) {
+        LOG_WARN("failed to append encoder", K(ret), KP(e));
+        free_encoder(e);
+        e = nullptr;
+      }
+    } else if (OB_FAIL(fast_encoder_detect(i, col_ctxs_.at(i)))) {
+      LOG_WARN("fast encoder detect failed", K(ret), K(i));
+    } else {
+      if (encoders.count() <= i) {
+        if (col_ctxs_.at(i).only_raw_encoding_) {
+          ret = OB_ERR_UNEXPECTED;
+          LOG_WARN("The column should only use raw_encoding", "col_ctx", col_ctxs_.at(i), K(i), K(ret));
+        } else if (OB_FAIL(choose_encoder(i, col_ctxs_.at(i)))) {
+          LOG_WARN("choose_encoder failed", K(ret), K(i));
+        }
+      }
+    }
+  }
+  return encoders;
+}
+
 int ObMicroBlockEncoder::encoder_detection()
 {
   int ret = OB_SUCCESS;
@@ -1172,7 +1260,7 @@ int ObMicroBlockEncoder::encoder_detection()
       }
     }
     if (OB_FAIL(ret)) {
-      free_encoders();
+      // free_encoders();
     }
   }
 

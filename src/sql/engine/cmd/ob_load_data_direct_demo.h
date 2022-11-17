@@ -242,13 +242,13 @@ namespace oceanbase
 
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
-      static const int DEMO_THREAD_LOG = 4;
-      static const int DEMO_BUF_NUM = 1 << DEMO_THREAD_LOG;
+      // static const int DEMO_THREAD_LOG = 3;
+      static const int DEMO_BUF_NUM = 8;
       static const int SORT_NUM = 2;
       static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G
       static const int64_t MEM_THREAD_BUFFER_SIZE = (1LL << 27);
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
-      static const int64_t BUF_SIZE = (2LL << 24); // 
+      static const int64_t BUF_SIZE = (2LL << 20); // 
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -268,7 +268,7 @@ namespace oceanbase
       ObLoadCSVPaser csv_parsers_[DEMO_BUF_NUM];
       ObLoadRowCaster row_casters_[DEMO_BUF_NUM];
       // ObLoadDataBuffer buffer_;
-      ObLoadExternalSort external_sorts_[SORT_NUM];
+      // ObLoadExternalSort external_sorts_[SORT_NUM];
       ObLoadExternalSort external_final_sort_;
       ObLoadSSTableWriter sstable_writer_;
     };
