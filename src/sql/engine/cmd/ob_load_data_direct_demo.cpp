@@ -129,6 +129,8 @@ int ObLoadSequentialFileReader::read_next_buffer(ObLoadDataBuffer &buffer)
       buffer.produce(read_size);
       LOG_WARN("MMMMM buffer size", K(read_size), K(offset_), K(buffer.data()));
     }
+  } else {
+    LOG_INFO("MMMMM buffer is full");
   }
   return ret;
 }
@@ -192,15 +194,17 @@ int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer)
   }
   str_ = buffer.begin();
   end_ = buffer.end();
+  
   const char *end = str_;
   int bar_cnt = 0;
+  bool has_new_line = false;
   while (end < end_ && *end != '\n') {
     if (*end == '|') {
       bar_cnt++;
     }
     end++;
   }
-  if (bar_cnt != field_num_) {
+  if (bar_cnt != field_num_ || end == end_) {
     return OB_ITER_END;
   }
   if (end_ != end) {
@@ -1089,9 +1093,9 @@ void ObParseDataThread::run(int64_t idx)
   while (OB_SUCC(ret)) {
     // LOG_INFO("MMMMM run", K(idx), K(cnt), KR(ret));
     {
-      // std::lock_guard<std::mutex> guard(mutex_);
-      // ret = csv_parser.fast_get_next_row(buffer_);
-      ret = csv_parser.get_next_row(buffer_, new_row);
+      std::lock_guard<std::mutex> guard(mutex_);
+      ret = csv_parser.fast_get_next_row(buffer_);
+      // ret = csv_parser.get_next_row(buffer_, new_row);
     }
     if (OB_FAIL(ret)) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
@@ -1100,7 +1104,7 @@ void ObParseDataThread::run(int64_t idx)
         ret = OB_SUCCESS;
         break;
       }
-    } /*else if (OB_FAIL(csv_parser.parse_next_row(new_row))) {
+    } else if (OB_FAIL(csv_parser.parse_next_row(new_row))) {
       // LOG_INFO("MMMMM fail to parse row", KR(ret), K(idx));
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
         LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
@@ -1108,7 +1112,7 @@ void ObParseDataThread::run(int64_t idx)
         ret = OB_SUCCESS;
         break;
       }
-    } */else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
+    } else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
       LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx));
     } else if (OB_FAIL(external_sort.append_row(*datum_row))) {
       LOG_INFO("MMMMM fail to append row", KR(ret), K(idx));
@@ -1137,12 +1141,13 @@ int ObLoadDataDirectDemo::do_load_buffer()
         ret = OB_ERR_UNEXPECTED;
         LOG_INFO("MMMMM unexpected incomplate data", KR(ret));
       }
+      LOG_INFO("MMMMM eof", K(ret));
     }
   } else if (OB_UNLIKELY(buffer_.empty())) {
     ret = OB_ERR_UNEXPECTED;
     LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
   } 
-  LOG_INFO("MMMMM load buffer");
+  LOG_INFO("MMMMM load buffer", KR(ret));
   return ret;
 }
 
