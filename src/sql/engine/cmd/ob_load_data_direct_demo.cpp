@@ -1093,9 +1093,9 @@ void ObParseDataThread::run(int64_t idx)
   while (OB_SUCC(ret)) {
     // LOG_INFO("MMMMM run", K(idx), K(cnt), KR(ret));
     {
-      std::lock_guard<std::mutex> guard(mutex_);
-      ret = csv_parser.fast_get_next_row(buffer_);
-      // ret = csv_parser.get_next_row(buffer_, new_row);
+      // std::lock_guard<std::mutex> guard(mutex_);
+      // ret = csv_parser.fast_get_next_row(buffer_);
+      ret = csv_parser.get_next_row(buffer_, new_row);
     }
     if (OB_FAIL(ret)) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
