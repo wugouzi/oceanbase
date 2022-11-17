@@ -101,16 +101,36 @@ class MyThreadPool : public share::ObThreadPool
     lib::Worker::CompatMode mode = ((omt::ObTenant*) tenant_base)->get_compat_mode();
     lib::Worker::set_compatibility_mode(mode);
 
+    int64_t idx = (int64_t)get_thread_idx();
+
+    ObSSTableIndexBuilder sstable_index_builder;
+
+    ObDataStoreDesc data_store_desc;
+
+    data_store_desc.sstable_index_builder_ = &sstable_index_builder;
+
+    ObMacroBlockWriter macro_block_writer;
+
+    ObMacroDataSeq data_seq;
+
+    data_seq.set_parallel_degree(idx);
+
+    macro_block_writer.open(data_store_desc, data_seq);
+
     // do work
+  }
+
+  static void main() {
+    // invokotion code
+    MyThreadPool thread_pool;
+    thread_pool.set_thread_count(8);
+    thread_pool.set_run_wrapper(MTL_CTX());
+    thread_pool.start();
+    thread_pool.stop();
+    thread_pool.wait();
   }
 };
 
-// MyThreadPool thread_pool;
-// thread_pool.set_thread_count(8);
-// thread_pool.set_run_wrapper(MTL_CTX());
-// thread_pool.start();
-// thread_pool.stop();
-// thread_pool.wait();
 
 class ObMacroBlockWriter
 {
