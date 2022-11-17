@@ -1283,6 +1283,14 @@ int ObMacroBlockWriter::build_micro_writer_local(ObDataStoreDesc *data_store_des
   ObMicroBlockWriter *flat_writer = nullptr;
   const bool need_calc_column_chksum = data_store_desc->is_major_merge();
   if (data_store_desc->encoding_enabled()) {
+    /*
+    LOG_INFO("MMMMM build encoding micro writer local");
+    if (this->encoding_writer_ != nullptr) {
+      this->encoding_writer_->reuse2();
+      micro_writer = encoding_writer_;
+      return ret;
+    }
+    */
     ObMicroBlockEncodingCtx encoding_ctx;
     encoding_ctx.macro_block_size_ = data_store_desc->macro_block_size_;
     encoding_ctx.micro_block_size_ = data_store_desc->micro_block_size_;
@@ -1294,25 +1302,18 @@ int ObMacroBlockWriter::build_micro_writer_local(ObDataStoreDesc *data_store_des
     encoding_ctx.major_working_cluster_version_ = data_store_desc->major_working_cluster_version_;
     encoding_ctx.row_store_type_ = data_store_desc->row_store_type_;
     encoding_ctx.need_calc_column_chksum_ = need_calc_column_chksum;
-    if (encoders_.size() == 0) {
-      encoding_writer = new (buf) ObMicroBlockEncoder();
-      encoding_writer->init(encoding_ctx);
-      encoders_ = encoding_writer->build_encoders();
-      encoding_writer->~ObMicroBlockEncoder();
-      allocator.free(encoding_writer);
-      encoding_writer = nullptr;
-    }
     if (OB_ISNULL(buf = allocator.alloc(sizeof(ObMicroBlockEncoder)))) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
       STORAGE_LOG(WARN, "fail to alloc memory", K(ret));
     } else if (OB_ISNULL(encoding_writer = new (buf) ObMicroBlockEncoder())) {
       ret = OB_ERR_UNEXPECTED;
       STORAGE_LOG(WARN, "fail to new encoding writer", K(ret));
-    } else if (OB_FAIL(encoding_writer->init(encoding_ctx, encoders_))) {
+    } else if (OB_FAIL(encoding_writer->init(encoding_ctx))) {
       STORAGE_LOG(WARN, "Fail to init micro block encoder, ", K(ret));
     } else {
       encoding_writer->set_micro_block_merge_verify_level(verify_level);
       micro_writer = encoding_writer;
+      this->encoding_writer_ = encoding_writer;
     }
   } else {
     if (OB_ISNULL(buf = allocator.alloc(sizeof(ObMicroBlockWriter)))) {

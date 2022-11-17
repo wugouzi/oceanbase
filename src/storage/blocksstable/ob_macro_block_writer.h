@@ -117,7 +117,7 @@ public:
                                 ObIAllocator &allocator,
                                 ObIMicroBlockWriter *&micro_writer,
                                 const int64_t verify_level = MICRO_BLOCK_MERGE_VERIFY_LEVEL::ENCODING_AND_COMPRESSION);                                
-
+  ObMicroBlockEncoder *encoding_writer_ = nullptr;
 private:
   int append_row(const ObDatumRow &row, const int64_t split_size);
   int check_order(const ObDatumRow &row);
@@ -182,7 +182,8 @@ private:
   blocksstable::ObDatumRow check_datum_row_;
   ObIMacroBlockFlushCallback *callback_;
   ObDataIndexBlockBuilder *builder_;
-  common::ObArray<ObIColumnEncoder *> encoders_;
+  
+  ObMicroBlockWriter *flat_writer = nullptr;
 };
 
 }//end namespace blocksstable

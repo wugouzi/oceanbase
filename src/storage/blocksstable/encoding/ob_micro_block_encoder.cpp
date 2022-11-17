@@ -250,6 +250,22 @@ void ObMicroBlockEncoder::reset()
   length_ = 0;
 }
 
+void ObMicroBlockEncoder::reuse2()
+{
+  ObIMicroBlockWriter::reuse();
+  datum_rows_.reset();
+  estimate_size_ = 0;
+  data_buffer_.reuse();
+  header_ = nullptr;
+  FOREACH(c, all_col_datums_) {
+    (*c)->reuse();
+  }
+  buffered_rows_checksum_ = 0;
+  estimate_size_ = 0;
+  length_ = 0;
+}
+
+
 void ObMicroBlockEncoder::reuse()
 {
   ObIMicroBlockWriter::reuse();
@@ -1779,9 +1795,9 @@ void ObMicroBlockEncoder::free_encoders()
   if (encoders_from_outside_) {
     return;
   }
-  FOREACH(e, encoders_) {
-    free_encoder(*e);
-  }
+    FOREACH(e, encoders_) {
+      free_encoder(*e);
+    }
   FOREACH(ht, hashtables_) {
     // should continue even fail
     if (OB_FAIL(hashtable_factory_.recycle(*ht))) {

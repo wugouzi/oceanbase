@@ -75,6 +75,7 @@ public:
   // reuse() will clean status of members partially.
   // Can be called alone or along with init()
   virtual void reuse();
+  void reuse2();
   ObBufferHolder &get_data() { return data_buffer_; }
   virtual int64_t get_row_count() const { return datum_rows_.count(); }
   virtual int64_t get_data_size() const;
