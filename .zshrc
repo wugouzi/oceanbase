@@ -129,6 +129,8 @@ export OBD_INSTALL_PRE=~/.oceanbase-all-in-one/obd
 source $OBD_INSTALL_PRE/etc/profile.d/obd.sh
 export OBCLIENT_HOME=~/.oceanbase-all-in-one/obclient
 export PATH=$OBD_INSTALL_PRE/usr/bin:$OBCLIENT_HOME/u01/obclient/bin:$HOME/.cargo/bin:$PATH
+export PATH=$PATH:$HOME/clang+llvm-11.1.0-x86_64-linux-gnu-ubuntu-16.04/bin
+export PATH=$PATH:$HOME/ccls/Release
 # export PATH=/root/cmake/bin:$PATH
 
 export OB_ROOT=$HOME/oceanbase
