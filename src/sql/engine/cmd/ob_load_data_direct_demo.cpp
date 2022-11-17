@@ -1124,8 +1124,6 @@ int ObLoadDataDirectDemo::do_load_buffer()
 
 int ObLoadDataDirectDemo::do_load()
 {
-  // const ObNewRow *new_row = nullptr;
-  // const ObLoadDatumRow *datum_row = nullptr;
   int ret = OB_SUCCESS;
   int cnt = 0;
   while (OB_SUCC(ret)) {
@@ -1143,23 +1141,7 @@ int ObLoadDataDirectDemo::do_load()
     // threads.stop();
     threads.wait();
     LOG_INFO("MMMMM threads succeed", K(cnt));
-    // queue_cnt++;
-    // ObWorkQueue queue;
-    // queue.init(DEMO_BUF_NUM, 1024*1024);
-    
-    // for (int i = 0; i < DEMO_BUF_NUM; i++) {
-    //   queue.add_async_task(ObParseDataTask(buffers_[i], csv_parsers_[i],
-    //                                       row_casters_[i], external_sort_, 
-    //                                       rets[i], file_reader_));
-    // }
-    // if (OB_FAIL(queue.start())) {
-    //   LOG_WARN("MMMMM queue start fail");
-    // } else if (OB_FAIL(queue.wait())) {
-    //   LOG_WARN("MMMMM queue wait fail");
-    // } else {
-    //   LOG_INFO("MMMMM queue succeed", K(queue_cnt), K(rets[0]), K(rets[1]));
-    // }
-    // queue.destroy();
+
     for (int i = 0; i < DEMO_BUF_NUM; i++) {
       ret = rets[i] == OB_SUCCESS ? ret : rets[i];
     }
