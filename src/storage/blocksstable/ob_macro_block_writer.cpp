@@ -1456,6 +1456,22 @@ void ObMacroBlockWriter::dump_macro_block(ObMacroBlock &macro_block)
   return;
 }
 
+// TODO wudengke finish this
+void MyThreadPool::run1() {
+  ObTenantStatEstGuard stat_est_guard(MTL_ID());
+  share::ObTenantBase *tenant_base = MTL_CTX();
+  lib::Worker::CompatMode mode =
+      ((omt::ObTenant *)tenant_base)->get_compat_mode();
+  lib::Worker::set_compatibility_mode(mode);
+  int64_t idx = (int64_t)get_thread_idx();
+  blocksstable::ObSSTableIndexBuilder sstable_index_builder;
+  ObDataStoreDesc data_store_desc;
+  data_store_desc.sstable_index_builder_ = &sstable_index_builder;
+  ObMacroBlockWriter macro_block_writer;
+  ObMacroDataSeq data_seq;
+  data_seq.set_parallel_degree(idx);
+  macro_block_writer.open(data_store_desc, data_seq);
+}
 
 }//end namespace blocksstable
 }//end namespace oceanbase
