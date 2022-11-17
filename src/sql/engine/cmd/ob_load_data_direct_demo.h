@@ -69,10 +69,10 @@ namespace oceanbase
       ~ObLoadCSVPaser();
       void reset();
       int init(const ObDataInFileStruct &format, int64_t column_count,
-               common::ObCollationType collation_type);
+               common::ObCollationType collation_type, int field_num);
       int get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
-      int fast_get_next_row(ObLoadDataBuffer &buffer);
-      int parse_next_row(const common::ObNewRow *&row);
+      int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
+      // int parse_next_row(const common::ObNewRow *&row);
     private:
       struct UnusedRowHandler
       {
@@ -90,8 +90,7 @@ namespace oceanbase
       UnusedRowHandler unused_row_handler_;
       common::ObSEArray<ObCSVGeneralParser::LineErrRec, 1> err_records_;
       bool is_inited_;
-      const char *str_;
-      const char *end_;
+      int field_num_;
     };
 
     class ObLoadDatumRow

@@ -157,7 +157,7 @@ void ObLoadCSVPaser::reset()
 }
 
 int ObLoadCSVPaser::init(const ObDataInFileStruct &format, int64_t column_count,
-                         ObCollationType collation_type)
+                         ObCollationType collation_type, int field_num)
 {
   int ret = OB_SUCCESS;
   if (IS_INIT) {
@@ -177,6 +177,7 @@ int ObLoadCSVPaser::init(const ObDataInFileStruct &format, int64_t column_count,
       row_.count_ = column_count;
       collation_type_ = collation_type;
       is_inited_ = true;
+      field_num_ = field_num;
     }
   }
   return ret;
@@ -184,55 +185,76 @@ int ObLoadCSVPaser::init(const ObDataInFileStruct &format, int64_t column_count,
 
 // actually this double the io, so not fast actually
 // and to perform correctly, we need to know the number of fields in advance
-int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer)
+int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row)
 {
   if (buffer.empty()) {
     return OB_ITER_END;
   }
-  str_ = buffer.begin();
-  end_ = buffer.end();
-  const char *end = str_;
-  while (end < end_ && *end != '\n') end++;
-  if (end_ != end) {
-    end++;
+  const char *begin = buffer.begin();
+  const char *end = buffer.end();
+  const char *iter = begin;
+
+  int field_cnt = 0;
+  bool first = true;
+
+  const char *ptr = nullptr;
+  while (iter < end && *iter != '\n') {
+    if (first) {
+      ptr = iter;
+      first = false;
+    }
+    if (*iter == '|') {
+      ObObj &obj = row_.cells_[field_cnt];
+      obj.set_string(ObVarcharType, ObString(std::distance(begin, iter), ptr));
+      obj.set_collation_type(collation_type_);
+      field_cnt++;
+      first = true;
+    } 
+    iter++;
   }
-  buffer.consume(end - str_);
-  assert(*(end-1) == '\n');
+  if (field_cnt != field_num_ || iter == end) {
+    return OB_ITER_END;
+  }
+  if (end != iter) {
+    iter++;
+  }
+  buffer.consume(iter - begin);
+  assert(*(iter-1) == '\n');
 
   return OB_SUCCESS;
 }
 
-int ObLoadCSVPaser::parse_next_row(const common::ObNewRow *&row)
-{
-  int ret = OB_SUCCESS;
-  row = nullptr;
-  int64_t nrows = 1;
-  // LOG_INFO("parse next row", K(str_));
-  if (OB_FAIL(csv_parser_.scan(str_, end_, nrows, nullptr, nullptr, unused_row_handler_,
-                                err_records_, false))) {
-    LOG_WARN("MMMMM fail to scan buffer", KR(ret));
-  } else if (OB_UNLIKELY(!err_records_.empty())) {
-    ret = err_records_.at(0).err_code;
+// int ObLoadCSVPaser::parse_next_row(const common::ObNewRow *&row)
+// {
+//   int ret = OB_SUCCESS;
+//   row = nullptr;
+//   int64_t nrows = 1;
+//   // LOG_INFO("parse next row", K(str_));
+//   if (OB_FAIL(csv_parser_.scan(str_, end_, nrows, nullptr, nullptr, unused_row_handler_,
+//                                 err_records_, false))) {
+//     LOG_WARN("MMMMM fail to scan buffer", KR(ret));
+//   } else if (OB_UNLIKELY(!err_records_.empty())) {
+//     ret = err_records_.at(0).err_code;
     
-  } else if (0 == nrows) {
-    ret = OB_ITER_END;
-  } else {
-    const ObIArray<ObCSVGeneralParser::FieldValue> &field_values_in_file =
-      csv_parser_.get_fields_per_line();
-    for (int64_t i = 0; i < row_.count_; ++i) {
-      const ObCSVGeneralParser::FieldValue &str_v = field_values_in_file.at(i);
-      ObObj &obj = row_.cells_[i];
-      if (str_v.is_null_) {
-        obj.set_null();
-      } else {
-        obj.set_string(ObVarcharType, ObString(str_v.len_, str_v.ptr_));
-        obj.set_collation_type(collation_type_);
-      }
-    }
-    row = &row_;
-  }
-  return ret;
-}
+//   } else if (0 == nrows) {
+//     ret = OB_ITER_END;
+//   } else {
+//     const ObIArray<ObCSVGeneralParser::FieldValue> &field_values_in_file =
+//       csv_parser_.get_fields_per_line();
+//     for (int64_t i = 0; i < row_.count_; ++i) {
+//       const ObCSVGeneralParser::FieldValue &str_v = field_values_in_file.at(i);
+//       ObObj &obj = row_.cells_[i];
+//       if (str_v.is_null_) {
+//         obj.set_null();
+//       } else {
+//         obj.set_string(ObVarcharType, ObString(str_v.len_, str_v.ptr_));
+//         obj.set_collation_type(collation_type_);
+//       }
+//     }
+//     row = &row_;
+//   }
+//   return ret;
+// }
 
 int ObLoadCSVPaser::get_next_row(ObLoadDataBuffer &buffer, const ObNewRow *&row)
 {
@@ -1012,7 +1034,7 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   // init csv_parser_
   for (int i = 0; i < DEMO_BUF_NUM; i++) {
     if (OB_FAIL(csv_parsers_[i].init(load_stmt.get_data_struct_in_file(), field_or_var_list.count(),
-                                    load_args.file_cs_type_))) {
+                                    load_args.file_cs_type_, 16))) {
       LOG_WARN("fail to init csv parser", KR(ret));
     }
   }
@@ -1065,9 +1087,9 @@ void ObParseDataThread::run(int64_t idx)
   while (OB_SUCC(ret)) {
     // LOG_INFO("MMMMM run", K(idx), K(cnt), KR(ret));
     {
-      // std::lock_guard<std::mutex> guard(mutex_);
-      // ret = csv_parser.fast_get_next_row(buffer_);
-      ret = csv_parser.get_next_row(buffer_, new_row);
+      std::lock_guard<std::mutex> guard(mutex_);
+      ret = csv_parser.fast_get_next_row(buffer_);
+      // ret = csv_parser.get_next_row(buffer_, new_row);
     }
     if (OB_FAIL(ret)) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
@@ -1075,8 +1097,8 @@ void ObParseDataThread::run(int64_t idx)
       } else {
         ret = OB_SUCCESS;
         break;
-      }
-    } /*else if (OB_FAIL(csv_parser.parse_next_row(new_row))) {
+      } 
+    } /*else if (OB_FAIL(csv_parser.parse_nex_row(new_row))) {
       // LOG_INFO("MMMMM fail to parse row", KR(ret), K(idx));
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
         LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
