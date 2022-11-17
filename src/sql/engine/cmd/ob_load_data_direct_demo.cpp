@@ -1,5 +1,6 @@
 #define USING_LOG_PREFIX SQL_ENG
 
+#include "share/ob_thread_pool.h"
 #include "sql/engine/cmd/ob_load_data_direct_demo.h"
 #include "observer/omt/ob_tenant_timezone_mgr.h"
 #include "share/schema/ob_schema_getter_guard.h"

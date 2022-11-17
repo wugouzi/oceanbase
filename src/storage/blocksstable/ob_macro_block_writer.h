@@ -29,6 +29,9 @@
 #include "share/schema/ob_table_schema.h"
 #include "ob_bloom_filter_cache.h"
 #include "ob_micro_block_reader_helper.h"
+#include "observer/omt/ob_tenant.h"
+#include "deps/oblib/src/lib/stat/ob_session_stat.h"
+#include "share/ob_thread_pool.h"
 
 namespace oceanbase
 {
@@ -88,6 +91,26 @@ private:
   blocksstable::ObDatumRow check_datum_row_;
   ObArenaAllocator allocator_;
 };
+
+class MyThreadPool : public share::ObThreadPool 
+{
+  public:
+  void run1() override {
+    ObTenantStatEstGuard stat_est_guard(MTL_ID());
+    share::ObTenantBase *tenant_base = MTL_CTX();
+    lib::Worker::CompatMode mode = ((omt::ObTenant*) tenant_base)->get_compat_mode();
+    lib::Worker::set_compatibility_mode(mode);
+
+    // do work
+  }
+};
+
+// MyThreadPool thread_pool;
+// thread_pool.set_thread_count(8);
+// thread_pool.set_run_wrapper(MTL_CTX());
+// thread_pool.start();
+// thread_pool.stop();
+// thread_pool.wait();
 
 class ObMacroBlockWriter
 {
