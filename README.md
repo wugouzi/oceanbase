@@ -114,3 +114,4 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 1. 8MB sort buffer 54m7s
 2. 2MB sort buffer 49m56s
 3. 1MB sort buffer
+4. fast csv 44m55s
