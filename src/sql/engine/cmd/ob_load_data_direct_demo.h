@@ -8,7 +8,8 @@
 #include "sql/engine/cmd/ob_load_data_impl.h"
 #include "sql/engine/cmd/ob_load_data_parser.h"
 #include "storage/blocksstable/ob_index_block_builder.h"
-#include "storage/ob_parallel_external_sort.h"
+// #include "storage/ob_parallel_external_sort.h"
+#include "sql/engine/cmd/demo_sort.h"
 #include "storage/tx_storage/ob_ls_handle.h"
 #include <future>
 #include <mutex>
@@ -170,7 +171,7 @@ namespace oceanbase
       common::ObArenaAllocator allocator_;
       blocksstable::ObStorageDatumUtils datum_utils_;
       ObLoadDatumRowCompare compare_;
-      storage::ObExternalSort<ObLoadDatumRow, ObLoadDatumRowCompare> external_sort_;
+      storage::ObDemoExternalSort<ObLoadDatumRow, ObLoadDatumRowCompare> external_sort_;
       bool is_closed_;
       bool is_inited_;
       std::mutex mutex_;

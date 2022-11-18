@@ -13,7 +13,7 @@
 #ifndef OCEANBASE_STORAGE_OB_DEMO_SORT_H_
 #define OCEANBASE_STORAGE_OB_DEMO_SORT_H_
 
-#include "blocksstable/ob_block_manager.h"
+#include "storage/blocksstable/ob_block_manager.h"
 #include "share/ob_define.h"
 #include "lib/container/ob_array.h"
 #include "lib/container/ob_se_array.h"
@@ -22,12 +22,13 @@
 #include "lib/thread/threads.h"
 #include "share/io/ob_io_manager.h"
 #include "share/scheduler/ob_dag_scheduler.h"
-#include "blocksstable/ob_block_sstable_struct.h"
-#include "blocksstable/ob_tmp_file.h"
+#include "storage/blocksstable/ob_block_sstable_struct.h"
+#include "storage/blocksstable/ob_tmp_file.h"
 #include "share/config/ob_server_config.h"
 #include "share/ob_thread_pool.h"
 #include <chrono>
 #include <thread>
+#include <mutex>
 
 
 namespace oceanbase
@@ -1137,8 +1138,9 @@ public:
   bool is_inited() const { return is_inited_; }
   int add_item(const T &item);
   int build_fragment();
-  int do_merge(ObDemoExternalSortRound &next_round);
+  int do_merge(ObDemoExternalSortRound &next_round, int THREAD_NUM);
   int do_one_run(const int64_t start_reader_idx, ObDemoExternalSortRound &next_round);
+  int do_one_run_with_threads(const int64_t start_reader_idx, ObDemoExternalSortRound &next_round, int thread_num);
   int finish_write();
   int clean_up();
   int build_merger();
@@ -1146,6 +1148,7 @@ public:
   int64_t get_fragment_count();
   int add_fragment_iter(ObDemoFragmentIterator<T> *iter);
   int transfer_final_sorted_fragment_iter(ObDemoExternalSortRound &dest_round);
+  void combine_round(ObDemoExternalSortRound &round);
   int add_items(const ObVector<T *> &item);
 private:
   typedef ObDemoFragmentReaderV2<T> FragmentReader;
@@ -1160,12 +1163,23 @@ private:
   FragmentWriter writer_;
   int64_t expire_timestamp_;
   Compare *compare_;
+  FragmentMerger mergers_[16];
   FragmentMerger merger_;
   common::ObArenaAllocator allocator_;
   uint64_t tenant_id_;
   int64_t dir_id_;
   bool is_writer_opened_;
 };
+
+template<typename T, typename Compare>
+void ObDemoExternalSortRound<T, Compare>::combine_round(ObDemoExternalSortRound &round)
+{
+  FragmentIteratorList &iters = round.iters_;
+  for (int i = 0; i < iters.size(); i++) {
+    iters_.push_back(iters[i]);
+  }
+  iters.reset();
+}
 
 template<typename T, typename Compare>
 ObDemoExternalSortRound<T, Compare>::ObDemoExternalSortRound()
@@ -1209,6 +1223,9 @@ int ObDemoExternalSortRound<T, Compare>::init(
     tenant_id_ = tenant_id;
     is_writer_opened_ = false;
     merger_.reset();
+    for (int i = 0; i < 16; i++) {
+        mergers_[i].reset();
+    }
   }
   return ret;
 }
@@ -1354,7 +1371,7 @@ int ObDemoExternalSortRound<T, Compare>::finish_write()
 
 template<typename T, typename Compare>
 int ObDemoExternalSortRound<T, Compare>::do_merge(
-    ObDemoExternalSortRound &next_round)
+    ObDemoExternalSortRound &next_round, int thread_num)
 {
   int ret = common::OB_SUCCESS;
   if (OB_UNLIKELY(!is_inited_)) {
@@ -1364,7 +1381,7 @@ int ObDemoExternalSortRound<T, Compare>::do_merge(
     int64_t reader_idx = 0;
     STORAGE_LOG(INFO, "external sort do merge start");
     while (OB_SUCC(ret) && reader_idx < iters_.count()) {
-      if (OB_FAIL(do_one_run(reader_idx, next_round))) {
+      if (OB_FAIL(do_one_run_with_threads(reader_idx, next_round, thread_num))) {
         STORAGE_LOG(WARN, "fail to do one run merge", K(ret));
       } else {
         reader_idx += merge_count_;
@@ -1388,10 +1405,19 @@ class SortDemoThreadPool : public lib::Threads
   typedef ObDemoFragmentMerge<T, Compare> FragmentMerger;
   typedef ObDemoFragmentIterator<T> FragmentIterator;
   typedef common::ObArray<FragmentIterator *> FragmentIteratorList;
-  SortDemoThreadPool(FragmentMerger *mergers, Compare *compare, int threads, int merge_count_) {}
+  typedef ObDemoExternalSortRound<T, Compare> ExternalSortRound;
+  SortDemoThreadPool(FragmentMerger *mergers, Compare *compare, FragmentIteratorList &iters, 
+                     ExternalSortRound &next_round, int64_t start_idx, int64_t end_idx,
+                     int64_t merge_cnt, const int64_t file_buf_size, const int64_t expire_timestamp,
+                     const uint64_t tenant_id, int *rets)
+                    : mergers_(mergers), compare_(compare), iters_(iters),
+                      next_round_(next_round), start_idx_(start_idx), end_idx_(end_idx),
+                      merge_cnt_(merge_cnt), file_buf_size_(file_buf_size),
+                      expire_timestamp_(expire_timestamp), tenant_id_(tenant_id), rets_(rets) {}
   void run(int64_t idx) final
   {
     int ret = OB_SUCCESS;
+    const T *item = NULL;
     int64_t start_idx = start_idx_ + idx * merge_cnt_;
     int64_t end_idx = min(end_idx_, start_idx + merge_cnt_);
     FragmentIteratorList iters;
@@ -1409,28 +1435,96 @@ class SortDemoThreadPool : public lib::Threads
         STORAGE_LOG(WARN, "fail to open merger", K(ret));
       }
     }
+
+    ExternalSortRound tmp_round;
+    tmp_round.init(merge_cnt_, file_buf_size_, expire_timestamp_, tenant_id_, compare_);
+
+    while (OB_SUCC(ret)) {
+      // share::dag_yield();
+      if (OB_FAIL(merger.get_next_item(item))) {
+        if (common::OB_ITER_END != ret) {
+          STORAGE_LOG(WARN, "MMMMM fail to get next item", K(ret));
+        } else {
+          ret = common::OB_SUCCESS;
+          break;
+        }
+      } else {
+        if (OB_FAIL(tmp_round.add_item(*item))) {
+          STORAGE_LOG(WARN, "MMMMM fail to add item", K(ret));
+        }
+      }
+    }
+
+    if (OB_SUCC(ret)) {
+      if (OB_FAIL(tmp_round.build_fragment())) {
+        STORAGE_LOG(WARN, "MMMMM fail to build fragment", K(ret));
+      }
+    }
+
+    {
+      std::lock_guard<std::mutex> guard(mutex_);
+      next_round_.combine_round(tmp_round);
+    }
+
+    tmp_round.clean_up();
+
+    for (int64_t i = start_idx; i < end_idx; ++i) {
+      if (nullptr != iters_[i]) {
+        // will do clean up ignore return
+        int tmp_ret;
+        if (common::OB_SUCCESS != (tmp_ret = iters_[i]->clean_up())) {
+          STORAGE_LOG(WARN, "fail to do reader clean up", K(tmp_ret), K(i));
+        }
+        iters_[i]->~ObDemoFragmentIterator();
+        iters_[i] = nullptr;
+      }
+    }
+
+    rets_[idx] = ret;
   }
   private: 
   FragmentMerger *mergers_;
   Compare *compare_;
   FragmentIteratorList &iters_;
+  ExternalSortRound &next_round_;
   int64_t start_idx_;
   int64_t end_idx_;
   int64_t merge_cnt_;
-  int threads_;
+  int64_t file_buf_size_;
+  int64_t expire_timestamp_;
+  uint64_t tenant_id_;
+  std::mutex mutex_;
+  int *rets_;
+  // int threads_;
 };
 
-// class SortDemoThreadPool : public share::ObThreadPool 
-// {
-//   public: 
-//   void run1() override 
-//   {
-//     common::ObTenantStatEstGuard stat_est_guard(MTL_ID());
-//     share::ObTenantBase *tenant_base = MTL_CTX();
-//     lib::Worker::CompatMode mode = ((omt::ObTenant *)tenant_base)->get_compat_mode();
-//     lib::Worker::set_compatibility_mode(mode);
-//   }
-// };
+template<typename T, typename Compare>
+int ObDemoExternalSortRound<T, Compare>::do_one_run_with_threads(
+    const int64_t start_reader_idx, ObDemoExternalSortRound &next_round, int thread_num)
+{
+  int ret = common::OB_SUCCESS;
+  if (OB_UNLIKELY(!is_inited_)) {
+    ret = common::OB_NOT_INIT;
+    STORAGE_LOG(WARN, "ObDemoExternalSortRound has not been inited", K(ret));
+  } else {
+    int tmp_ret = OB_SUCCESS;
+    const int64_t end_reader_idx = std::min(start_reader_idx + merge_count_ * thread_num, iters_.count());
+    int64_t diff = end_reader_idx - start_reader_idx;
+    int actual_thread = diff / merge_count_ + (diff % merge_count_ > 0);
+    int rets[actual_thread];
+    SortDemoThreadPool<T, Compare> threads(mergers_, compare_, iters_, next_round, 
+      start_reader_idx, end_reader_idx, merge_count_, file_buf_size_, expire_timestamp_, tenant_id_, rets);
+    threads.set_thread_count(actual_thread);
+    threads.set_run_wrapper(MTL_CTX());
+    threads.start();
+    threads.wait();
+
+    for (int i = 0; i < actual_thread; i++) {
+      ret = rets[i] == OB_SUCCESS ? ret : rets[i];
+    }
+  }
+  return ret;
+}
 
 template<typename T, typename Compare>
 int ObDemoExternalSortRound<T, Compare>::do_one_run(
@@ -1963,6 +2057,7 @@ public:
   TO_STRING_KV(K(is_inited_), K(file_buf_size_), K(buf_mem_limit_), K(expire_timestamp_),
       K(merge_count_per_round_), KP(tenant_id_), KP(compare_));
 private:
+  static const int64_t THREAD_NUM = 8;
   static const int64_t EXTERNAL_SORT_ROUND_CNT = 2;
   bool is_inited_;
   int64_t file_buf_size_;
@@ -2076,7 +2171,7 @@ int ObDemoExternalSort<T, Compare>::do_sort(const bool final_merge)
       if (OB_FAIL(next_round_->init(merge_count_per_round_, file_buf_size_,
           expire_timestamp_, tenant_id_, compare_))) {
         STORAGE_LOG(WARN, "fail to init next sort round", K(ret));
-      } else if (OB_FAIL(curr_round_->do_merge(*next_round_))) {
+      } else if (OB_FAIL(curr_round_->do_merge(*next_round_, THREAD_NUM))) {
         STORAGE_LOG(WARN, "fail to do merge fragments of current round", K(ret));
       } else if (OB_FAIL(curr_round_->clean_up())) {
         STORAGE_LOG(WARN, "fail to do clean up of current round", K(ret));

@@ -743,7 +743,7 @@ int ObLoadExternalSort::close()
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("unexpected closed external sort", KR(ret));
   } else if (OB_FAIL(external_sort_.do_sort(true))) {
-    LOG_MMMMM("fail to do sort", KR(ret));
+    LOG_INFO("MMMMM fail to do sort", KR(ret));
   } else {
     is_closed_ = true;
   }
