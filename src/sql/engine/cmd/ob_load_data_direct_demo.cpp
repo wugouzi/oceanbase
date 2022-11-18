@@ -183,16 +183,35 @@ int ObLoadCSVPaser::init(const ObDataInFileStruct &format, int64_t column_count,
   return ret;
 }
 
-// actually this double the io, so not fast actually
-// and to perform correctly, we need to know the number of fields in advance
+/*
+MMMMM 14686916|7112590|237605|5|24|38453.76|0.01|0.06|R|F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 7112590|237605|5|24|38453.76|0.01|0.06|R|F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 237605|5|24|38453.76|0.01|0.06|R|F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 5|24|38453.76|0.01|0.06|R|F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 24|38453.76|0.01|0.06|R|F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 38453.76|0.01|0.06|R|F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 0.01|0.06|R|F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 0.06|R|F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM R|F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM F|1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 1994-01-01|1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 1994-03-02|1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM 1994-01-08|TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
+MMMMM MAIL| regular pinto beans boost. idly pending|
+MMMMM  regular pinto beans boost. idly pending|
+*/
 int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row)
 {
   if (buffer.empty()) {
     return OB_ITER_END;
   }
+
+  // LOG_INFO("MMMMM get row");
   const char *begin = buffer.begin();
   const char *end = buffer.end();
   const char *iter = begin;
+  // const char *iters[field_num_];
 
   int field_cnt = 0;
   bool first = true;
@@ -205,7 +224,9 @@ int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::Ob
     }
     if (*iter == '|') {
       ObObj &obj = row_.cells_[field_cnt];
-      obj.set_string(ObVarcharType, ObString(std::distance(begin, iter), ptr));
+      obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
+      int len = std::distance(ptr, iter);
+      // printf("MMMMM len %d, %-*s\n", len, len, ptr);
       obj.set_collation_type(collation_type_);
       field_cnt++;
       first = true;
@@ -219,6 +240,7 @@ int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::Ob
     iter++;
   }
   buffer.consume(iter - begin);
+  row = &row_;
   assert(*(iter-1) == '\n');
 
   return OB_SUCCESS;
@@ -292,6 +314,7 @@ int ObLoadCSVPaser::get_next_row(ObLoadDataBuffer &buffer, const ObNewRow *&row)
           obj.set_null();
         } else {
           obj.set_string(ObVarcharType, ObString(str_v.len_, str_v.ptr_));
+          printf("MMMMM len: %d, %-*s\n", str_v.len_, str_v.len_, str_v.ptr_);
           obj.set_collation_type(collation_type_);
         }
       }
@@ -1088,7 +1111,7 @@ void ObParseDataThread::run(int64_t idx)
     // LOG_INFO("MMMMM run", K(idx), K(cnt), KR(ret));
     {
       std::lock_guard<std::mutex> guard(mutex_);
-      ret = csv_parser.fast_get_next_row(buffer_);
+      ret = csv_parser.fast_get_next_row(buffer_, new_row);
       // ret = csv_parser.get_next_row(buffer_, new_row);
     }
     if (OB_FAIL(ret)) {

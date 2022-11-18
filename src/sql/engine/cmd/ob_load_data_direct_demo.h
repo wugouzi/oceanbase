@@ -91,6 +91,7 @@ namespace oceanbase
       common::ObSEArray<ObCSVGeneralParser::LineErrRec, 1> err_records_;
       bool is_inited_;
       int field_num_;
+
     };
 
     class ObLoadDatumRow
