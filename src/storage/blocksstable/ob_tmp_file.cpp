@@ -887,7 +887,7 @@ int ObTmpFile::aio_write(const ObTmpFileIOInfo &io_info, ObTmpFileIOHandle &hand
     STORAGE_LOG(WARN, "ObTmpFile has not been inited", K(ret));
   } else if (!io_info.is_valid()) {
     ret = OB_INVALID_ARGUMENT;
-    STORAGE_LOG(WARN, "MMMMM invalid argument", K(ret), K(io_info), K(handle));
+    STORAGE_LOG(WARN, "invalid argument", K(ret), K(io_info), K(handle));
   } else if (OB_FAIL(handle.prepare_write(io_info.buf_, io_info.size_, this))) {
     STORAGE_LOG(WARN, "fail to prepare write io handle", K(ret));
   } else {
@@ -934,7 +934,7 @@ int ObTmpFile::aio_write(const ObTmpFileIOInfo &io_info, ObTmpFileIOHandle &hand
           ret = OB_ERR_UNEXPECTED;
           STORAGE_LOG(WARN, "fail to new a ObTmpFileExtent", K(ret));
         } else if (OB_FAIL(OB_TMP_FILE_STORE.alloc(get_dir_id(), tenant_id_, alloc_size, *extent))) {
-          STORAGE_LOG(WARN, "MMM fail to allocate extents", K(ret), K_(tenant_id));
+          STORAGE_LOG(WARN, "fail to allocate extents", K(ret), K_(tenant_id));
         } else {
           if (NULL != tmp) {
             extent->set_global_offset(tmp->get_global_end(), tmp->get_global_end());
@@ -1302,7 +1302,7 @@ int ObTmpFileManager::aio_write(const ObTmpFileIOInfo &io_info, ObTmpFileIOHandl
   } else if (OB_FAIL(files_.get(io_info.fd_, file_handle))) {
     STORAGE_LOG(WARN, "fail to get tmp file handle", K(ret), K(io_info));
   } else if (OB_FAIL(file_handle.get_resource_ptr()->aio_write(io_info, handle))) {
-    STORAGE_LOG(WARN, "MMMMM fail to aio_write", K(ret), K(io_info));
+    STORAGE_LOG(WARN, "fail to aio_write", K(ret), K(io_info));
   }
   return ret;
 }

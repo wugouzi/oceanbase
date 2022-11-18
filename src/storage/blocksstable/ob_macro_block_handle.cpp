@@ -156,7 +156,7 @@ int ObMacroBlockHandle::async_write(const ObMacroBlockWriteInfo &write_info)
 
     io_info.flag_.set_write();
     if (OB_FAIL(ObIOManager::get_instance().aio_write(io_info, io_handle_))) {
-      LOG_WARN("MMMMM Fail to aio_write", K(ret), K(write_info));
+      LOG_WARN("Fail to aio_write", K(ret), K(write_info));
     } else {
       FLOG_INFO("Async write macro block", K(macro_id_));
     }

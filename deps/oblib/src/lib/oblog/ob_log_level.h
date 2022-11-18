@@ -28,7 +28,6 @@ namespace common
 #define OB_LOG_LEVEL_INFO  3
 #define OB_LOG_LEVEL_TRACE 4
 #define OB_LOG_LEVEL_DEBUG 5
-#define OB_LOG_LEVEL_MMMMM 1
 
 struct ObLogIdLevelMap;
 //@class ObThreadLogLevel

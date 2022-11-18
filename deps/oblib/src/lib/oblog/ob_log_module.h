@@ -913,8 +913,6 @@ LOG_MOD_END(PL)
 #define _LOG_TRACE(args...) _LOG_MACRO_JOIN(USING_LOG_PREFIX, _LOG) (TRACE, ##args)
 #define LOG_DEBUG(args...) LOG_MACRO_JOIN(USING_LOG_PREFIX, _LOG) (DEBUG, ##args)
 #define _LOG_DEBUG(args...) _LOG_MACRO_JOIN(USING_LOG_PREFIX, _LOG) (DEBUG, ##args)
-#define LOG_MMMMM(args...) LOG_MACRO_JOIN(USING_LOG_PREFIX, _LOG) (MMMMM, ##args)
-#define _LOG_MMMMM(args...) _LOG_MACRO_JOIN(USING_LOG_PREFIX, _LOG) (MMMMM, ##args)
 
 // print expr is human-readable format
 #define LOG_PRINT_EXPR(level, statement, expr, args...)                                \
