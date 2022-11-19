@@ -29,6 +29,49 @@
 #include <chrono>
 #include <thread>
 #include <mutex>
+#include <algorithm>
+#include <cassert>
+#include <functional>
+#include <future>
+#include <iterator>
+
+
+template <class ForwardIterator,
+    typename Compare=std::less<
+        typename std::iterator_traits<ForwardIterator>::value_type
+    >
+>
+void quicksort(ForwardIterator first, ForwardIterator last, Compare comp = Compare())
+{
+    using value_type = typename std::iterator_traits<ForwardIterator>::value_type;
+    using difference_type = typename std::iterator_traits<ForwardIterator>::difference_type;
+    difference_type dist = std::distance(first,last);
+    assert(dist >= 0);
+    if (dist < 2)
+    {
+        return;
+    }
+    else if (dist < 300000)
+    {
+      std::sort(first,last,comp);
+    }
+    else
+    {
+        auto pivot = *std::next(first, dist/2);
+        auto     ucomp = [pivot,&comp](const value_type& em){ return  comp(em,pivot); };
+        auto not_ucomp = [pivot,&comp](const value_type& em){ return !comp(pivot,em); };
+
+        auto middle1 = std::partition(first, last, ucomp);
+        auto middle2 = std::partition(middle1, last, not_ucomp);
+
+        // auto policy = multithreaded ? std::launch::async : std::launch::deferred;
+        auto policy = std::launch::async;
+        auto f1 = std::async(policy, [first  ,middle1,&comp]{quicksort(first  ,middle1,comp);});
+        auto f2 = std::async(policy, [middle2,last   ,&comp]{quicksort(middle2,last   ,comp);});
+        f1.wait();
+        f2.wait();
+    }
+}
 
 
 namespace oceanbase
@@ -99,6 +142,7 @@ public:
   virtual ~ObDemoMacroBufferWriter();
   int write_item(const T &item);
   int write_items(const ObVector<T *> &items, int idx);
+  int write_item_compress(const T &item);
   void assign(const int64_t buf_pos, const int64_t buf_cap, char *buf);
   int serialize_header();
   bool has_item();
@@ -115,12 +159,18 @@ private:
   // for failure and flush
   // the written index of array
   int just_write_ = 0;
+  ObCompressor *compressor_;
+  static const int TMP_BUF_SIZE = 350;
+  char tmp_buf_[TMP_BUF_SIZE];
 };
 
 template<typename T>
 ObDemoMacroBufferWriter<T>::ObDemoMacroBufferWriter()
   : buf_(NULL), buf_pos_(0), buf_cap_(0)
 {
+  ObCompressorPool &cp = ObCompressorPool::get_instance();
+  // 
+  cp.get_compressor("zstd_1.3.8", compressor_);
 }
 
 template<typename T>
@@ -192,6 +242,28 @@ int ObDemoMacroBufferWriter<T>::write_items(const ObVector<T *> &items, int idx)
     if (i % 10000 == 0) {
       LOG_INFO("MMMMM macro buffer write", K(N), K(cnt), K(n));
     } 
+  }
+  return ret;
+}
+
+template<typename T>
+int ObDemoMacroBufferWriter<T>::write_item_compress(const T &item)
+{
+  int ret = common::OB_SUCCESS;
+  int64_t size = item.get_serialize_size();
+  int64_t size2;
+  // LOG_INFO("MMMMM serialize_size", K(size));
+  // int64_t size = 350;
+
+  if (size + buf_pos_ > buf_cap_) {
+    LOG_INFO("MMMMM macro writer full");
+    ret = common::OB_EAGAIN;
+  } else if (OB_FAIL(item.serialize(tmp_buf_, TMP_BUF_SIZE, 0))) {
+    STORAGE_LOG(WARN, "fail to serialize item", K(ret));
+  } else if (compressor_->compress(tmp_buf_, size, tmp_buf_ + buf_pos_, buf_cap_ - buf_pos_, size2)) {
+    STORAGE_LOG(WARN, "MMMMM compress fail");
+  } else {
+    STORAGE_LOG(DEBUG, "write_item", K(buf_pos_), K(item));
   }
   return ret;
 }
@@ -512,6 +584,7 @@ public:
   ObDemoMacroBufferReader();
   virtual ~ObDemoMacroBufferReader();
   int read_item(T &item);
+  int read_item_decompress(T &item);
   int deserialize_header();
   void assign(const int64_t buf_pos, const int64_t buf_cap, const char *buf);
   TO_STRING_KV(KP(buf_), K(buf_pos_), K(buf_len_), K(buf_cap_));
@@ -520,12 +593,16 @@ private:
   int64_t buf_pos_;
   int64_t buf_len_;
   int64_t buf_cap_;
+
+  ObCompressor *compressor_;
 };
 
 template<typename T>
 ObDemoMacroBufferReader<T>::ObDemoMacroBufferReader()
   : buf_(NULL), buf_pos_(0), buf_len_(0), buf_cap_(0)
 {
+  ObCompressorPool &cp = ObCompressorPool::get_instance();
+  cp.get_compressor("zstd_1.3.8", compressor_);
 }
 
 template<typename T>
@@ -1138,7 +1215,7 @@ public:
   bool is_inited() const { return is_inited_; }
   int add_item(const T &item);
   int build_fragment();
-  int do_merge(ObDemoExternalSortRound &next_round, int THREAD_NUM);
+  int do_merge(ObDemoExternalSortRound &next_round, int thread_num);
   int do_one_run(const int64_t start_reader_idx, ObDemoExternalSortRound &next_round);
   int do_one_run_with_threads(const int64_t start_reader_idx, ObDemoExternalSortRound &next_round, int thread_num);
   int finish_write();
@@ -1381,10 +1458,13 @@ int ObDemoExternalSortRound<T, Compare>::do_merge(
     int64_t reader_idx = 0;
     STORAGE_LOG(INFO, "external sort do merge start");
     while (OB_SUCC(ret) && reader_idx < iters_.count()) {
-      if (OB_FAIL(do_one_run_with_threads(reader_idx, next_round, thread_num))) {
+      if (OB_FAIL(do_one_run(reader_idx, next_round))) {
         STORAGE_LOG(WARN, "fail to do one run merge", K(ret));
-      } else {
-        reader_idx += merge_count_;
+      }
+      /*if (OB_FAIL(do_one_run_with_threads(reader_idx, next_round, thread_num))) {
+        STORAGE_LOG(WARN, "fail to do one run merge", K(ret));
+      }*/ else {
+        reader_idx += merge_count_ * thread_num;
       }
     }
 
@@ -1886,7 +1966,8 @@ int ObDemoMemorySortRound<T, Compare>::build_fragment()
     STORAGE_LOG(WARN, "ObDemoMemorySortRound has not been inited", K(ret));
   } else if (item_list_.size() > 0) {
     int64_t start = common::ObTimeUtility::current_time();
-    std::sort(item_list_.begin(), item_list_.end(), *compare_);
+    quicksort(item_list_.begin(), item_list_.end(), *compare_);
+    // std::sort(item_list_.begin(), item_list_.end(), *compare_);
     if (OB_FAIL(compare_->result_code_)) {
       ret = compare_->result_code_;
     } else {
@@ -1939,7 +2020,8 @@ int ObDemoMemorySortRound<T, Compare>::finish()
   } else if (0 == next_round_->get_fragment_count()) {
     is_in_memory_ = true;
     has_data_ = true;
-    std::sort(item_list_.begin(), item_list_.end(), *compare_);
+    quicksort(item_list_.begin(), item_list_.end(), *compare_);
+    // std::sort(item_list_.begin(), item_list_.end(), *compare_);
     if (OB_FAIL(compare_->result_code_)) {
       STORAGE_LOG(WARN, "fail to sort item list", K(ret));
     }
@@ -2057,7 +2139,7 @@ public:
   TO_STRING_KV(K(is_inited_), K(file_buf_size_), K(buf_mem_limit_), K(expire_timestamp_),
       K(merge_count_per_round_), KP(tenant_id_), KP(compare_));
 private:
-  static const int64_t THREAD_NUM = 8;
+  static const int64_t SORT_THREAD_NUM = 8;
   static const int64_t EXTERNAL_SORT_ROUND_CNT = 2;
   bool is_inited_;
   int64_t file_buf_size_;
@@ -2171,7 +2253,7 @@ int ObDemoExternalSort<T, Compare>::do_sort(const bool final_merge)
       if (OB_FAIL(next_round_->init(merge_count_per_round_, file_buf_size_,
           expire_timestamp_, tenant_id_, compare_))) {
         STORAGE_LOG(WARN, "fail to init next sort round", K(ret));
-      } else if (OB_FAIL(curr_round_->do_merge(*next_round_, THREAD_NUM))) {
+      } else if (OB_FAIL(curr_round_->do_merge(*next_round_, SORT_THREAD_NUM))) {
         STORAGE_LOG(WARN, "fail to do merge fragments of current round", K(ret));
       } else if (OB_FAIL(curr_round_->clean_up())) {
         STORAGE_LOG(WARN, "fail to do clean up of current round", K(ret));
