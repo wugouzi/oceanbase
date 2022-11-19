@@ -165,8 +165,10 @@ namespace oceanbase
       int init(const share::schema::ObTableSchema *table_schema, int64_t mem_size,
                int64_t file_buf_size);
       int append_row(const ObLoadDatumRow &datum_row);
+      void partition(int n);
       int close();
       int get_next_row(const ObLoadDatumRow *&datum_row);
+      int get_next_partition_row(int id, const ObLoadDatumRow *&datum_row);
     private:
       common::ObArenaAllocator allocator_;
       blocksstable::ObStorageDatumUtils datum_utils_;
@@ -182,12 +184,13 @@ namespace oceanbase
     public:
       ObLoadSSTableWriter();
       ~ObLoadSSTableWriter();
-      int init(const share::schema::ObTableSchema *table_schema);
+      // int init(const share::schema::ObTableSchema *table_schema);
+      int init(const share::schema::ObTableSchema *table_schema, int thread_num, int idx);
       int append_row(const ObLoadDatumRow &datum_row);
       int close();
     private:
       int init_sstable_index_builder(const share::schema::ObTableSchema *table_schema);
-      int init_macro_block_writer(const share::schema::ObTableSchema *table_schema);
+      int init_macro_block_writer(const share::schema::ObTableSchema *table_schema, int thread_num, int idx);
       int create_sstable();
     private:
       common::ObTabletID tablet_id_;
@@ -227,6 +230,22 @@ namespace oceanbase
       int *rets_;
       std::mutex mutex_;
     };
+
+    class ObWriterThread : public lib::Threads 
+    {
+    public:
+      ObWriterThread(ObLoadExternalSort &external_sort, const ObTableSchema *table_schema,
+                     int *rets, int thread_num)
+        : external_sort_(external_sort), table_schema_(table_schema),
+          rets_(rets), thread_num_(thread_num) 
+        {}
+      void run(int64_t idx) final;
+    private:
+      ObLoadExternalSort &external_sort_;
+      const ObTableSchema *table_schema_;
+      int *rets_;
+      int thread_num_;
+    }
 
     // preload buffer, then let csv_parser to use 2 buffer
     // class ObPreloadBuffer : public lib::Threads 
@@ -274,6 +293,7 @@ namespace oceanbase
       // int do_parse_buffer(int i);
     private:
       static const int DEMO_BUF_NUM = 3;
+      static const int WRITER_THREAD_NUM = 8;
 
       ObLoadSequentialFileReader file_reader_;
       // we have BUF_NUM buffers and we load data simultaneously
@@ -285,6 +305,7 @@ namespace oceanbase
       // ObLoadDataBuffer buffer_;
       ObLoadExternalSort external_sort_;
       ObLoadSSTableWriter sstable_writer_;
+      const ObTableSchema *table_schema_;
     };
 
   } // namespace sql

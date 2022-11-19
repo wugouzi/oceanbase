@@ -716,6 +716,12 @@ int ObLoadExternalSort::init(const ObTableSchema *table_schema, int64_t mem_size
   return ret;
 }
 
+// make sure there is no 
+void ObLoadExternalSort::partition(int n) 
+{
+  external_sort_.partition(n);
+}
+
 int ObLoadExternalSort::append_row(const ObLoadDatumRow &datum_row)
 { 
   // LOG_INFO("MMMMM append row");
@@ -765,6 +771,11 @@ int ObLoadExternalSort::get_next_row(const ObLoadDatumRow *&datum_row)
   return ret;
 }
 
+int ObLoadExternalSort::get_next_partition_row(int id, const ObLoadDatumRow *&datum_row)
+{
+  return external_sort_.get_next_partition_item(id, datum_row);
+}
+
 /**
  * ObLoadSSTableWriter
  */
@@ -782,7 +793,7 @@ ObLoadSSTableWriter::~ObLoadSSTableWriter()
 {
 }
 
-int ObLoadSSTableWriter::init(const ObTableSchema *table_schema)
+int ObLoadSSTableWriter::init(const ObTableSchema *table_schema, int thread_num, int idx)
 {
   int ret = OB_SUCCESS;
   if (IS_INIT) {
@@ -818,7 +829,7 @@ int ObLoadSSTableWriter::init(const ObTableSchema *table_schema)
       LOG_WARN("fail to get tablet handle", KR(ret), K(tablet_id_));
     } else if (OB_FAIL(init_sstable_index_builder(table_schema))) {
       LOG_WARN("fail to init sstable index builder", KR(ret));
-    } else if (OB_FAIL(init_macro_block_writer(table_schema))) {
+    } else if (OB_FAIL(init_macro_block_writer(table_schema, thread_num))) {
       LOG_WARN("fail to init macro block writer", KR(ret));
     } else if (OB_FAIL(datum_row_.init(column_count_ + extra_rowkey_column_num_))) {
       LOG_WARN("fail to init datum row", KR(ret));
@@ -875,7 +886,7 @@ int ObLoadSSTableWriter::init_sstable_index_builder(const ObTableSchema *table_s
   return ret;
 }
 
-int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_schema)
+int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_schema, int thread_num, int idx)
 {
   int ret = OB_SUCCESS;
   if (OB_FAIL(data_store_desc_.init(*table_schema, ls_id_, tablet_id_, MAJOR_MERGE, 1))) {
@@ -885,6 +896,9 @@ int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_sche
   }
   if (OB_SUCC(ret)) {
     ObMacroDataSeq data_seq;
+    if (thread_num > 0) {
+      data_seq.set_parallel_degree(idx);
+    }
     if (OB_FAIL(macro_block_writer_.open(data_store_desc_, data_seq))) {
       LOG_WARN("fail to init macro block writer", KR(ret), K(data_store_desc_), K(data_seq));
     }
@@ -1092,7 +1106,41 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   }
   // init datum_row_buffers_
   // datum_row_buffers_.resize(DEMO_BUF_NUM);
+  table_schema_ = table_schema;
   return ret;
+}
+
+void ObWriterThread::run(int64_t idx) 
+{
+  const ObLoadDatumRow *datum_row = nullptr;
+  int ret = OB_SUCCESS;
+  int cnt = 0;
+  ObLoadSSTableWriter sstable_writer;
+  if (OB_FAIL(sstable_writer.init(table_schema_, thread_num_, idx))) {
+    LOG_WARN("fail to init sstable writer", KR(ret));
+  } else {
+    while (OB_SUCC(ret)) {
+      cnt++;
+      if (cnt % 100000 == 0) {
+        LOG_INFO("MMMMM sstable append", K(cnt), K(idx));
+      }
+      if (OB_FAIL(external_sort_.get_next_partition_row(idx, datum_row))) {
+        if (OB_UNLIKELY(OB_ITER_END != ret)) {
+          LOG_INFO("MMMMM fail to get next row", KR(ret));
+        } else {
+          ret = OB_SUCCESS;
+          break;
+        }
+      } else if (OB_FAIL(sstable_writer.append_row(*datum_row))) {
+        LOG_INFO("MMMMM fail to append row", KR(ret));
+      }
+    }
+    if (OB_SUCC(ret)) {
+      if (OB_FAIL(sstable_writer.close())) {
+        LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
+      }
+    }
+  }
 }
 
 void ObParseDataThread::run(int64_t idx)
@@ -1196,29 +1244,37 @@ int ObLoadDataDirectDemo::do_load()
       LOG_INFO("MMMMM fail to close external sort", KR(ret));
   }
   LOG_INFO("MMMMM sort done", KR(ret));
-  const ObLoadDatumRow *datum_row = nullptr;
-  cnt = 0;
-  while (OB_SUCC(ret)) {
-    cnt++;
-    if (cnt % 100000 == 0) {
-      LOG_INFO("MMMMM sstable append", K(cnt));
-    }
-    if (OB_FAIL(external_sort_.get_next_row(datum_row))) {
-      if (OB_UNLIKELY(OB_ITER_END != ret)) {
-        LOG_INFO("MMMMM fail to get next row", KR(ret));
-      } else {
-        ret = OB_SUCCESS;
-        break;
-      }
-    } else if (OB_FAIL(sstable_writer_.append_row(*datum_row))) {
-      LOG_INFO("MMMMM fail to append row", KR(ret));
-    }
-  }
-  if (OB_SUCC(ret)) {
-    if (OB_FAIL(sstable_writer_.close())) {
-      LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
-    }
-  }
+  external_sort_.partition(WRITER_THREAD_NUM);
+  int rets[WRITER_THREAD_NUM];
+  ObWriterThread threads(external_sort_, table_schema_, rets, WRITER_THREAD_NUM);
+  threads.set_thread_count(WRITER_THREAD_NUM);
+  threads.set_run_wrapper(MTL_CTX());
+  threads.start();
+  threads.wait();
+  
+  // const ObLoadDatumRow *datum_row = nullptr;
+  // cnt = 0;
+  // while (OB_SUCC(ret)) {
+  //   cnt++;
+  //   if (cnt % 100000 == 0) {
+  //     LOG_INFO("MMMMM sstable append", K(cnt));
+  //   }
+  //   if (OB_FAIL(external_sort_.get_next_row(datum_row))) {
+  //     if (OB_UNLIKELY(OB_ITER_END != ret)) {
+  //       LOG_INFO("MMMMM fail to get next row", KR(ret));
+  //     } else {
+  //       ret = OB_SUCCESS;
+  //       break;
+  //     }
+  //   } else if (OB_FAIL(sstable_writer_.append_row(*datum_row))) {
+  //     LOG_INFO("MMMMM fail to append row", KR(ret));
+  //   }
+  // }
+  // if (OB_SUCC(ret)) {
+  //   if (OB_FAIL(sstable_writer_.close())) {
+  //     LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
+  //   }
+  // }
   return ret;
 }
 
@@ -1226,136 +1282,3 @@ int ObLoadDataDirectDemo::do_load()
 } // namespace oceanbase
 
 
-// int ObLoadDataDirectDemo::do_load_buffer(int i)
-// {
-//   int ret = OB_SUCCESS;
-//   ObLoadDataBuffer &buffer = buffers_[i];
-//   if (OB_FAIL(buffer.squash())) {
-//     LOG_WARN("MMMMM fail to squash buffer", KR(ret));
-//   } else if (OB_FAIL(file_reader_.read_next_buffer(buffer))) {
-//     if (OB_UNLIKELY(OB_ITER_END != ret)) {
-//       LOG_WARN("MMMMM fail to read next buffer", KR(ret));
-//     } else {
-//       if (OB_UNLIKELY(!buffer.empty())) {
-//         ret = OB_ERR_UNEXPECTED;
-//         LOG_WARN("MMMMM unexpected incomplate data", KR(ret));
-//       }
-//     }
-//   } else if (OB_UNLIKELY(buffer.empty())) {
-//     ret = OB_ERR_UNEXPECTED;
-//     LOG_WARN("MMMMM unexpected empty buffer", KR(ret));
-//   }
-//   return ret;
-// }
-
-// int ObLoadDataDirectDemo::do_parse_buffer(int i)
-// {
-//   // parse whole file
-//   int cnt = 0;
-//   int ret = OB_SUCCESS;
-//   ObLoadDataBuffer &buffer = buffers_[i];
-//   const ObNewRow *new_row = nullptr;
-//   const ObLoadDatumRow *datum_row = nullptr;
-//   while (OB_SUCC(ret)) {
-//     if (OB_FAIL(csv_parsers_[i].get_next_row(buffer, new_row))) {
-//       if (OB_UNLIKELY(OB_ITER_END != ret)) {
-//         LOG_WARN("MMMMM fail to get next row", KR(ret));
-//       } else {
-//         ret = OB_SUCCESS;
-//         break;
-//       }
-//     } else if (OB_FAIL(row_casters_[i].get_casted_row(*new_row, datum_row))) {
-//       LOG_WARN("MMMMM fail to cast row", KR(ret));
-//     } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
-//       LOG_WARN("MMMMM fail to append row", KR(ret));
-//       // cnt++;
-//     } else {
-//       cnt++;
-//     }
-//   }
-//   LOG_MMMMM("", K(cnt), KR(ret));
-//   return ret;
-  
-// }
-
-// while (OB_SUCC(fail_ret)) {
-//     std::vector<std::future<int>> threads;
-//     for (int i = 0; i < DEMO_BUF_NUM; i++) {
-//       threads.push_back(
-//           std::async(&ObLoadDataDirectDemo::do_load_buffer, this, i));
-//     }
-//     for (int i = 0; i < DEMO_BUF_NUM; i++) {
-//       int ret = threads[i].get();
-//       // ret = do_load_buffer(i);
-//       LOG_MMMMM("thread ret", KR(ret));
-//       if (OB_FAIL(ret)) {
-//         fail_ret = ret;
-//       } else if (OB_FAIL(do_parse_buffer(i))) {
-//         fail_ret = ret;
-//       } else {
-//         cnt++;
-//         LOG_MMMMM("cnt", K(cnt));
-//       }
-//     }
-//     for (int i = 0; i < DEMO_BUF_NUM; i++) {
-//       datum_row_buffers_[i].clear();
-//     }
-//   }
-
-// int ObParseDataTask::process() 
-// {
-//   int ret = OB_SUCCESS;
-//   LOG_INFO("MMMMM process", KR(ret));
-//   const ObNewRow *new_row = nullptr;
-//   const ObLoadDatumRow *datum_row = nullptr;
-//   while (OB_SUCC(ret)) {
-//     if (OB_FAIL(buffer_.squash())) {
-//       LOG_INFO("MMMMM fail to squash buffer", KR(ret));
-//     } else if (OB_FAIL(file_reader_.read_next_buffer(buffer_))) {
-//       if (OB_UNLIKELY(OB_ITER_END != ret)) {
-//         LOG_INFO("MMMMM fail to read next buffer", KR(ret));
-//       } else {
-//         if (OB_UNLIKELY(!buffer_.empty())) {
-//           ret = OB_ERR_UNEXPECTED;
-//           LOG_INFO("MMMMM unexpected incomplate data", KR(ret));
-//         }
-//         ret = OB_SUCCESS;
-//         break;
-//       }
-//     } else if (OB_UNLIKELY(buffer_.empty())) {
-//       ret = OB_ERR_UNEXPECTED;
-//       LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
-//     } else {
-//       // parse whole file
-//       int cnt = 0;
-//       while (OB_SUCC(ret)) {
-//         if (OB_FAIL(csv_parser_.get_next_row(buffer_, new_row))) {
-//           if (OB_UNLIKELY(OB_ITER_END != ret)) {
-//             LOG_INFO("MMMMM fail to get next row", KR(ret));
-//           } else {
-//             ret = OB_SUCCESS;
-//             break;
-//           }
-//         } else if (OB_FAIL(row_caster_.get_casted_row(*new_row, datum_row))) {
-//           LOG_INFO("MMMMM fail to cast row", KR(ret));
-//         } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
-//           LOG_INFO("MMMMM fail to append row", KR(ret));
-//         } else {
-//           cnt++;
-//         }
-//       }
-//       LOG_INFO("MMMMM external sort append lines", K(cnt), KR(ret));
-//     }
-//   }
-//   ret_ = ret;
-//   return OB_SUCCESS;
-// }
-
-// share::ObAsyncTask *ObParseDataTask::deep_copy(char *buf, const int64_t buf_size) const 
-// {
-//   UNUSED(buf_size);
-//   ObAsyncTask *task = new (buf)ObParseDataTask(buffer_, csv_parser_, row_caster_, external_sort_, ret_, file_reader_);
-//   memcpy((void*)task, (void*)this, sizeof(*this));
-//   LOG_MMMMM("deep copy");
-//   return task;
-// } 

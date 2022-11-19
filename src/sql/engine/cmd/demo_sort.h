@@ -1222,11 +1222,13 @@ public:
   int clean_up();
   int build_merger();
   int get_next_item(const T *&item);
+  int get_next_partition_item(int id, const T *&item);
   int64_t get_fragment_count();
   int add_fragment_iter(ObDemoFragmentIterator<T> *iter);
   int transfer_final_sorted_fragment_iter(ObDemoExternalSortRound &dest_round);
   void combine_round(ObDemoExternalSortRound &round);
   int add_items(const ObVector<T *> &item);
+  void partition(int k);
 private:
   typedef ObDemoFragmentReaderV2<T> FragmentReader;
   typedef ObDemoFragmentIterator<T> FragmentIterator;
@@ -1246,7 +1248,21 @@ private:
   uint64_t tenant_id_;
   int64_t dir_id_;
   bool is_writer_opened_;
+  std::vector<std::pair<int64_t, int64_t>> partitions_;
 };
+
+template<typename T, typename Compare>
+void ObDemoExternalSortRound<T, Compare>::partition(int k) 
+{
+  FragmentIterator *iter = dynamic_cast<ObDemoMemoryFragmentIterator<T> *>(iters_.at(0));
+  int64_t n = iter->item_list_->size();
+  int64_t size = n / k;
+  int64_t i = 0;
+  for (; i < k-1; i += size) {
+    partitions_.push_back(std::make_pair(i, i + size));
+  }
+  partitions_.push_back(std::make_pair(i, n));
+}
 
 template<typename T, typename Compare>
 void ObDemoExternalSortRound<T, Compare>::combine_round(ObDemoExternalSortRound &round)
@@ -1671,6 +1687,18 @@ int ObDemoExternalSortRound<T, Compare>::do_one_run(
 }
 
 template<typename T, typename Compare>
+int ObDemoExternalSortRound<T, Compare>::get_next_partition_item(int id, const T *&item);
+{
+  auto &par = partitions_[id];
+  if (par.first == par.second) {
+    return common::OB_ITER_END;
+  }
+  FragmentIterator *iter = dynamic_cast<ObDemoMemoryFragmentIterator<T> *>(iters_.at(0));
+
+  return iter->get(par.first++, item);
+}
+
+template<typename T, typename Compare>
 int ObDemoExternalSortRound<T, Compare>::get_next_item(const T *&item)
 {
   int ret = common::OB_SUCCESS;
@@ -1740,10 +1768,11 @@ public:
   int init(common::ObVector<T *> &item_list);
   virtual int get_next_item(const T *&item);
   virtual int clean_up() { return common::OB_SUCCESS; }
-private:
-  bool is_inited_;
+  int get(int64_t idx, const T *&item);
   int64_t curr_item_index_;
   common::ObVector<T *> *item_list_;
+private:
+  bool is_inited_;  
 };
 
 template<typename T>
@@ -1783,6 +1812,19 @@ int ObDemoMemoryFragmentIterator<T>::get_next_item(const T *&item)
   } else {
     item = (*item_list_)[curr_item_index_];
     ++curr_item_index_;
+  }
+  return ret;
+}
+
+template<typename T>
+int ObDemoMemoryFragmentIterator<T>::get(int64_t idx, const T *&item)
+{
+  int ret = common::OB_SUCCESS;
+  if (OB_UNLIKELY(!is_inited_)) {
+    ret = common::OB_NOT_INIT;
+    STORAGE_LOG(WARN, "ObDemoMemoryFragmentIterator has not been inited", K(ret));
+  } else {
+    item = (*item_list_)[idx];
   }
   return ret;
 }
@@ -2012,6 +2054,9 @@ template<typename T, typename Compare>
 int ObDemoMemorySortRound<T, Compare>::finish()
 {
   int ret = common::OB_SUCCESS;
+  if (OB_FAIL(build_fragment())) {
+    STORAGE_LOG(WARN, "fail to build fragment", K(ret));
+  } else
   if (OB_UNLIKELY(!is_inited_)) {
     ret = common::OB_NOT_INIT;
     STORAGE_LOG(WARN, "ObDemoMemorySortRound has not been inited", K(ret));
@@ -2132,6 +2177,8 @@ public:
   int add_item(const T &item);
   int do_sort(const bool final_merge);
   int get_next_item(const T *&item);
+  int get_next_partition_item(int id, const T *&item);
+  void partition(int n);
   void clean_up();
   int add_fragment_iter(ObDemoFragmentIterator<T> *iter);
   int transfer_final_sorted_fragment_iter(ObDemoExternalSort<T, Compare> &merge_sorter);
@@ -2272,6 +2319,20 @@ int ObDemoExternalSort<T, Compare>::do_sort(const bool final_merge)
     }
   }
   return ret;
+}
+
+template<typename T, typename Compare>
+void ObDemoExternalSort<T, Compare>::partition(int n) 
+{
+  curr_round_->partition(n);
+  return;
+}
+
+template<typename T, typename Compare>
+int ObDemoExternalSort<T, Compare>::get_next_partition_item(int id, const T *&item)
+{
+  // int ret = common::OB_SUCCESS;
+  return curr_round_->get_next_partition_item(id, item);
 }
 
 template<typename T, typename Compare>
