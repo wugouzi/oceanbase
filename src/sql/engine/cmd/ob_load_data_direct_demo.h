@@ -227,6 +227,12 @@ namespace oceanbase
       int *rets_;
       std::mutex mutex_;
     };
+
+    // preload buffer, then let csv_parser to use 2 buffer
+    // class ObPreloadBuffer : public lib::Threads 
+    // {
+    //   ObPreloadBuffer(ObLoadDataBuffer &buffer, )
+    // }
     
     class ObParseDataTask : public share::ObAsyncTask 
     {
@@ -252,9 +258,9 @@ namespace oceanbase
 
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
-      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G
+      static const int64_t MEM_BUFFER_SIZE = (1LL << 31);  // 1G -> 2G
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
-      static const int64_t BUF_SIZE = (2LL << 24); // 
+      static const int64_t BUF_SIZE = (2LL << 25); // 
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -266,12 +272,13 @@ namespace oceanbase
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int DEMO_BUF_NUM = 2;
+      static const int DEMO_BUF_NUM = 3;
 
       ObLoadSequentialFileReader file_reader_;
       // we have BUF_NUM buffers and we load data simultaneously
       // ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
       ObLoadDataBuffer buffer_;
+      ObLoadDataBuffer pre_buffer_;
       ObLoadCSVPaser csv_parsers_[DEMO_BUF_NUM];
       ObLoadRowCaster row_casters_[DEMO_BUF_NUM];
       // ObLoadDataBuffer buffer_;
