@@ -97,13 +97,9 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
    1. use two buffers A, B for csv_parser, no need to squaze anymore
    2. when working in B, let A=B and reset B, then start prefetch thread
    3. so, when csv_parser needs the second buffer, it waits (but i think this will never happen), but we will need to write wait.
-2. [ ] reuse encoder
-3. [ ] parallel macro writing
-4. [ ] modify the constant now tenant has 12G
-5. [ ] https://gitlab.com/daniel.langr/cpp11sort/-/tree/master/
-6. [ ] sstable use block instead of row
-   - 动机：逐行写入在压缩和IO上都有瓶颈。
-   - 方法：维护一个任务队列，每写入若干行，进行一次真正的IO。同时，每次任务进入队列的时候，都可以异步地进行压缩。参考TCP和Flink watermark等，维护一个始终顺序的窗口，进行写入。
+2. [ ] parallel macro writing
+3. [ ] modify the constant now tenant has 12G
+4. [ ] https://gitlab.com/daniel.langr/cpp11sort/-/tree/master/
 
 ## benchmark
 1. 8MB sort buffer 54m7s
