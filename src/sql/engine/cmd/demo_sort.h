@@ -1458,19 +1458,19 @@ int ObDemoExternalSortRound<T, Compare>::do_merge(
     int64_t reader_idx = 0;
     STORAGE_LOG(INFO, "external sort do merge start");
     while (OB_SUCC(ret) && reader_idx < iters_.count()) {
-      if (OB_FAIL(do_one_run(reader_idx, next_round))) {
+      /*if (OB_FAIL(do_one_run(reader_idx, next_round))) {
         STORAGE_LOG(WARN, "fail to do one run merge", K(ret));
-      }
-      /*if (OB_FAIL(do_one_run_with_threads(reader_idx, next_round, thread_num))) {
-        STORAGE_LOG(WARN, "fail to do one run merge", K(ret));
-      }*/ else {
+      }*/
+      if (OB_FAIL(do_one_run_with_threads(reader_idx, next_round, thread_num))) {
+        STORAGE_LOG(WARN, "MMMMM fail to do one run merge", K(ret));
+      } else {
         reader_idx += merge_count_ * thread_num;
       }
     }
 
     if (OB_SUCC(ret)) {
       if (OB_FAIL(next_round.finish_write())) {
-        STORAGE_LOG(WARN, "fail to finsh next round", K(ret));
+        STORAGE_LOG(WARN, "MMMMM fail to finsh next round", K(ret));
       }
     }
     STORAGE_LOG(INFO, "external sort do merge end");
@@ -1598,7 +1598,7 @@ int ObDemoExternalSortRound<T, Compare>::do_one_run_with_threads(
     threads.set_run_wrapper(MTL_CTX());
     threads.start();
     threads.wait();
-
+    
     for (int i = 0; i < actual_thread; i++) {
       ret = rets[i] == OB_SUCCESS ? ret : rets[i];
     }

@@ -93,26 +93,17 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 ```
 
 ## TODO (sort by priority)
-1. [ ] preload buffer
+1. [ ] prefetch buffer
+   1. use two buffers A, B for csv_parser, no need to squaze anymore
+   2. when working in B, let A=B and reset B, then start prefetch thread
+   3. so, when csv_parser needs the second buffer, it waits (but i think this will never happen), but we will need to write wait.
 2. [ ] reuse encoder
 3. [ ] parallel macro writing
 4. [ ] modify the constant now tenant has 12G
-5. [ ] sstable use block instead of row
+5. [ ] https://gitlab.com/daniel.langr/cpp11sort/-/tree/master/
+6. [ ] sstable use block instead of row
    - 动机：逐行写入在压缩和IO上都有瓶颈。
    - 方法：维护一个任务队列，每写入若干行，进行一次真正的IO。同时，每次任务进入队列的时候，都可以异步地进行压缩。参考TCP和Flink watermark等，维护一个始终顺序的窗口，进行写入。
-6. [ ] cast_obj_to_datum
-7. [ ] external_sort
-8. [ ] 读取数据的时候,block block地读
-9. [ ] 读一个buffer数据,先sort,再写回去()
-10. [ ] 读了之后,sort,写回去 -> 我们的文件是不同的sorted的数据,可以merge了 (非常不好写)
-   1. [ ] 读满内存,sort,写回去
-   2. [ ] FILE_BUFFER_SIZE
-11. [ ] learn LSM-tree
-12. [ ] after read a buffer, sort it directly and write back
-13. [ ] parallel load data
-14. [ ] how does ob manage threads?
-15. [ ] src/storage/ob_parallel_external_sort.h:513 看一下sstable这个item啥时候回收
-15. [ ] copy in squash
 
 ## benchmark
 1. 8MB sort buffer 54m7s
