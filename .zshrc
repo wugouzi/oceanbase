@@ -129,6 +129,7 @@ export OBD_INSTALL_PRE=~/.oceanbase-all-in-one/obd
 source $OBD_INSTALL_PRE/etc/profile.d/obd.sh
 export OBCLIENT_HOME=~/.oceanbase-all-in-one/obclient
 export PATH=$OBD_INSTALL_PRE/usr/bin:$OBCLIENT_HOME/u01/obclient/bin:$HOME/.cargo/bin:$PATH
+export PATH=/root/oceanbase/deps/3rd/usr/local/oceanbase/devtools/bin:$PATH
 # export PATH=/root/cmake/bin:$PATH
 
 export OB_ROOT=$HOME/oceanbase

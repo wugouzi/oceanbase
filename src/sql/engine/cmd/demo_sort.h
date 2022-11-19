@@ -51,7 +51,7 @@ void quicksort(ForwardIterator first, ForwardIterator last, Compare comp = Compa
     {
         return;
     }
-    else if (dist < 300000)
+    else if (dist < 100000)
     {
       std::sort(first,last,comp);
     }
