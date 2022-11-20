@@ -1066,11 +1066,11 @@ int ObLoadSSTableWriter::close()
     LOG_WARN("unexpected closed sstable writer", KR(ret));
   } else {
     ObSSTable *sstable = nullptr;
-    // for (int i = 0; i < 16; i++) {
-    //   if (OB_FAIL(macro_block_writers_[i].close())) {
-    //     LOG_WARN("MMMMM fail to close macro block writer", KR(ret));  
-    //   }
-    // }
+    for (int i = 0; i < 16; i++) {
+      if (OB_FAIL(macro_block_writers_[i].close())) {
+        LOG_WARN("fail to close macro block writer", KR(ret));  
+      }
+    }
     if (OB_FAIL(macro_block_writer_.close())) {
       LOG_WARN("fail to close macro block writer", KR(ret));
     } else if (OB_FAIL(create_sstable())) {
@@ -1179,7 +1179,7 @@ void ObWriterThread::run(int64_t idx)
   LOG_INFO("MMMMM writer thread 2", K(idx));
   while (OB_SUCC(ret)) {
     cnt++;
-    if (cnt % 10000 == 0) {
+    if (cnt % 100000 == 0) {
       LOG_INFO("MMMMM sstable append", K(cnt), K(idx));
     }
     if (OB_FAIL(external_sort_.get_next_partition_row(idx, datum_row))) {

@@ -226,7 +226,7 @@ int ObDemoMacroBufferWriter<T>::write_items(const ObVector<T *> &items, int idx)
       pos_map[i] = base;
       base += items[cnt + i]->get_serialize_size();
       if (base > buf_cap_) {
-        LOG_INFO("MMMMM macro buffer full", K(cnt), K(items.size()));
+        // LOG_INFO("MMMMM macro buffer full", K(cnt), K(items.size()));
         return common::OB_EAGAIN;
       }
     }
@@ -256,7 +256,7 @@ int ObDemoMacroBufferWriter<T>::write_item_compress(const T &item)
   // int64_t size = 350;
 
   if (size + buf_pos_ > buf_cap_) {
-    LOG_INFO("MMMMM macro writer full");
+    // LOG_INFO("MMMMM macro writer full");
     ret = common::OB_EAGAIN;
   } else if (OB_FAIL(item.serialize(tmp_buf_, TMP_BUF_SIZE, 0))) {
     STORAGE_LOG(WARN, "fail to serialize item", K(ret));
@@ -276,7 +276,7 @@ int ObDemoMacroBufferWriter<T>::write_item(const T &item)
   // LOG_INFO("MMMMM serialize_size", K(size));
   int64_t size = 350;
   if (size + buf_pos_ > buf_cap_) {
-    LOG_INFO("MMMMM macro writer full");
+    // LOG_INFO("MMMMM macro writer full");
     ret = common::OB_EAGAIN;
   } else if (OB_FAIL(item.serialize(buf_, buf_cap_, buf_pos_))) {
     STORAGE_LOG(WARN, "fail to serialize item", K(ret));
@@ -498,7 +498,7 @@ int ObDemoFragmentWriterV2<T>::flush_buffer()
 {
   int ret = common::OB_SUCCESS;
   int64_t timeout_ms = 0;
-  // LOG_INFO("MMMMM flush buffer", K(write_cnt_));
+  LOG_INFO("MMMMM flush buffer", K(write_cnt_));
   // write_cnt_ = 0;
   if (OB_UNLIKELY(!is_inited_)) {
     ret = common::OB_NOT_INIT;
