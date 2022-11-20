@@ -98,6 +98,8 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
    2. when working in B, let A=B and reset B, then start prefetch thread
    3. so, when csv_parser needs the second buffer, it waits (but i think this will never happen), but we will need to write wait.
 2. [ ] parallel macro writing
+   1. in the final sort round, build n files by merger
+   2. build reader for each file
 3. [ ] modify the constant now tenant has 12G
 4. [ ] https://gitlab.com/daniel.langr/cpp11sort/-/tree/master/
 
