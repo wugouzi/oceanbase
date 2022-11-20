@@ -347,6 +347,7 @@ int ObMacroBlockWriter::open(
       callback_ = callback;
       data_store_desc_ = &data_store_desc;
       current_macro_seq_ = start_seq.get_data_seq();
+      LOG_INFO("MMMMM get seq", K(current_macro_seq_));
       if (OB_FAIL(build_micro_writer(data_store_desc_,
                                      allocator_,
                                      micro_writer_,
@@ -683,7 +684,7 @@ int ObMacroBlockWriter::check_order(const ObDatumRow &row)
         STORAGE_LOG(WARN, "Failed to compare last key", K(ret), K(cur_key), K(last_key));
       } else if (OB_UNLIKELY(compare_result < 0)) {
         ret = OB_ROWKEY_ORDER_ERROR;
-        STORAGE_LOG(ERROR, "input rowkey is less then last rowkey.", K(cur_key), K(last_key), K(ret));
+        STORAGE_LOG(ERROR, "MMMMM input rowkey is less then last rowkey.", K(cur_key), K(last_key), K(ret));
       } else if (OB_UNLIKELY(0 == compare_result)) { // same schema rowkey
         if (last_key_with_L_flag_) {
           ret = OB_ROWKEY_ORDER_ERROR;

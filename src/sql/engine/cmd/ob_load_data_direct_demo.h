@@ -165,10 +165,11 @@ namespace oceanbase
       int init(const share::schema::ObTableSchema *table_schema, int64_t mem_size,
                int64_t file_buf_size);
       int append_row(const ObLoadDatumRow &datum_row);
-      void partition(int n);
+      // void partition(int n);
       int close();
       int get_next_row(const ObLoadDatumRow *&datum_row);
       int get_next_partition_row(int id, const ObLoadDatumRow *&datum_row);
+      int final_merge(int64_t total, int split_num);
     private:
       common::ObArenaAllocator allocator_;
       blocksstable::ObStorageDatumUtils datum_utils_;
@@ -185,12 +186,14 @@ namespace oceanbase
       ObLoadSSTableWriter();
       ~ObLoadSSTableWriter();
       // int init(const share::schema::ObTableSchema *table_schema);
-      int init(const share::schema::ObTableSchema *table_schema, int thread_num, int idx);
+      int init(const share::schema::ObTableSchema *table_schema);
       int append_row(const ObLoadDatumRow &datum_row);
+      int append_row(int idx, const ObLoadDatumRow &datum_row);
+      int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
       int close();
     private:
       int init_sstable_index_builder(const share::schema::ObTableSchema *table_schema);
-      int init_macro_block_writer(const share::schema::ObTableSchema *table_schema, int thread_num, int idx);
+      int init_macro_block_writer(const share::schema::ObTableSchema *table_schema);
       int create_sstable();
     private:
       common::ObTabletID tablet_id_;
@@ -205,6 +208,9 @@ namespace oceanbase
       blocksstable::ObDataStoreDesc data_store_desc_;
       blocksstable::ObMacroBlockWriter macro_block_writer_;
       blocksstable::ObDatumRow datum_row_;
+      blocksstable::ObDatumRow datum_rows_[16];
+      blocksstable::ObMacroBlockWriter macro_block_writers_[16];
+      blocksstable::ObDataStoreDesc data_store_descs_[16];
       bool is_closed_;
       bool is_inited_;
     };
@@ -218,8 +224,17 @@ namespace oceanbase
                         : buffer_(buffer), csv_parsers_(csv_parsers),
                           row_casters_(row_casters), external_sort_(external_sort),
                           file_reader_(file_reader), rets_(rets) 
-                        {}
+                        {
+                          memset(cnts_, 0, sizeof(cnts_));
+                        }
       void run(int64_t idx) final;
+      int64_t cnts() { 
+        int64_t ans = 0;
+        for (int i = 0; i < 16; i++) {
+          ans += cnts_[i];
+        }
+        return ans;
+      }
     private:
       // ObLoadDataBuffer *buffers_;
       ObLoadDataBuffer &buffer_;
@@ -228,24 +243,29 @@ namespace oceanbase
       ObLoadExternalSort &external_sort_;
       ObLoadSequentialFileReader &file_reader_;
       int *rets_;
+      int64_t cnts_[16];
       std::mutex mutex_;
+
     };
 
     class ObWriterThread : public lib::Threads 
     {
     public:
-      ObWriterThread(ObLoadExternalSort &external_sort, const ObTableSchema *table_schema,
-                     int *rets, int thread_num)
-        : external_sort_(external_sort), table_schema_(table_schema),
+      ObWriterThread(ObLoadExternalSort &external_sort, ObLoadSSTableWriter &sstable_writer,
+                     const ObTableSchema *table_schema, int *rets, int thread_num)
+        : external_sort_(external_sort), sstable_writer_(sstable_writer),
+          table_schema_(table_schema),
           rets_(rets), thread_num_(thread_num) 
         {}
       void run(int64_t idx) final;
     private:
       ObLoadExternalSort &external_sort_;
+      ObLoadSSTableWriter &sstable_writer_;
       const ObTableSchema *table_schema_;
       int *rets_;
       int thread_num_;
-    }
+      std::mutex mutex_;
+    };
 
     // preload buffer, then let csv_parser to use 2 buffer
     // class ObPreloadBuffer : public lib::Threads 
