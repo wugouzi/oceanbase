@@ -498,7 +498,7 @@ int ObDemoFragmentWriterV2<T>::flush_buffer()
 {
   int ret = common::OB_SUCCESS;
   int64_t timeout_ms = 0;
-  LOG_INFO("MMMMM flush buffer", K(write_cnt_));
+  // LOG_INFO("MMMMM flush buffer", K(write_cnt_));
   // write_cnt_ = 0;
   if (OB_UNLIKELY(!is_inited_)) {
     ret = common::OB_NOT_INIT;

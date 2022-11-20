@@ -97,11 +97,13 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
    1. use two buffers A, B for csv_parser, no need to squaze anymore
    2. when working in B, let A=B and reset B, then start prefetch thread
    3. so, when csv_parser needs the second buffer, it waits (but i think this will never happen), but we will need to write wait.
-2. [ ] parallel macro writing
+2. [X] parallel macro writing
    1. in the final sort round, build n files by merger
    2. build reader for each file
-3. [ ] modify the constant now tenant has 12G
-4. [ ] https://gitlab.com/daniel.langr/cpp11sort/-/tree/master/
+3. should use parallel compressing instead of macro writing
+4. [ ] modify the constant now tenant has 12G
+5. [ ] https://gitlab.com/daniel.langr/cpp11sort/-/tree/master/
+6. [ ] better flush buffer strategy
 
 ## benchmark
 1. 8MB sort buffer 54m7s

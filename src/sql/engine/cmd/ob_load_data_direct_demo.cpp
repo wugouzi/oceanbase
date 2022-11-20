@@ -1302,51 +1302,50 @@ int ObLoadDataDirectDemo::do_load()
       LOG_INFO("MMMMM fail to close external sort", KR(ret));
   }
   LOG_INFO("MMMMM sort done", KR(ret));
-  if (OB_FAIL(external_sort_.final_merge(total, WRITER_THREAD_NUM))) {
-    LOG_INFO("MMMMM final merge fail", KR(ret));
-  } else {
-    int rets[WRITER_THREAD_NUM];
-    ObWriterThread threads(external_sort_, sstable_writer_, table_schema_, rets, WRITER_THREAD_NUM);
-    threads.set_thread_count(WRITER_THREAD_NUM);
-    threads.set_run_wrapper(MTL_CTX());
-    threads.start();
-    threads.wait();
+  // if (OB_FAIL(external_sort_.final_merge(total, WRITER_THREAD_NUM))) {
+  //   LOG_INFO("MMMMM final merge fail", KR(ret));
+  // } else {
+  //   int rets[WRITER_THREAD_NUM];
+  //   ObWriterThread threads(external_sort_, sstable_writer_, table_schema_, rets, WRITER_THREAD_NUM);
+  //   threads.set_thread_count(WRITER_THREAD_NUM);
+  //   threads.set_run_wrapper(MTL_CTX());
+  //   threads.start();
+  //   threads.wait();
 
-    for (int i = 0; i < WRITER_THREAD_NUM; i++) {
-      ret = rets[i] != OB_SUCCESS ? rets[i] : ret;
-    }
-  }
-
-  if (OB_SUCC(ret)) {
-    if (OB_FAIL(sstable_writer_.close())) {
-      LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
-    }
-  }
-  
-  
-  // const ObLoadDatumRow *datum_row = nullptr;
-  // cnt = 0;
-  // while (OB_SUCC(ret)) {
-  //   cnt++;
-  //   if (cnt % 100000 == 0) {
-  //     LOG_INFO("MMMMM sstable append", K(cnt));
-  //   }
-  //   if (OB_FAIL(external_sort_.get_next_row(datum_row))) {
-  //     if (OB_UNLIKELY(OB_ITER_END != ret)) {
-  //       LOG_INFO("MMMMM fail to get next row", KR(ret));
-  //     } else {
-  //       ret = OB_SUCCESS;
-  //       break;
-  //     }
-  //   } else if (OB_FAIL(sstable_writer_.append_row(*datum_row))) {
-  //     LOG_INFO("MMMMM fail to append row", KR(ret));
+  //   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+  //     ret = rets[i] != OB_SUCCESS ? rets[i] : ret;
   //   }
   // }
+
   // if (OB_SUCC(ret)) {
   //   if (OB_FAIL(sstable_writer_.close())) {
   //     LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
   //   }
   // }
+  
+  const ObLoadDatumRow *datum_row = nullptr;
+  cnt = 0;
+  while (OB_SUCC(ret)) {
+    cnt++;
+    if (cnt % 100000 == 0) {
+      LOG_INFO("MMMMM sstable append", K(cnt));
+    }
+    if (OB_FAIL(external_sort_.get_next_row(datum_row))) {
+      if (OB_UNLIKELY(OB_ITER_END != ret)) {
+        LOG_INFO("MMMMM fail to get next row", KR(ret));
+      } else {
+        ret = OB_SUCCESS;
+        break;
+      }
+    } else if (OB_FAIL(sstable_writer_.append_row(*datum_row))) {
+      LOG_INFO("MMMMM fail to append row", KR(ret));
+    }
+  }
+  if (OB_SUCC(ret)) {
+    if (OB_FAIL(sstable_writer_.close())) {
+      LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
+    }
+  }
   return ret;
 }
 
