@@ -175,3 +175,7 @@ alias pc="proxychains4"
 alias zc="vim ~/.zshrc && source ~/.zshrc"
 
 alias ana='rg 'start load' && rg 'finish reading' && rg 'sort done' && rg 'load done''
+
+export TBBROOT=/home/wdk/cpp11sort/tbb
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib64

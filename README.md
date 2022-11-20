@@ -92,6 +92,16 @@ cd ioprof
 fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --direct=1 --group_reporting
 ```
 
+## Multi-threading
+
+### Install TBB
+
+https://github.com/oneapi-src/oneTBB/blob/master/INSTALL.md
+
+### CPP11Sort
+
+https://gitlab.com/daniel.langr/cpp11sort/-/blob/master/benchmark/main.cpp
+
 ## TODO (sort by priority)
 1. [ ] sstable use block instead of row
    - 动机：逐行写入在压缩和IO上都有瓶颈。
