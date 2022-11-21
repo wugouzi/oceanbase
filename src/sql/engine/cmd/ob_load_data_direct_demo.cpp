@@ -246,38 +246,6 @@ int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::Ob
   return OB_SUCCESS;
 }
 
-// int ObLoadCSVPaser::parse_next_row(const common::ObNewRow *&row)
-// {
-//   int ret = OB_SUCCESS;
-//   row = nullptr;
-//   int64_t nrows = 1;
-//   // LOG_INFO("parse next row", K(str_));
-//   if (OB_FAIL(csv_parser_.scan(str_, end_, nrows, nullptr, nullptr, unused_row_handler_,
-//                                 err_records_, false))) {
-//     LOG_WARN("MMMMM fail to scan buffer", KR(ret));
-//   } else if (OB_UNLIKELY(!err_records_.empty())) {
-//     ret = err_records_.at(0).err_code;
-    
-//   } else if (0 == nrows) {
-//     ret = OB_ITER_END;
-//   } else {
-//     const ObIArray<ObCSVGeneralParser::FieldValue> &field_values_in_file =
-//       csv_parser_.get_fields_per_line();
-//     for (int64_t i = 0; i < row_.count_; ++i) {
-//       const ObCSVGeneralParser::FieldValue &str_v = field_values_in_file.at(i);
-//       ObObj &obj = row_.cells_[i];
-//       if (str_v.is_null_) {
-//         obj.set_null();
-//       } else {
-//         obj.set_string(ObVarcharType, ObString(str_v.len_, str_v.ptr_));
-//         obj.set_collation_type(collation_type_);
-//       }
-//     }
-//     row = &row_;
-//   }
-//   return ret;
-// }
-
 int ObLoadCSVPaser::get_next_row(ObLoadDataBuffer &buffer, const ObNewRow *&row)
 {
   int ret = OB_SUCCESS;

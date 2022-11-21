@@ -347,7 +347,7 @@ int ObMacroBlockWriter::open(
       callback_ = callback;
       data_store_desc_ = &data_store_desc;
       current_macro_seq_ = start_seq.get_data_seq();
-      LOG_INFO("MMMMM get seq", K(current_macro_seq_));
+      // LOG_INFO("MMMMM get seq", K(current_macro_seq_));
       if (OB_FAIL(build_micro_writer(data_store_desc_,
                                      allocator_,
                                      micro_writer_,
