@@ -92,6 +92,23 @@ cd ioprof
 fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --direct=1 --group_reporting
 ```
 
+## read constant
+0: 1 1
+37500726: 37502915 5
+75001452: 75015168 1
+112502178: 112509890 2
+150002904: 150006562 1
+187503630: 187501475 2
+225004356: 224993826 1
+262505082: 262492770 3
+300005808: 299999975 3
+
+0: 1 1
+75001452: 75015168 1
+150002904: 150006562 1
+225004356: 224993826 1
+300005808: 299999975 3
+
 ## TODO (sort by priority)
 1. [ ] prefetch buffer
    1. use two buffers A, B for csv_parser, no need to squaze anymore
@@ -101,9 +118,12 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
    1. in the final sort round, build n files by merger
    2. build reader for each file
 3. should use parallel compressing instead of macro writing
-4. [ ] modify the constant now tenant has 12G
-5. [ ] https://gitlab.com/daniel.langr/cpp11sort/-/tree/master/
-6. [ ] better flush buffer strategy
+4. read from file's different positions, use 
+   
+   https://stackoverflow.com/questions/18009287/get-file-content-from-specific-position-to-another-specific-position
+5. [ ] modify the constant now tenant has 12G
+6. [ ] https://gitlab.com/daniel.langr/cpp11sort/-/tree/master/
+7. [ ] better flush buffer strategy
 
 ## benchmark
 1. 8MB sort buffer 54m7s

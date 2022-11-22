@@ -201,7 +201,48 @@ MMMMM TAKE BACK RETURN|MAIL| regular pinto beans boost. idly pending|
 MMMMM MAIL| regular pinto beans boost. idly pending|
 MMMMM  regular pinto beans boost. idly pending|
 */
-int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row)
+
+inline int dic_compare(int64_t key1, int key2, int64_t b1, int b2)
+{
+  return key1 < b1 || (key1 == b1 && key2 < b2);
+}
+
+// magic!
+int ObLoadCSVPaser::get_group_id(int64_t key1, int key2)
+{
+  // 4
+  if (dic_compare(key1, key2, 75015168, 1)) {
+    return 0;
+  } else if (dic_compare(key1, key2, 150006562, 1)) {
+    return 1;
+  }  else if (dic_compare(key1, key2, 224993826, 1)) {
+    return 2;
+  }  else {
+    return 3;
+  }
+
+  // 8
+  /*
+  if (dic_compare(key1, key2, 37502915, 5)) {
+    return 0;
+  } else if (dic_compare(key1, key2, 75015168, 1)) {
+    return 1;
+  } else if (dic_compare(key1, key2, 112509890, 2)) {
+    return 2;
+  } else if (dic_compare(key1, key2, 150006562, 1)) {
+    return 3;
+  } else if (dic_compare(key1, key2, 187501475, 2)) {
+    return 4;
+  } else if (dic_compare(key1, key2, 224993826, 1)) {
+    return 5;
+  } else if (dic_compare(key1, key2, 262492779, 3)) {
+    return 6;
+  } else {
+    return 7;
+  } 
+  */
+}
+int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, int &group_id)
 {
   if (buffer.empty()) {
     return OB_ITER_END;
@@ -217,6 +258,9 @@ int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::Ob
   bool first = true;
 
   const char *ptr = nullptr;
+
+  int64_t key1 = 0;
+  int key2 = 0;
   while (iter < end && *iter != '\n') {
     if (first) {
       ptr = iter;
@@ -230,7 +274,13 @@ int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::Ob
       obj.set_collation_type(collation_type_);
       field_cnt++;
       first = true;
-    } 
+    }
+    if (field_cnt == 0) {
+      key1 = key1 * 10 + (*iter - '0');
+    }
+    if (field_cnt == 3) {
+      key2 = key2 * 10 + (*iter - '0');
+    }
     iter++;
   }
   if (field_cnt != field_num_ || iter == end) {
@@ -239,6 +289,7 @@ int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::Ob
   if (end != iter) {
     iter++;
   }
+  group_id = get_group_id(key1, key2);
   buffer.consume(iter - begin);
   row = &row_;
   assert(*(iter-1) == '\n');
@@ -1127,8 +1178,13 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   if (OB_FAIL(external_sort_.init(table_schema, MEM_BUFFER_SIZE, FILE_BUFFER_SIZE))) {
     LOG_WARN("fail to init row caster", KR(ret));
   }
+  for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+    if (OB_FAIL(external_sorts_[i].init(table_schema, MEM_BUFFER_SIZE, FILE_BUFFER_SIZE))) {
+      LOG_WARN("fail to init row caster", KR(ret));
+    } 
+  }
   // init sstable_writer_
-  else if (OB_FAIL(sstable_writer_.init(table_schema))) {
+  if (OB_FAIL(sstable_writer_.init(table_schema))) {
     LOG_WARN("fail to init sstable writer", KR(ret));
   }
   // init datum_row_buffers_
@@ -1142,17 +1198,17 @@ void ObWriterThread::run(int64_t idx)
   const ObLoadDatumRow *datum_row;
   int ret = OB_SUCCESS;
   int cnt = 0;
-  LOG_INFO("MMMMM writer thread", K(idx));
+  // LOG_INFO("MMMMM writer thread", K(idx));
   sstable_writer_.init_macro_block_writer(table_schema_, idx);
-  LOG_INFO("MMMMM writer thread 2", K(idx));
+  // LOG_INFO("MMMMM writer thread 2", K(idx));
   while (OB_SUCC(ret)) {
     cnt++;
     if (cnt % 100000 == 0) {
       LOG_INFO("MMMMM sstable append", K(cnt), K(idx));
     }
-    if (OB_FAIL(external_sort_.get_next_partition_row(idx, datum_row))) {
+    if (OB_FAIL(external_sorts_[idx].get_next_row(datum_row))) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
-        LOG_INFO("MMMMM fail to get next row", KR(ret));
+        LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
       } else {
         ret = OB_SUCCESS;
         break;
@@ -1179,12 +1235,14 @@ void ObParseDataThread::run(int64_t idx)
   // parse whole file
   int cnt = 0;
   while (OB_SUCC(ret)) {
+    int group_id = 0;
     // LOG_INFO("MMMMM run", K(idx), K(cnt), KR(ret));
     {
       std::lock_guard<std::mutex> guard(mutex_);
-      ret = csv_parser.fast_get_next_row(buffer_, new_row);
+      ret = csv_parser.fast_get_next_row(buffer_, new_row, group_id);
       // ret = csv_parser.get_next_row(buffer_, new_row);
     }
+    // LOG_INFO("MMMMM writer to group", K(group_id));
     if (OB_FAIL(ret)) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
         LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
@@ -1202,7 +1260,7 @@ void ObParseDataThread::run(int64_t idx)
       }
     } */else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
       LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx));
-    } else if (OB_FAIL(external_sort_.append_row(*datum_row))) {
+    } else if (OB_FAIL(external_sorts_[group_id].append_row(*datum_row))) {
       LOG_INFO("MMMMM fail to append row", KR(ret), K(idx));
     } else {
       cnt++;
@@ -1252,7 +1310,7 @@ int ObLoadDataDirectDemo::do_load()
       break;
     }
     
-    ObParseDataThread threads(buffer_, csv_parsers_, row_casters_, external_sort_, file_reader_, rets);
+    ObParseDataThread threads(buffer_, csv_parsers_, row_casters_, external_sorts_, file_reader_, rets);
     threads.set_thread_count(DEMO_BUF_NUM);
     threads.set_run_wrapper(MTL_CTX());
     threads.start();
@@ -1266,23 +1324,29 @@ int ObLoadDataDirectDemo::do_load()
     }
   }
   LOG_INFO("MMMMM finish reading", KR(ret));
-  if (OB_FAIL(external_sort_.close())) {
+
+  // if (OB_FAIL(external_sort_.close())) {
+  //     LOG_INFO("MMMMM fail to close external sort", KR(ret));
+  // }
+  for (int i = 0 ; i < WRITER_THREAD_NUM; i++) {
+    if (OB_FAIL(external_sorts_[i].close())) {
       LOG_INFO("MMMMM fail to close external sort", KR(ret));
+    }
   }
   LOG_INFO("MMMMM sort done", KR(ret));
   // if (OB_FAIL(external_sort_.final_merge(total, WRITER_THREAD_NUM))) {
   //   LOG_INFO("MMMMM final merge fail", KR(ret));
   // } else {
-  //   int rets[WRITER_THREAD_NUM];
-  //   ObWriterThread threads(external_sort_, sstable_writer_, table_schema_, rets, WRITER_THREAD_NUM);
-  //   threads.set_thread_count(WRITER_THREAD_NUM);
-  //   threads.set_run_wrapper(MTL_CTX());
-  //   threads.start();
-  //   threads.wait();
+  int rets[WRITER_THREAD_NUM];
+  ObWriterThread threads(external_sorts_, sstable_writer_, table_schema_, rets, WRITER_THREAD_NUM);
+  threads.set_thread_count(WRITER_THREAD_NUM);
+  threads.set_run_wrapper(MTL_CTX());
+  threads.start();
+  threads.wait();
 
-  //   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
-  //     ret = rets[i] != OB_SUCCESS ? rets[i] : ret;
-  //   }
+  for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+    ret = rets[i] != OB_SUCCESS ? rets[i] : ret;
+  }
   // }
 
   // if (OB_SUCC(ret)) {
@@ -1291,24 +1355,24 @@ int ObLoadDataDirectDemo::do_load()
   //   }
   // }
   
-  const ObLoadDatumRow *datum_row = nullptr;
-  cnt = 0;
-  while (OB_SUCC(ret)) {
-    cnt++;
-    if (cnt % 100000 == 0) {
-      LOG_INFO("MMMMM sstable append", K(cnt));
-    }
-    if (OB_FAIL(external_sort_.get_next_row(datum_row))) {
-      if (OB_UNLIKELY(OB_ITER_END != ret)) {
-        LOG_INFO("MMMMM fail to get next row", KR(ret));
-      } else {
-        ret = OB_SUCCESS;
-        break;
-      }
-    } else if (OB_FAIL(sstable_writer_.append_row(*datum_row))) {
-      LOG_INFO("MMMMM fail to append row", KR(ret));
-    }
-  }
+  // const ObLoadDatumRow *datum_row = nullptr;
+  // cnt = 0;
+  // while (OB_SUCC(ret)) {
+  //   cnt++;
+  //   if (cnt % 100000 == 0) {
+  //     LOG_INFO("MMMMM sstable append", K(cnt));
+  //   }
+  //   if (OB_FAIL(external_sort_.get_next_row(datum_row))) {
+  //     if (OB_UNLIKELY(OB_ITER_END != ret)) {
+  //       LOG_INFO("MMMMM fail to get next row", KR(ret));
+  //     } else {
+  //       ret = OB_SUCCESS;
+  //       break;
+  //     }
+  //   } else if (OB_FAIL(sstable_writer_.append_row(*datum_row))) {
+  //     LOG_INFO("MMMMM fail to append row", KR(ret));
+  //   }
+  // }
   if (OB_SUCC(ret)) {
     if (OB_FAIL(sstable_writer_.close())) {
       LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
