@@ -1,3 +1,5 @@
 test: random_io_test.cpp
 	@g++ random_io_test.cpp
-	@./a.out
+	@time ./a.out 100000000
+clear:
+	rm a.out

@@ -55,8 +55,10 @@ private:
   }
 };
 
-int main() {
+int main(int argc, char* argv[]) {
   char filename[] = "/home/wdk/archieve/10m.csv";
   auto benchmark = new RandomBenchmark(filename);
-  benchmark->start(1000);
+  int times = atoi(argv[1]);
+  // cout << "repeat for " << times << " times\n";
+  benchmark->start(times);
 }
