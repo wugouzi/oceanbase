@@ -333,3 +333,5 @@ deps/3rd
 ############# test #############
 test/tmp
 test/var
+
+a.out

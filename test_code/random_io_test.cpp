@@ -39,6 +39,7 @@ public:
     while(times--){
       pos = choose_random_pos();
       access_pos(pos, str);
+      cout << str << '\n';
     }
     cout << "benchmarking finished\n";
   }
@@ -56,9 +57,8 @@ private:
 };
 
 int main(int argc, char* argv[]) {
-  char filename[] = "/home/wdk/archieve/10m.csv";
+  char* filename = argv[1];
   auto benchmark = new RandomBenchmark(filename);
-  int times = atoi(argv[1]);
-  // cout << "repeat for " << times << " times\n";
+  int times = atoi(argv[2]);
   benchmark->start(times);
 }

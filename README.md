@@ -92,6 +92,12 @@ cd ioprof
 fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --direct=1 --group_reporting
 ```
 
+随机读则：
+
+```sh
+fio --name=random_read --rw=randread --bs=1M  --size=5G --runtime=400 --numjobs=10 --direct=1 --group_reporting
+```
+
 ## Multi-threading
 
 ### Install TBB
