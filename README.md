@@ -115,6 +115,9 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
    2. when working in B, let A=B and reset B, then start prefetch thread
    3. so, when csv_parser needs the second buffer, it waits (but i think this will never happen), but we will need to write wait.
 2. improve sort
+   1. https://www.cs.cmu.edu/~guyb/papers/BM04.pdf
+   2. http://algo2.iti.kit.edu/sanders/papers/ssss.pdf
+   3. https://en.wikipedia.org/wiki/Samplesort
 3. write own caster
 4. read from file's different positions, use 
    
