@@ -20,6 +20,16 @@ namespace oceanbase
   namespace sql
   {
 
+    typedef struct 
+    {
+      unsigned int key1 = 0;
+      char key2 = 0;
+      // size_t offset = 0;
+      size_t offset = 0;
+    } Key;
+
+
+  
     class ObLoadDataBuffer
     {
     public:
@@ -73,9 +83,10 @@ namespace oceanbase
                common::ObCollationType collation_type, int field_num);
       int get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, int &group_id);
+      int fast_get_next_row(const char *begin, const char *end, const common::ObNewRow *&row);
       // int parse_next_row(const common::ObNewRow *&row);
     private:
-      int get_group_id(int64_t key1, int key2);
+      // int get_group_id(int64_t key1, int key2);
       struct UnusedRowHandler
       {
         int operator()(common::ObIArray<ObCSVGeneralParser::FieldValue> &fields_per_line)
@@ -166,8 +177,10 @@ namespace oceanbase
       int init(const share::schema::ObTableSchema *table_schema, int64_t mem_size,
                int64_t file_buf_size);
       int append_row(const ObLoadDatumRow &datum_row);
+      int trivial_append_row(const ObLoadDatumRow &datum_row);
       // void partition(int n);
       int close();
+      int trivial_close();
       int get_next_row(const ObLoadDatumRow *&datum_row);
       int get_next_partition_row(int id, const ObLoadDatumRow *&datum_row);
       int final_merge(int64_t total, int split_num);
@@ -211,7 +224,6 @@ namespace oceanbase
       blocksstable::ObDatumRow datum_row_;
       blocksstable::ObDatumRow datum_rows_[16];
       blocksstable::ObMacroBlockWriter macro_block_writers_[16];
-      blocksstable::ObDataStoreDesc data_store_descs_[16];
       bool is_closed_;
       bool is_inited_;
     };
@@ -269,6 +281,31 @@ namespace oceanbase
       std::mutex mutex_;
     };
 
+    // better to initialize external sorts inside thread, but anyway
+    class ObTrivialSortThread : public lib::Threads 
+    {
+    public: 
+      ObTrivialSortThread(ObLoadExternalSort *external_sorts, ObLoadCSVPaser *csv_parsers,
+        ObLoadRowCaster *row_casters, int *key_cnts, int thread_num, const ObString &filepath,
+        Key **keylists, const ObTableSchema *table_schema) : 
+        external_sorts_(external_sorts), csv_parsers_(csv_parsers), row_casters_(row_casters),
+        key_cnts_(key_cnts), thread_num_(thread_num), filepath_(filepath),
+        keylists_(keylists), table_schema_(table_schema)
+        {}
+      void run(int64_t idx) final;
+    private:
+      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
+      static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
+      ObLoadExternalSort *external_sorts_;
+      ObLoadCSVPaser *csv_parsers_;
+      ObLoadRowCaster *row_casters_;
+      int *key_cnts_;
+      int thread_num_;
+      const ObString &filepath_;
+      Key **keylists_;
+      const ObTableSchema *table_schema_;
+    };
+
     // class ObBufferThread : public lib::Threads
     // {
     // public:
@@ -280,12 +317,14 @@ namespace oceanbase
       
 
     // };
+
+    
     
 
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
       // TODO: fine tuning
-      static const int64_t MEM_BUFFER_SIZE = (1LL << 31);  // 1G -> 2G -> 4G
+      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       static const int64_t BUF_SIZE = (2LL << 25); // 
     public:
@@ -307,13 +346,14 @@ namespace oceanbase
       // ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
       ObLoadDataBuffer buffer_;
       ObLoadDataBuffer pre_buffer_;
-      ObLoadCSVPaser csv_parsers_[DEMO_BUF_NUM];
-      ObLoadRowCaster row_casters_[DEMO_BUF_NUM];
+      ObLoadCSVPaser csv_parsers_[WRITER_THREAD_NUM];
+      ObLoadRowCaster row_casters_[WRITER_THREAD_NUM];
       // ObLoadDataBuffer buffer_;
       ObLoadExternalSort external_sort_;
       ObLoadExternalSort external_sorts_[WRITER_THREAD_NUM];
       ObLoadSSTableWriter sstable_writer_;
       const ObTableSchema *table_schema_;
+      common::ObString filepath_;
     };
 
   } // namespace sql

@@ -141,8 +141,6 @@ public:
   ObDemoMacroBufferWriter();
   virtual ~ObDemoMacroBufferWriter();
   int write_item(const T &item);
-  int write_items(const ObVector<T *> &items, int idx);
-  int write_item_compress(const T &item);
   void assign(const int64_t buf_pos, const int64_t buf_cap, char *buf);
   int serialize_header();
   bool has_item();
@@ -159,18 +157,12 @@ private:
   // for failure and flush
   // the written index of array
   int just_write_ = 0;
-  ObCompressor *compressor_;
-  static const int TMP_BUF_SIZE = 350;
-  char tmp_buf_[TMP_BUF_SIZE];
 };
 
 template<typename T>
 ObDemoMacroBufferWriter<T>::ObDemoMacroBufferWriter()
   : buf_(NULL), buf_pos_(0), buf_cap_(0)
 {
-  ObCompressorPool &cp = ObCompressorPool::get_instance();
-  // 
-  cp.get_compressor("zstd_1.3.8", compressor_);
 }
 
 template<typename T>
@@ -200,73 +192,6 @@ private:
   int64_t cap_;
   std::unordered_map<int, int64_t> pos_map_;
 };
-
-// threads -> generate serialized bufs
-template<typename T>
-int ObDemoMacroBufferWriter<T>::write_items(const ObVector<T *> &items, int idx)
-{
-  int ret = common::OB_SUCCESS;
-  int rets[WRITER_THREAD_NUM];
-  memset(rets, 0, sizeof(rets));
-  LOG_INFO("MMMMM macro buffer write", K(items.size()), K(idx));
-
-  if (idx == 0) {
-    just_write_ = 0;
-  }
-
-  // TODO: int pos_map[NUM]
-  int n = items.size();
-  int cnt = idx;
-  int i = 0;
-  while (cnt < n && OB_SUCC(ret)) {
-    int N = min(WRITER_THREAD_NUM, n - cnt);
-    std::unordered_map<int, int64_t> pos_map;
-    int64_t base = buf_pos_;
-    for (int i = 0; i < N; i++) {
-      pos_map[i] = base;
-      base += items[cnt + i]->get_serialize_size();
-      if (base > buf_cap_) {
-        // LOG_INFO("MMMMM macro buffer full", K(cnt), K(items.size()));
-        return common::OB_EAGAIN;
-      }
-    }
-    ObDemoMacroBufferWriterSerializeThreads<T> threads(items, cnt, rets, buf_, buf_cap_, pos_map);
-    threads.set_thread_count(WRITER_THREAD_NUM);
-    threads.set_run_wrapper(MTL_CTX());
-    threads.start();
-    threads.wait();
-    cnt += N;
-    just_write_ = cnt;
-    buf_pos_ = base;
-    i++;
-    if (i % 10000 == 0) {
-      LOG_INFO("MMMMM macro buffer write", K(N), K(cnt), K(n));
-    } 
-  }
-  return ret;
-}
-
-template<typename T>
-int ObDemoMacroBufferWriter<T>::write_item_compress(const T &item)
-{
-  int ret = common::OB_SUCCESS;
-  int64_t size = item.get_serialize_size();
-  int64_t size2;
-  // LOG_INFO("MMMMM serialize_size", K(size));
-  // int64_t size = 350;
-
-  if (size + buf_pos_ > buf_cap_) {
-    // LOG_INFO("MMMMM macro writer full");
-    ret = common::OB_EAGAIN;
-  } else if (OB_FAIL(item.serialize(tmp_buf_, TMP_BUF_SIZE, 0))) {
-    STORAGE_LOG(WARN, "fail to serialize item", K(ret));
-  } else if (compressor_->compress(tmp_buf_, size, tmp_buf_ + buf_pos_, buf_cap_ - buf_pos_, size2)) {
-    STORAGE_LOG(WARN, "MMMMM compress fail");
-  } else {
-    STORAGE_LOG(DEBUG, "write_item", K(buf_pos_), K(item));
-  }
-  return ret;
-}
 
 template<typename T>
 int ObDemoMacroBufferWriter<T>::write_item(const T &item)
@@ -324,7 +249,6 @@ public:
   int open(const int64_t buf_size, const int64_t expire_timestamp,
       const uint64_t tenant_id, const int64_t dir_id);
   int write_item(const T &item);
-  int write_items(const ObVector<T *> &items);
   int sync();
   void reset();
   int64_t get_fd() const { return fd_; }
@@ -396,46 +320,6 @@ int ObDemoFragmentWriterV2<T>::open(const int64_t buf_size, const int64_t expire
       has_sample_item_ = false;
       tenant_id_ = tenant_id;
       is_inited_ = true;
-    }
-  }
-  return ret;
-}
-
-template<typename T>
-int ObDemoFragmentWriterV2<T>::write_items(const ObVector<T *> &items)
-{
-  int ret = common::OB_SUCCESS;
-  if (OB_UNLIKELY(!is_inited_)) {
-    ret = common::OB_NOT_INIT;
-    STORAGE_LOG(WARN, "ObFragmentWriter has not been inited", K(ret));
-  } else if (OB_FAIL(macro_buffer_writer_.write_items(items, 0))) {
-    for (int i = 0; i < 40; i++) {
-      if (common::OB_EAGAIN == ret) {
-        if (OB_FAIL(flush_buffer())) {
-          STORAGE_LOG(WARN, "MMMMM switch next macro buffer failed", K(ret));
-        } else if (OB_FAIL(macro_buffer_writer_.write_items(items, 
-                                                            macro_buffer_writer_.just_write() + 1))) {
-          STORAGE_LOG(WARN, "MMMMM fail to write item", K(ret));
-        }
-      } else {
-        STORAGE_LOG(WARN, "MMMMM fail to write item", K(ret));
-        break;
-      }
-    }
-  }
-
-  if (OB_SUCC(ret) && !has_sample_item_) {
-    const T& item = *(items[0]);
-    const int64_t buf_len = item.get_deep_copy_size(); // deep copy size may be 0
-    char *buf = NULL;
-    int64_t pos = 0;
-    if (buf_len > 0 && OB_ISNULL(buf = static_cast<char *>(allocator_.alloc(buf_len)))) {
-      ret = common::OB_ALLOCATE_MEMORY_FAILED;
-      STORAGE_LOG(WARN, "failed to alloc buf", K(ret), K(buf_len));
-    } else if (OB_FAIL(sample_item_.deep_copy(item, buf, buf_len, pos))) {
-      STORAGE_LOG(WARN, "failed to deep copy item", K(ret));
-    } else {
-      has_sample_item_ = true;
     }
   }
   return ret;
@@ -584,7 +468,6 @@ public:
   ObDemoMacroBufferReader();
   virtual ~ObDemoMacroBufferReader();
   int read_item(T &item);
-  int read_item_decompress(T &item);
   int deserialize_header();
   void assign(const int64_t buf_pos, const int64_t buf_cap, const char *buf);
   TO_STRING_KV(KP(buf_), K(buf_pos_), K(buf_len_), K(buf_cap_));
@@ -593,16 +476,12 @@ private:
   int64_t buf_pos_;
   int64_t buf_len_;
   int64_t buf_cap_;
-
-  ObCompressor *compressor_;
 };
 
 template<typename T>
 ObDemoMacroBufferReader<T>::ObDemoMacroBufferReader()
   : buf_(NULL), buf_pos_(0), buf_len_(0), buf_cap_(0)
 {
-  ObCompressorPool &cp = ObCompressorPool::get_instance();
-  cp.get_compressor("zstd_1.3.8", compressor_);
 }
 
 template<typename T>
@@ -1363,6 +1242,8 @@ int ObDemoExternalSortRound<T, Compare>::add_item(const T &item)
     is_writer_opened_ = true;
     if (OB_FAIL(writer_.write_item(item))) {
       STORAGE_LOG(WARN, "fail to write items", K(ret));
+    } else {
+      // LOG_INFO("MMMMM round add item");
     }
   }
   return ret;
@@ -2163,6 +2044,8 @@ public:
   int init(const int64_t mem_limit, const int64_t file_buf_size, const int64_t expire_timestamp,
       const uint64_t tenant_id, Compare *compare);
   int add_item(const T &item);
+  int trivial_add_item(const T &item);
+  int trivial_do_sort();
   int do_sort(const bool final_merge);
   int get_next_item(const T *&item);
   int get_next_partition_item(int id, const T *&item);
@@ -2277,6 +2160,7 @@ int ObDemoExternalSort<T, Compare>::do_sort(const bool final_merge)
     STORAGE_LOG(INFO, "MMMMM all data sorted in memory");
     is_empty_ = false;
   } else if (0 == curr_round_->get_fragment_count()) {
+    LOG_INFO("MMMMM sort zero fragment");
     is_empty_ = true;
     ret = common::OB_SUCCESS;
   } else {
@@ -2348,6 +2232,31 @@ int ObDemoExternalSort<T, Compare>::get_next_item(const T *&item)
       STORAGE_LOG(WARN, "fail to get next item", K(ret));
     }
   }
+  return ret;
+}
+
+template<typename T, typename Compare>
+int ObDemoExternalSort<T, Compare>::trivial_add_item(const T &item)
+{
+  int ret = common::OB_SUCCESS;
+  if (OB_FAIL(curr_round_->add_item(item))) {
+    LOG_INFO("MMMMM fail to add item", KR(ret));
+  }
+  return ret;
+}
+
+template<typename T, typename Compare>
+int ObDemoExternalSort<T, Compare>::trivial_do_sort()
+{
+  int ret = common::OB_SUCCESS;
+  is_empty_ = false;
+  if (OB_FAIL(curr_round_->build_fragment())) {
+    LOG_INFO("MMMMM build fragment fail", KR(ret));
+  } else if (OB_FAIL(curr_round_->build_merger())) {
+    LOG_INFO("MMMMM fail to build merger", KR(ret));
+  }
+
+  LOG_INFO("MMMMM trivial do sort", K(curr_round_->get_fragment_count()));
   return ret;
 }
 
