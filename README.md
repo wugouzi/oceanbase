@@ -125,6 +125,7 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 5. [ ] modify the constant now tenant has 12G
 6. [ ] https://gitlab.com/daniel.langr/cpp11sort/-/tree/master/
 7. [ ] better flush buffer strategy
+8. [ ] read file from different offset to eliminate lock
 
 ## benchmark
 1. 8MB sort buffer 54m7s
