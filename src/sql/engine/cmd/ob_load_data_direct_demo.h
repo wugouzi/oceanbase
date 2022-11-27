@@ -184,6 +184,9 @@ namespace oceanbase
       int get_next_row(const ObLoadDatumRow *&datum_row);
       int get_next_partition_row(int id, const ObLoadDatumRow *&datum_row);
       int final_merge(int64_t total, int split_num);
+      ObLoadDatumRowCompare &compare() { return compare_; }
+      int count() { return count_; }
+      void clean_up();
     private:
       common::ObArenaAllocator allocator_;
       blocksstable::ObStorageDatumUtils datum_utils_;
@@ -192,6 +195,7 @@ namespace oceanbase
       bool is_closed_;
       bool is_inited_;
       std::mutex mutex_;
+      int count_ = 0;
     };
 
     class ObLoadSSTableWriter
@@ -264,10 +268,12 @@ namespace oceanbase
     class ObWriterThread : public lib::Threads 
     {
     public:
-      ObWriterThread(ObLoadExternalSort *external_sorts, ObLoadSSTableWriter &sstable_writer,
-                     const ObTableSchema *table_schema, int *rets, int thread_num
-                     )
-        : external_sorts_(external_sorts), sstable_writer_(sstable_writer),
+      ObWriterThread(ObLoadExternalSort *external_sorts,
+        ObLoadSSTableWriter &sstable_writer,
+        const ObTableSchema *table_schema, int *rets, int thread_num
+        )
+        : external_sorts_(external_sorts), 
+          sstable_writer_(sstable_writer),
           table_schema_(table_schema),
           rets_(rets), thread_num_(thread_num) 
         {}
@@ -285,12 +291,14 @@ namespace oceanbase
     class ObTrivialSortThread : public lib::Threads 
     {
     public: 
-      ObTrivialSortThread(ObLoadExternalSort *external_sorts, ObLoadCSVPaser *csv_parsers,
-        ObLoadRowCaster *row_casters, int *key_cnts, int thread_num, const ObString &filepath,
-        Key **keylists, const ObTableSchema *table_schema) : 
-        external_sorts_(external_sorts), csv_parsers_(csv_parsers), row_casters_(row_casters),
-        key_cnts_(key_cnts), thread_num_(thread_num), filepath_(filepath),
-        keylists_(keylists), table_schema_(table_schema)
+      ObTrivialSortThread(ObLoadExternalSort *external_sorts,
+        ObLoadCSVPaser *csv_parsers,
+        ObLoadRowCaster *row_casters, int key_cnt, int thread_num, const ObString &filepath,
+        Key *keys, const ObTableSchema *table_schema) : 
+        external_sorts_(external_sorts), 
+        csv_parsers_(csv_parsers), row_casters_(row_casters),
+        key_cnt_(key_cnt), thread_num_(thread_num), filepath_(filepath),
+        keys_(keys), table_schema_(table_schema)
         {}
       void run(int64_t idx) final;
     private:
@@ -299,10 +307,12 @@ namespace oceanbase
       ObLoadExternalSort *external_sorts_;
       ObLoadCSVPaser *csv_parsers_;
       ObLoadRowCaster *row_casters_;
-      int *key_cnts_;
+      // int *key_cnts_;
+      int key_cnt_;
       int thread_num_;
       const ObString &filepath_;
-      Key **keylists_;
+      // Key **keylists_;
+      Key *keys_;
       const ObTableSchema *table_schema_;
     };
 
@@ -334,14 +344,17 @@ namespace oceanbase
     private:
       int inner_init(ObLoadDataStmt &load_stmt);
       int do_load();
-      int do_load_buffer();
+      int do_load_buffer(ObLoadSequentialFileReader &file_reader);
+      int pre_process();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int DEMO_BUF_NUM = 3;
+      static const int SPLIT_NUM = 4;
+      static const int PARSE_THREAD_NUM = 4;
       static const int WRITER_THREAD_NUM = 4;
 
       ObLoadSequentialFileReader file_reader_;
+      ObLoadSequentialFileReader file_readers_[SPLIT_NUM];
       // we have BUF_NUM buffers and we load data simultaneously
       // ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
       ObLoadDataBuffer buffer_;
@@ -354,6 +367,8 @@ namespace oceanbase
       ObLoadSSTableWriter sstable_writer_;
       const ObTableSchema *table_schema_;
       common::ObString filepath_;
+      common::ObFileAppender file_writers_[SPLIT_NUM];
+      std::vector<std::string> filepaths_;
     };
 
   } // namespace sql
