@@ -98,6 +98,13 @@ ObLoadSequentialFileReader::~ObLoadSequentialFileReader()
 {
 }
 
+void ObLoadSequentialFileReader::close()
+{
+  file_reader_.close();
+  offset_ = 0;
+  is_read_end_ = false;
+}
+
 int ObLoadSequentialFileReader::open(const ObString &filepath)
 {
   int ret = OB_SUCCESS;
@@ -127,7 +134,7 @@ int ObLoadSequentialFileReader::read_next_buffer(ObLoadDataBuffer &buffer)
     } else {
       offset_ += read_size;
       buffer.produce(read_size);
-      LOG_WARN("MMMMM buffer size", K(read_size), K(offset_), K(buffer.data()));
+      // LOG_WARN("MMMMM buffer size", K(read_size), K(offset_), K(buffer.data()));
     }
   }
   return ret;
@@ -207,9 +214,39 @@ inline int dic_compare(int64_t key1, int key2, int64_t b1, int b2)
   return key1 < b1 || (key1 == b1 && key2 < b2);
 }
 
-int get_group_id_32(int key1, int key2) 
+int get_group_id(int key1, int key2, int num)
 {
-  const static std::vector<std::pair<int,int>> c = {{1,1},{9375143,2},{18754119,4}, {28126498,1}, 
+  const static std::vector<std::pair<int,int>> c60 = 
+    {{1,1},{4998912,2},{10000804,3}, {15003686,2}, {20005733,4}, 
+    {25002433,1}, {30000743,5}, {35001284,1}, {40004258,4}, {45009124,4}, 
+    {50012900,1}, {55016289,4}, {60015136,1}, {65014596,2}, {70016353,3}, 
+    {75015141,3}, {80011461,2}, {85014020,3}, {90014439,3}, {95011044,1}, 
+    {100013091,1}, {105015778,3}, {110013730,3}, {115008672,4}, {120007687,4}, 
+    {125003621,5}, {130004768,1}, {135004451,2}, {140003552,6}, {145003813,4}, 
+    {150006530,5}, {155002919,4}, {160004934,4}, {165004321,2}, {170006054,3}, 
+    {175007716,1}, {180005026,3}, {185002852,2}, {190000709,6}, {195005250,1}, 
+    {200003492,3}, {205001252,2}, {209996387,2}, {214993377,6}, {219994054,4}, 
+    {224993793,1}, {229992711,3}, {234991078,3}, {239992198,2}, {244991908,1}, 
+    {249994658,1}, {254995971,4}, {259993542,1}, {264992451,1}, {269993059,2}, 
+    {274995365,1}, {279992960,3}, {284992576,1}, {289993762,4}, {294998561,2}};
+  const static std::vector<std::pair<int,int>> c64 = 
+    {{1,1},{4686561,4},{9375143,1},{14065923,2},
+    {18754119,2}, {23442053,1}, {28126496,1}, {32813314,2},
+    {37502914,4}, {42192834,5}, {46886850,3}, {51575141,2},
+    {56267719,4}, {60953571,1}, {65638919,1}, {70327106,1},
+    {75015141,3}, {79699685,3}, {84388865,3}, {89079428,2},
+    {93760740,3}, {98451111,5}, {103139298,2}, {107825383,1},
+    {112509861,5}, {117193797,2}, {121880261,2}, {126564997,2},
+    {131253958,2}, {135940993,7}, {140628545,4}, {145316610,6},
+    {150006530,5}, {154690662,6}, {159380261,2}, {164067363,2},
+    {168755426,1}, {173445733,1}, {178132355,3}, {182815072,3},
+    {187501444,4}, {192190338,2}, {196880324,1}, {201566437,4},
+    {206248773,5}, {210933091,2}, {215618468,4}, {220306531,1},
+    {224993793,1}, {229681799,3}, {234366693,2}, {239054592,1},
+    {243743687,4}, {248431873,1}, {253121216,3}, {257808641,4},
+    {262492736,6}, {267180132,2}, {271869666,4}, {276557892,3},
+    {281242467,2}, {285930087,1}, {290618789,5}, {295310946,5}};
+  const static std::vector<std::pair<int,int>> c32 = {{1,1},{9375143,2},{18754119,4}, {28126498,1}, 
     {37502915,3}, {46886851,4}, {56267745,5}, {65638944,5}, 
     {75015142,7}, {84388867,3}, {93760743,2}, {103139300,2}, 
     {112509889,2}, {121880288,3}, {131253986,3}, {140628548,2}, 
@@ -217,8 +254,65 @@ int get_group_id_32(int key1, int key2)
     {187501473,1}, {196880354,1}, {206248800,7}, {215618497,2}, 
     {224993799,2}, {234366722,6}, {243743716,3}, {253121223,4}, 
     {262492743,4}, {271869696,2}, {281242500,2}, {290618820,5}};
-  auto iter = std::lower_bound(c.begin(), c.end(), std::make_pair(key1, key2));
-  int dis = std::distance(c.begin(), iter);
+  const static std::vector<std::pair<int,int>> c240 = 
+    {{1,1},{1250213,3},{2499910,2},{3749285,3},{4998912,2},{6249382,2},
+    {7501153,1},{8749828,2},{10000804,3},{11251426,2},{12503655,1},{13754279,1},
+    {15003686,2},{16253220,6},{17503813,6},{18754119,2},{20005733,4},{21255072,1},
+    {22504801,1},{23754466,1},{25002433,1},{26253571,3},{27502113,2},{28751969,6},
+    {30000743,5},{31251971,3},{32500485,1},{33752100,4},{35001284,1},{36251393,4},
+    {37502914,4},{38753891,4},{40004258,4},{41255654,6},{42505766,6},{43758306,4},
+    {45009124,4},{46261696,7},{47512546,2},{48763108,2},{50012900,1},{51262273,6},
+    {52513187,1},{53764929,4},{55016289,4},{56267719,4},{57518053,2},{58767362,2},
+    {60015136,1},{61265957,3},{62514562,4},{63764256,6},{65014596,2},{66264224,2},
+    {67514630,2},{68766116,6},{70016353,3},{71265893,6},{72515523,6},{73765536,6},
+    {75015141,3},{76264711,7},{77512903,2},{78762821,2},{80011461,2},{81263461,2},
+    {82513572,7},{83763621,4},{85014020,3},{86267174,3},{87515271,1},{88765666,4},
+    {90014439,3},{91263654,4},{92512195,2},{93760740,3},{95011044,1},{96263393,4},
+    {97513060,2},{98763270,3},{100013091,1},{101263812,2},{102513924,3},{103764803,4},
+    {105015778,3},{106265250,4},{107513445,6},{108763303,3},{110013730,3},{111261281,3},
+    {112509861,5},{113758692,4},{115008672,4},{116256931,2},{117506437,5},{118757825,2},
+    {120007687,4},{121257122,3},{122505443,2},{123754308,4},{125003621,5},{126252483,2},
+    {127502661,2},{128752642,6},{130004768,1},{131253958,2},{132504388,3},{133753312,2},
+    {135004451,2},{136253159,5},{137503426,3},{138754275,1},{140003552,6},{141253666,1},
+    {142503524,5},{143753188,4},{145003813,4},{146254016,4},{147505154,1},{148755011,3},
+    {150006530,5},{151256163,5},{152505376,5},{153752678,2},{155002919,4},{156254469,3},
+    {157505121,4},{158752545,4},{160004934,4},{161254176,3},{162506723,1},{163755237,1},
+    {165004321,2},{166254151,4},{167505126,4},{168755426,1},{170006054,3},{171255968,4},
+    {172507173,6},{173757447,1},{175007716,1},{176257254,5},{177506373,2},{178755108,1},
+    {180005026,3},{181255937,3},{182503555,1},{183752996,1},{185002852,2},{186251840,3},
+    {187501444,4},{188750336,6},{190000709,6},{191252422,4},{192503264,5},{193754496,3},
+    {195005250,1},{196255042,1},{197505287,3},{198754247,3},{200003492,3},{201254183,1},
+    {202503335,6},{203752547,3},{205001252,2},{206248773,5},{207496673,1},{208746566,4},
+    {209996387,2},{211246370,1},{212494789,1},{213743751,5},{214993377,6},{216244802,1},
+    {217492998,7},{218743078,4},{219994054,4},{221243687,2},{222492898,1},{223742980,3},
+    {224993793,1},{226244807,1},{227493511,1},{228742949,3},{229992711,3},{231241286,4},
+    {232492130,5},{233742241,2},{234991078,3},{236241861,1},{237491717,2},{238742178,1},
+    {239992198,2},{241241924,1},{242492066,7},{243743687,4},{244991908,1},{246241766,7},
+    {247493316,3},{248744866,4},{249994658,1},{251243843,4},{252495015,6},{253744832,4},
+    {254995971,4},{256246178,2},{257496485,2},{258744837,2},{259993542,1},{261241632,7},
+    {262492736,6},{263743328,2},{264992451,1},{266242849,3},{267492611,7},{268743173,2},
+    {269993059,2},{271243750,1},{272495138,1},{273745766,5},{274995365,1},{276245664,3},
+    {277494599,7},{278743491,1},{279992960,3},{281242467,2},{282491847,4},{283741634,3},
+    {284992576,1},{286241216,2},{287492033,6},{288741761,1},{289993762,4},{291245092,4},
+    {292495623,3},{293746435,2},{294998561,2},{296249090,3},{297498245,4},{298747648,2}};
+  const std::vector<std::pair<int,int>> *c;
+  switch(num) {
+    case 32: 
+      c = &c32;break;
+    case 60:
+      c = &c60;break;
+    case 64: 
+      c = &c64;break;    
+    case 240:
+      c = &c240;break;
+    default:
+      c = nullptr;
+  }
+  if (c == nullptr) {
+    return -1;
+  }
+  auto iter = std::lower_bound(c->begin(), c->end(), std::make_pair(key1, key2));
+  int dis = std::distance(c->begin(), iter);
   return dis ? dis - 1 : 0;
 }
 
@@ -263,7 +357,7 @@ int ObLoadCSVPaser::fast_get_next_row(const char *begin, const char *end, const 
 
   // LOG_INFO("MMMMM get row", K(begin));
   const char *iter = begin;
-
+  // printf("MMMMM %-*s\n", (int)(end-begin), begin);
   int field_cnt = 0;
   bool first = true;
 
@@ -297,7 +391,7 @@ int ObLoadCSVPaser::fast_get_next_row(const char *begin, const char *end, const 
   return OB_SUCCESS;
 }
 
-int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, int &group_id)
+int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row) 
 {
   if (buffer.empty()) {
     return OB_ITER_END;
@@ -344,7 +438,62 @@ int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::Ob
   if (end != iter) {
     iter++;
   }
-  group_id = get_group_id_32(key1, key2);
+  buffer.consume(iter - begin);
+  row = &row_;
+  assert(*(iter-1) == '\n');
+
+  return OB_SUCCESS;
+}
+
+int ObLoadCSVPaser::fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, int &group_id)
+{
+  // LOG_INFO("MMMMM get row");
+  if (buffer.empty()) {
+    return OB_ITER_END;
+  }
+
+  // LOG_INFO("MMMMM get row");
+  const char *begin = buffer.begin();
+  const char *end = buffer.end();
+  const char *iter = begin;
+  // const char *iters[field_num_];
+
+  int field_cnt = 0;
+  bool first = true;
+
+  const char *ptr = nullptr;
+
+  int64_t key1 = 0;
+  int key2 = 0;
+  while (iter < end && *iter != '\n') {
+    if (first) {
+      ptr = iter;
+      first = false;
+    }
+    if (*iter == '|') {
+      ObObj &obj = row_.cells_[field_cnt];
+      obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
+      int len = std::distance(ptr, iter);
+      // printf("MMMMM len %d, %-*s\n", len, len, ptr);
+      obj.set_collation_type(collation_type_);
+      field_cnt++;
+      first = true;
+    }
+    if (field_cnt == 0) {
+      key1 = key1 * 10 + (*iter - '0');
+    }
+    if (field_cnt == 3 && isdigit(*iter)) {
+      key2 = key2 * 10 + (*iter - '0');
+    }
+    iter++;
+  }
+  if (field_cnt != field_num_ || iter == end) {
+    return OB_ITER_END;
+  }
+  if (end != iter) {
+    iter++;
+  }
+  group_id = get_group_id(key1, key2, 32);
   buffer.consume(iter - begin);
   row = &row_;
   assert(*(iter-1) == '\n');
@@ -558,6 +707,13 @@ int ObLoadDatumRowCompare::init(int64_t rowkey_column_num, const ObStorageDatumU
   return ret;
 }
 
+void ObLoadDatumRowCompare::clean_up() 
+{
+  is_inited_ = false;
+  datum_utils_ = nullptr;
+  rowkey_column_num_ = 0;
+}
+
 bool ObLoadDatumRowCompare::operator()(const ObLoadDatumRow *lhs, const ObLoadDatumRow *rhs)
 {
   int ret = OB_SUCCESS;
@@ -764,9 +920,10 @@ int ObLoadExternalSort::init(const ObTableSchema *table_schema, int64_t mem_size
                              int64_t file_buf_size)
 {
   int ret = OB_SUCCESS;
+  // LOG_INFO("MMMMM sort init");
   if (IS_INIT) {
     ret = OB_INIT_TWICE;
-    LOG_WARN("ObLoadExternalSort init twice", KR(ret), KP(this));
+    LOG_WARN("MMMMM ObLoadExternalSort init twice", KR(ret), KP(this));
   } else if (OB_UNLIKELY(nullptr == table_schema)) {
     ret = OB_INVALID_ARGUMENT;
     LOG_WARN("invalid args", KR(ret), KP(table_schema));
@@ -775,14 +932,14 @@ int ObLoadExternalSort::init(const ObTableSchema *table_schema, int64_t mem_size
     const int64_t rowkey_column_num = table_schema->get_rowkey_column_num();
     ObArray<ObColDesc> multi_version_column_descs;
     if (OB_FAIL(table_schema->get_multi_version_column_descs(multi_version_column_descs))) {
-      LOG_WARN("fail to get multi version column descs", KR(ret));
+      LOG_WARN("MMMMM fail to get multi version column descs", KR(ret));
     } else if (OB_FAIL(datum_utils_.init(multi_version_column_descs, rowkey_column_num,
                                          is_oracle_mode(), allocator_))) {
-      LOG_WARN("fail to init datum utils", KR(ret));
+      LOG_WARN("MMMMM fail to init datum utils", KR(ret));
     } else if (OB_FAIL(compare_.init(rowkey_column_num, &datum_utils_))) {
-      LOG_WARN("fail to init compare", KR(ret));
+      LOG_WARN("MMMMM fail to init compare", KR(ret));
     } else if (OB_FAIL(external_sort_.init(mem_size, file_buf_size, 0, MTL_ID(), &compare_))) {
-      LOG_WARN("fail to init external sort", KR(ret));
+      LOG_WARN("MMMMM fail to init external sort", KR(ret));
     } else {
       is_inited_ = true;
     }
@@ -874,9 +1031,11 @@ int ObLoadExternalSort::close()
 void ObLoadExternalSort::clean_up()
 {
   is_inited_ = false;
+  is_closed_ = false;
   external_sort_.clean_up();
   allocator_.reset();
   datum_utils_.reset();
+  compare_.clean_up();
 }
 
 int ObLoadExternalSort::get_next_row(const ObLoadDatumRow *&datum_row)
@@ -1168,6 +1327,17 @@ int ObLoadSSTableWriter::create_sstable()
   return ret;
 }
 
+int ObLoadSSTableWriter::close_macro_blocks()
+{
+  int ret = OB_SUCCESS;
+  for (int i = 0; i < 16; i++) {
+    if (OB_FAIL(macro_block_writers_[i].close())) {
+      LOG_WARN("fail to close macro block writer", KR(ret));  
+    }
+  }
+  return ret;
+}
+
 int ObLoadSSTableWriter::close()
 {
   int ret = OB_SUCCESS;
@@ -1241,7 +1411,7 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
     LOG_WARN("not support heap table", KR(ret));
   }
   // init csv_parser_
-  for (int i = 0; i < PARSE_THREAD_NUM; i++) {
+  for (int i = 0; i < WRITER_THREAD_NUM; i++) {
     if (OB_FAIL(csv_parsers_[i].init(load_stmt.get_data_struct_in_file(), field_or_var_list.count(),
                                     load_args.file_cs_type_, 16))) {
       LOG_WARN("fail to init csv parser", KR(ret));
@@ -1265,6 +1435,11 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   if (OB_FAIL(buffer_.create(BUF_SIZE))) {
     LOG_WARN("fail to create buffer", KR(ret));
   }
+  for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+    if (OB_FAIL(buffers_[i].create(BUF_SIZE))) {
+      LOG_WARN("fail to create buffer", KR(ret));
+    }  
+  }
   // init row_caster_
   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
     if (OB_FAIL(row_casters_[i].init(table_schema, field_or_var_list))) {
@@ -1272,6 +1447,12 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
     }
   }
 
+  
+  for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+    if (OB_FAIL(external_sorts_[i].init(table_schema, MEM_BUFFER_SIZE, FILE_BUFFER_SIZE))) {
+      LOG_WARN("MMMMM fail to init external sort", KR(ret), K(i));
+    }
+  }
   // init external_sort_
   // if (OB_FAIL(external_sort_.init(table_schema, MEM_BUFFER_SIZE, FILE_BUFFER_SIZE))) {
   //   LOG_WARN("fail to init row caster", KR(ret));
@@ -1335,10 +1516,10 @@ int get_row_data(ObLoadDataBuffer &buffer, const char *&buf, int64_t &len, int &
       group_id = get_group_id_4(key1, key2);break;
     case 8:
       group_id = get_group_id_8(key1, key2);break;
-    case 32: 
-      group_id = get_group_id_32(key1, key2);break;
+    default:
+      group_id = get_group_id(key1, key2, split);break;
   }
-  
+  // LOG_INFO("MMMMM", K(group_id));
   // LOG_INFO("MMMMM get key", K(key.key1), K(key.key2), K(key.offset));
   len = iter - begin;
   buf = begin;
@@ -1406,6 +1587,28 @@ int parse_row_and_key(ObLoadDataBuffer &buffer, Key *keys, int &key_cnt, size_t 
   return OB_SUCCESS;
 }
 
+int do_load_buffer(ObLoadDataBuffer &buffer, ObLoadSequentialFileReader &file_reader) 
+{
+  int ret = OB_SUCCESS;
+  if (OB_FAIL(buffer.squash())) {
+    LOG_INFO("MMMMM fail to squash buffer", KR(ret));
+  } else if (OB_FAIL(file_reader.read_next_buffer(buffer))) {
+    if (OB_UNLIKELY(OB_ITER_END != ret)) {
+      LOG_INFO("MMMMM fail to read next buffer", KR(ret));
+    } else {
+      if (OB_UNLIKELY(!buffer.empty())) {
+        ret = OB_ERR_UNEXPECTED;
+        LOG_INFO("MMMMM unexpected incomplate data", KR(ret));
+      }
+    }
+  } else if (OB_UNLIKELY(buffer.empty())) {
+    ret = OB_ERR_UNEXPECTED;
+    LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
+  } 
+  // LOG_INFO("MMMMM load buffer");
+  return ret;
+}
+
 void ObTrivialSortThread::run(int64_t idx) 
 {
   common::ObFileReader file_reader;
@@ -1413,15 +1616,16 @@ void ObTrivialSortThread::run(int64_t idx)
   const ObLoadDatumRow *datum_row = nullptr;
   ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
   ObLoadRowCaster &row_caster = row_casters_[idx];
-  ObLoadExternalSort &external_sort = external_sorts_[idx];
+  ObLoadExternalSort &external_sort = external_sorts_[idx + start_idx_];
 
   int ret = OB_SUCCESS;
   const size_t BUF_SIZE = 350;
   char buf[BUF_SIZE];
 
   if (OB_FAIL(external_sort.init(table_schema_, MEM_BUFFER_SIZE, FILE_BUFFER_SIZE))) {
-    LOG_WARN("MMMMM fail to init external sort", KR(ret));
+    LOG_WARN("MMMMM fail to init external sort", KR(ret), K(idx));
   }
+  
   if (OB_FAIL(file_reader.open(filepath_, false))) {
     LOG_WARN("MMMMM fail to open file", KR(ret));
   }
@@ -1432,6 +1636,7 @@ void ObTrivialSortThread::run(int64_t idx)
   int n = key_cnt_ / thread_num_;
   int start_idx = n * idx;
   int end_idx = idx == thread_num_ - 1 ? key_cnt_ : n * (idx + 1);
+  LOG_INFO("MMMMM trivial", K(idx), K(start_idx), K(end_idx), K(key_cnt_));
   for (int i = start_idx; i < end_idx && OB_SUCC(ret); i++) {
     if (i % 100000 == 0) {
       LOG_INFO("MMMMM trivial sort", K(i), K(idx));
@@ -1440,7 +1645,7 @@ void ObTrivialSortThread::run(int64_t idx)
     if (OB_FAIL(file_reader.pread(buf, 350, key.offset, size))) {
       LOG_WARN("fail to do pread", K(ret), K(key.offset), K(i));
     } else if (OB_FAIL(csv_parser.fast_get_next_row(buf, buf+size, new_row))) {
-      LOG_INFO("MMMMM fail to get row", KR(ret), K(key.offset), K(i), K(end_idx));
+      LOG_INFO("MMMMM fail to get row", KR(ret), K(key.offset), K(i), K(end_idx), K(idx));
     } else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
       LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
     } else if (OB_FAIL(external_sort.trivial_append_row(*datum_row))) {
@@ -1458,7 +1663,7 @@ void ObWriterThread::run(int64_t idx)
   const ObLoadDatumRow *datum_row;
   int ret = OB_SUCCESS;
   int cnt = 0;
-  
+  idx = start_idx_ + idx;
   sstable_writer_.init_macro_block_writer(table_schema_, idx);
   
   LOG_INFO("MMMMM writer", K(idx));
@@ -1527,27 +1732,96 @@ void ObParseDataThread::run(int64_t idx)
   rets_[idx] = ret;
 }
 
-int ObLoadDataDirectDemo::do_load_buffer(ObLoadSequentialFileReader &file_reader) 
+// we don't use allocator:D
+// thread_num_ | split_num_
+void ObReadSortWriteThread::run(int64_t idx) 
 {
+  LOG_INFO("MMMMM readsortwrite start", K(idx));
+  
+  int n = split_num_ / thread_num_;
+
+  const ObNewRow *new_row = nullptr;
+  const ObLoadDatumRow *datum_row = nullptr;
+  ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
+  ObLoadRowCaster &row_caster = row_casters_[idx];
+  ObLoadDataBuffer &buffer = buffers_[idx];
+  ObLoadDatumRowCompare &compare = external_sorts_[idx].compare();
+  char *&buf = bufs_[idx];
+
   int ret = OB_SUCCESS;
-  if (OB_FAIL(buffer_.squash())) {
-    LOG_INFO("MMMMM fail to squash buffer", KR(ret));
-  } else if (OB_FAIL(file_reader.read_next_buffer(buffer_))) {
-    if (OB_UNLIKELY(OB_ITER_END != ret)) {
-      LOG_INFO("MMMMM fail to read next buffer", KR(ret));
-    } else {
-      if (OB_UNLIKELY(!buffer_.empty())) {
-        ret = OB_ERR_UNEXPECTED;
-        LOG_INFO("MMMMM unexpected incomplate data", KR(ret));
+
+  sstable_writer_.init_macro_block_writer(table_schema_, idx);
+  int64_t max_size = 0;
+
+  for (int i = idx * n; i < (idx + 1) * n && OB_SUCC(ret); i++) {
+    int64_t pos = 0;
+    common::ObVector<ObLoadDatumRow *> item_list;
+    ObLoadSequentialFileReader file_reader;
+    ObString file_path(file_paths_[i].size(), file_paths_[i].c_str());
+    LOG_INFO("MMMMM read", K(file_paths_[i].c_str()));
+    if (OB_FAIL(file_reader.open(file_path))) {
+      LOG_INFO("MMMMM can't open", K(file_paths_[i].c_str()));
+      break;
+    } 
+    // read the data, and put them in buffer
+    while (OB_SUCC(ret)) {
+      if (OB_FAIL(do_load_buffer(buffer, file_reader))) {
+        LOG_INFO("MMMMM ");
+      }
+      while (OB_SUCC(ret)) {
+        if (OB_FAIL(csv_parser.fast_get_next_row(buffer, new_row))) {
+          if (OB_FAIL(ret)) {
+            if (OB_UNLIKELY(OB_ITER_END != ret)) {
+              LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
+            } else {
+              ret = OB_SUCCESS;
+              break;
+            } 
+          }
+        } else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
+          LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
+        } else {
+          ObLoadDatumRow *new_item = nullptr;
+          const int64_t item_size = sizeof(ObLoadDatumRow) + datum_row->get_deep_copy_size();
+          max_size = max(item_size, max_size);
+          if (item_size + pos > thread_buf_size_) {
+            LOG_INFO("MMMMMM DAMN!!!!!!!!", K(item_list.size()), K(item_size), K(pos));
+          } else if (OB_ISNULL(new_item = new (buf + pos) ObLoadDatumRow())) {
+            ret = common::OB_ALLOCATE_MEMORY_FAILED;
+            STORAGE_LOG(WARN, "MMMMM fail to placement new item", K(ret));
+          } else {
+            int64_t buf_pos = sizeof(ObLoadDatumRow);
+            if (OB_FAIL(new_item->deep_copy(*datum_row, buf + pos, item_size, buf_pos))) {
+              STORAGE_LOG(WARN, "fail to deep copy item", K(ret));
+            } else if (OB_FAIL(item_list.push_back(new_item))) {
+              STORAGE_LOG(WARN, "fail to push back new item", K(ret));
+            } else {
+              pos += item_size;
+            }
+          }
+        }
       }
     }
-  } else if (OB_UNLIKELY(buffer_.empty())) {
-    ret = OB_ERR_UNEXPECTED;
-    LOG_INFO("MMMMM unexpected empty buffer", KR(ret));
-  } 
-  // LOG_INFO("MMMMM load buffer");
-  return ret;
+    LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos));
+    // sort
+    quicksort(item_list.begin(), item_list.end(), compare);
+    LOG_INFO("MMMMM sort done", KR(ret), K(idx));
+    // append
+    if (ret == OB_ITER_END) {
+      ret = OB_SUCCESS;
+    }
+    for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
+      if (OB_FAIL(sstable_writer_.append_row(idx, *item_list[i]))) {
+        LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
+      }
+    }
+    LOG_INFO("MMMMM write done", KR(ret), K(idx));
+  }
+  LOG_INFO("MMMMM", K(max_size));
+  rets_[idx] = ret;
 }
+
+
 /*
 int ObLoadDataDirectDemo::do_load()
 {
@@ -1606,7 +1880,7 @@ int ObLoadDataDirectDemo::pre_process()
   std::string tmp(filepath_.ptr(), filepath_.length());
   for (int i = 0; i < SPLIT_NUM; i++) {
     std::string tmpp = tmp + "." + std::to_string(i);
-    // LOG_INFO("MMMMM", K(tmpp.c_str()));
+    LOG_INFO("MMMMM", K(tmpp.c_str()));
     filepaths_.push_back(tmpp);
     ObString file_path(tmpp.size(), tmpp.c_str());
     file_writers_[i].open(file_path, true, true);
@@ -1614,10 +1888,15 @@ int ObLoadDataDirectDemo::pre_process()
   const char *buf;
   int64_t len;
   int group_id;
+  int buf_cnt = 0;
   while (OB_SUCC(ret)) {
-    if (OB_FAIL(do_load_buffer(file_reader_))) {
+    if (OB_FAIL(do_load_buffer(buffer_, file_reader_))) {
       break;
     }
+    if (buf_cnt % 100 == 0) {
+      LOG_INFO("MMMMM read buffer", K(buf_cnt));
+    }
+    buf_cnt++;
     while (OB_SUCC(ret)) {
       if (OB_FAIL(get_row_data(buffer_, buf, len, group_id, SPLIT_NUM))) {
         if (OB_UNLIKELY(OB_ITER_END != ret)) {
@@ -1641,6 +1920,53 @@ int ObLoadDataDirectDemo::pre_process()
   return ret;
 }
 
+// split file -> sort in memory -> directly write
+// 2 read 2 write, save a lot of io
+// four thread each take care of each part
+int ObLoadDataDirectDemo::do_load()
+{
+  int ret = OB_SUCCESS;
+  if (OB_FAIL(pre_process())) {
+    LOG_INFO("MMMMM pre process fail", KR(ret));
+    return ret;
+  }
+  LOG_INFO("MMMMM pre done", KR(ret));
+  char *bufs[WRITER_THREAD_NUM];
+  for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+    LOG_INFO("MMMMM", K(i));
+    bufs[i] = (char *)malloc(THREAD_BUF_SIZE);
+  }
+  LOG_INFO("MMMMM allocate memory done");
+  int rets[WRITER_THREAD_NUM];
+  ObReadSortWriteThread threads(SPLIT_NUM, WRITER_THREAD_NUM, filepaths_,
+    csv_parsers_, row_casters_, buffers_, sstable_writer_, table_schema_, external_sorts_, bufs, THREAD_BUF_SIZE, rets);
+  threads.set_thread_count(WRITER_THREAD_NUM);
+  threads.set_run_wrapper(MTL_CTX());
+  threads.start();
+  threads.wait();    
+  for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+    ret = rets[i] == OB_SUCCESS ? ret : rets[i];
+  }
+  LOG_INFO("MMMMM thread done", KR(ret));
+  for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+    free(bufs[i]);
+  }
+  if (OB_SUCC(ret)) {
+    if (OB_FAIL(sstable_writer_.close())) {
+      LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
+    }
+    LOG_INFO("MMMMM close done", KR(ret));
+  }
+
+  for (auto &s : filepaths_) {
+    if (remove(s.c_str()) != 0) {
+      LOG_INFO("MMMMM remove fail", K(s.c_str()));
+    }
+  }
+  return ret;
+}
+
+/*
 int ObLoadDataDirectDemo::do_load()
 {
   int ret = OB_SUCCESS;
@@ -1693,6 +2019,7 @@ int ObLoadDataDirectDemo::do_load()
             break;
           }
         }
+        // LOG_INFO("MMMMM", K(key_cnt), K(offset), K(ret));
       }
     }
     LOG_INFO("MMMMM trivial", K(key_cnt));
@@ -1707,7 +2034,7 @@ int ObLoadDataDirectDemo::do_load()
     //     return k1.key1 < k2.key1 || (k1.key1 == k2.key1 && k1.key2 < k2.key2);
     //   });
     // }
-    ObTrivialSortThread trivial_threads(external_sorts_, csv_parsers_, row_casters_, key_cnt, WRITER_THREAD_NUM, filepath_, keys, table_schema_);
+    ObTrivialSortThread trivial_threads(external_sorts_, i * WRITER_THREAD_NUM, csv_parsers_, row_casters_, key_cnt, WRITER_THREAD_NUM, file_path, keys, table_schema_);
     trivial_threads.set_thread_count(WRITER_THREAD_NUM);
     trivial_threads.set_run_wrapper(MTL_CTX());
     trivial_threads.start();
@@ -1715,17 +2042,15 @@ int ObLoadDataDirectDemo::do_load()
     
     // alloc.free(keys);
     // ob_free(keys);
-    for (int i = 0; i < WRITER_THREAD_NUM; i++) {
-      // free(keylists[i]);
-      free(keys);
-      external_sorts_[i].clean_up();
-    }
+    LOG_INFO("MMMMM trivial done");
+    free(keys);
+    
     LOG_INFO("MMMMM sort done", KR(ret));
     // if (OB_FAIL(external_sort_.final_merge(total, WRITER_THREAD_NUM))) {
     //   LOG_INFO("MMMMM final merge fail", KR(ret));
     // } else {
     int rets[WRITER_THREAD_NUM];
-    ObWriterThread threads(external_sorts_, sstable_writer_, table_schema_, rets, WRITER_THREAD_NUM);
+    ObWriterThread threads(external_sorts_, i * WRITER_THREAD_NUM, sstable_writer_, table_schema_, rets, WRITER_THREAD_NUM);
     threads.set_thread_count(WRITER_THREAD_NUM);
     threads.set_run_wrapper(MTL_CTX());
     threads.start();
@@ -1735,11 +2060,24 @@ int ObLoadDataDirectDemo::do_load()
       ret = rets[i] != OB_SUCCESS ? rets[i] : ret;
     }
     LOG_INFO("MMMMM write done", KR(ret));
+    
     if (OB_SUCC(ret)) {
-      if (OB_FAIL(sstable_writer_.close())) {
-        LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
+      for (int j = i * WRITER_THREAD_NUM; j < (i+1) * WRITER_THREAD_NUM; j++) {
+        // free(keylists[i]);
+        external_sorts_[j].clean_up();
       }
-      LOG_INFO("MMMMM close done", KR(ret));
+    }
+  }
+  if (OB_SUCC(ret)) {
+    if (OB_FAIL(sstable_writer_.close())) {
+      LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
+    }
+    LOG_INFO("MMMMM close done", KR(ret));
+  }
+
+  for (auto &s : filepaths_) {
+    if (remove(s.c_str()) != 0) {
+      LOG_INFO("MMMMM remove fail", K(s.c_str()));
     }
   }
   
@@ -1805,7 +2143,7 @@ int ObLoadDataDirectDemo::do_load()
   //   }
   // }
 }
-
+*/
 } // namespace sql
 } // namespace oceanbase
 

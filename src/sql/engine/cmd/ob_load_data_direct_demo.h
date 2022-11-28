@@ -11,6 +11,7 @@
 // #include "storage/ob_parallel_external_sort.h"
 #include "sql/engine/cmd/demo_sort.h"
 #include "storage/tx_storage/ob_ls_handle.h"
+#include "stdio.h"
 #include <future>
 #include <mutex>
 #include <thread>
@@ -66,6 +67,7 @@ namespace oceanbase
       ~ObLoadSequentialFileReader();
       int open(const ObString &filepath);
       int read_next_buffer(ObLoadDataBuffer &buffer);
+      void close();
     private:
       common::ObFileReader file_reader_;
       int64_t offset_;
@@ -83,6 +85,7 @@ namespace oceanbase
                common::ObCollationType collation_type, int field_num);
       int get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, int &group_id);
+      int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row(const char *begin, const char *end, const common::ObNewRow *&row);
       // int parse_next_row(const common::ObNewRow *&row);
     private:
@@ -134,6 +137,7 @@ namespace oceanbase
       int init(int64_t rowkey_column_num, const blocksstable::ObStorageDatumUtils *datum_utils);
       bool operator()(const ObLoadDatumRow *lhs, const ObLoadDatumRow *rhs);
       int get_error_code() const { return result_code_; }
+      void clean_up();
     public:
       int result_code_;
     private:
@@ -208,6 +212,7 @@ namespace oceanbase
       int append_row(const ObLoadDatumRow &datum_row);
       int append_row(int idx, const ObLoadDatumRow &datum_row);
       int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
+      int close_macro_blocks();
       int close();
     private:
       int init_sstable_index_builder(const share::schema::ObTableSchema *table_schema);
@@ -226,8 +231,8 @@ namespace oceanbase
       blocksstable::ObDataStoreDesc data_store_desc_;
       blocksstable::ObMacroBlockWriter macro_block_writer_;
       blocksstable::ObDatumRow datum_row_;
-      blocksstable::ObDatumRow datum_rows_[16];
-      blocksstable::ObMacroBlockWriter macro_block_writers_[16];
+      blocksstable::ObDatumRow datum_rows_[200];
+      blocksstable::ObMacroBlockWriter macro_block_writers_[200];
       bool is_closed_;
       bool is_inited_;
     };
@@ -265,14 +270,48 @@ namespace oceanbase
 
     };
 
+    class ObReadSortWriteThread : public lib::Threads
+    {
+    public:
+      ObReadSortWriteThread(int split_num, int thread_num, 
+        std::vector<std::string> &file_paths, ObLoadCSVPaser *csv_parsers,
+        ObLoadRowCaster *row_casters, ObLoadDataBuffer *buffers,
+        ObLoadSSTableWriter &sstable_writer, const ObTableSchema *table_schema,
+        ObLoadExternalSort *external_sorts, char **bufs,
+        int64_t thread_buf_size,
+        int *rets)
+      : split_num_(split_num), thread_num_(thread_num),
+        file_paths_(file_paths), csv_parsers_(csv_parsers),
+        row_casters_(row_casters), buffers_(buffers),
+        sstable_writer_(sstable_writer), table_schema_(table_schema),
+        external_sorts_(external_sorts), bufs_(bufs),
+        thread_buf_size_(thread_buf_size),
+        rets_(rets)
+      {}
+      void run(int64_t idx) final;
+    private:
+      int split_num_;
+      int thread_num_;
+      std::vector<std::string> &file_paths_;
+      ObLoadCSVPaser *csv_parsers_;
+      ObLoadRowCaster *row_casters_;
+      ObLoadDataBuffer *buffers_;
+      ObLoadSSTableWriter &sstable_writer_;
+      const ObTableSchema *table_schema_;
+      ObLoadExternalSort *external_sorts_;
+      char **bufs_;
+      int64_t thread_buf_size_;
+      int *rets_;
+    };
+
     class ObWriterThread : public lib::Threads 
     {
     public:
-      ObWriterThread(ObLoadExternalSort *external_sorts,
+      ObWriterThread(ObLoadExternalSort *external_sorts, int start_idx,
         ObLoadSSTableWriter &sstable_writer,
         const ObTableSchema *table_schema, int *rets, int thread_num
         )
-        : external_sorts_(external_sorts), 
+        : external_sorts_(external_sorts), start_idx_(start_idx),
           sstable_writer_(sstable_writer),
           table_schema_(table_schema),
           rets_(rets), thread_num_(thread_num) 
@@ -280,6 +319,7 @@ namespace oceanbase
       void run(int64_t idx) final;
     private:
       ObLoadExternalSort *external_sorts_;
+      int start_idx_;
       ObLoadSSTableWriter &sstable_writer_;
       const ObTableSchema *table_schema_;
       int *rets_;
@@ -291,11 +331,11 @@ namespace oceanbase
     class ObTrivialSortThread : public lib::Threads 
     {
     public: 
-      ObTrivialSortThread(ObLoadExternalSort *external_sorts,
+      ObTrivialSortThread(ObLoadExternalSort *external_sorts, int start_idx,
         ObLoadCSVPaser *csv_parsers,
         ObLoadRowCaster *row_casters, int key_cnt, int thread_num, const ObString &filepath,
         Key *keys, const ObTableSchema *table_schema) : 
-        external_sorts_(external_sorts), 
+        external_sorts_(external_sorts), start_idx_(start_idx),
         csv_parsers_(csv_parsers), row_casters_(row_casters),
         key_cnt_(key_cnt), thread_num_(thread_num), filepath_(filepath),
         keys_(keys), table_schema_(table_schema)
@@ -305,6 +345,7 @@ namespace oceanbase
       static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       ObLoadExternalSort *external_sorts_;
+      int start_idx_;
       ObLoadCSVPaser *csv_parsers_;
       ObLoadRowCaster *row_casters_;
       // int *key_cnts_;
@@ -337,6 +378,7 @@ namespace oceanbase
       static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       static const int64_t BUF_SIZE = (2LL << 25); // 
+      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.5; // (1G) 1.5G
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -344,20 +386,21 @@ namespace oceanbase
     private:
       int inner_init(ObLoadDataStmt &load_stmt);
       int do_load();
-      int do_load_buffer(ObLoadSequentialFileReader &file_reader);
+      // int do_load_buffer(ObLoadSequentialFileReader &file_reader);
       int pre_process();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int SPLIT_NUM = 4;
+      static const int SPLIT_NUM = 240;
       static const int PARSE_THREAD_NUM = 4;
-      static const int WRITER_THREAD_NUM = 4;
+      static const int WRITER_THREAD_NUM = 6;
 
       ObLoadSequentialFileReader file_reader_;
       ObLoadSequentialFileReader file_readers_[SPLIT_NUM];
       // we have BUF_NUM buffers and we load data simultaneously
       // ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
       ObLoadDataBuffer buffer_;
+      ObLoadDataBuffer buffers_[WRITER_THREAD_NUM];
       ObLoadDataBuffer pre_buffer_;
       ObLoadCSVPaser csv_parsers_[WRITER_THREAD_NUM];
       ObLoadRowCaster row_casters_[WRITER_THREAD_NUM];

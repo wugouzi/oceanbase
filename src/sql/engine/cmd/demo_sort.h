@@ -2256,7 +2256,7 @@ int ObDemoExternalSort<T, Compare>::trivial_do_sort()
     LOG_INFO("MMMMM fail to build merger", KR(ret));
   }
 
-  LOG_INFO("MMMMM trivial do sort", K(curr_round_->get_fragment_count()));
+  // LOG_INFO("MMMMM trivial do sort", K(curr_round_->get_fragment_count()));
   return ret;
 }
 
