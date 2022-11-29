@@ -78,6 +78,22 @@ namespace oceanbase
       std::mutex mutex_;
     };
 
+    class ObLoadSequentialFileAppender
+    {
+    public:
+      ObLoadSequentialFileAppender();
+      ~ObLoadSequentialFileAppender();
+      int open(const ObString &filepath, int64_t capacity);
+      int write(const char *data, int64_t len);
+      void close();
+    private:
+      common::ObFileAppender file_writer_;
+      ObLoadDataBuffer buffer_;
+      int64_t offset_;
+      bool is_read_end_;
+      std::mutex mutex_;      
+    };
+
     class ObLoadCSVPaser
     {
     public:
@@ -310,7 +326,7 @@ namespace oceanbase
     class ObSplitFileThread : public lib::Threads 
     {
     public:
-      ObSplitFileThread(common::ObFileAppender *file_writers,
+      ObSplitFileThread(ObLoadSequentialFileAppender *file_writers,
         ObLoadSequentialFileReader *file_readers,
         ObLoadDataBuffer *buffers, int64_t *end,
         int split_num, int *rets)
@@ -321,13 +337,13 @@ namespace oceanbase
       {}
       void run(int64_t idx) final;
     private:
-      common::ObFileAppender *file_writers_;
+      ObLoadSequentialFileAppender *file_writers_;
       ObLoadSequentialFileReader *file_readers_;
       ObLoadDataBuffer *buffers_;
       int64_t *end_;
       int split_num_;
       int *rets_;
-      std::mutex mutexs_[16];
+      
     };
 
     class ObWriterThread : public lib::Threads 
@@ -404,7 +420,8 @@ namespace oceanbase
       static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       static const int64_t BUF_SIZE = (2LL << 25); // 
-      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.5; // (1G) 1.5G
+      static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
+      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.4; // (1G) 1.5G
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -418,9 +435,9 @@ namespace oceanbase
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int SPLIT_THREAD_NUM = 4;
-      // static const int SPLIT_NUM = 240;
-      static const int SPLIT_NUM = 4;
+      static const int SPLIT_THREAD_NUM = 2;
+      static const int SPLIT_NUM = 240;
+      // static const int SPLIT_NUM = 6;
       static const int PARSE_THREAD_NUM = 4;
       static const int WRITER_THREAD_NUM = 6;
 
@@ -442,7 +459,7 @@ namespace oceanbase
       ObLoadSSTableWriter sstable_writer_;
       const ObTableSchema *table_schema_;
       common::ObString filepath_;
-      common::ObFileAppender file_writers_[SPLIT_NUM];
+      ObLoadSequentialFileAppender file_writers_[SPLIT_NUM];
       std::vector<std::string> filepaths_;
     };
 
