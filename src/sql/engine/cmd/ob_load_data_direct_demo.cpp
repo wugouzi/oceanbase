@@ -114,6 +114,18 @@ int ObLoadSequentialFileReader::open(const ObString &filepath)
   return ret;
 }
 
+int ObLoadSequentialFileReader::read_next_buffer_from(char *buf, int64_t size, int64_t offset, int64_t &read_size)
+{
+  int ret = OB_SUCCESS;
+  if (OB_UNLIKELY(!file_reader_.is_opened())) {
+    ret = OB_FILE_NOT_OPENED;
+    LOG_WARN("MMMMM file not opened", KR(ret));
+  } else if (OB_FAIL(file_reader_.pread(buf, size, offset, read_size))) {
+    LOG_WARN("MMMMM fail to do pread", KR(ret));
+  }
+  return ret;
+}
+
 int ObLoadSequentialFileReader::read_next_buffer(ObLoadDataBuffer &buffer)
 {
   // std::lock_guard<std::mutex> guard(mutex_);
@@ -1424,6 +1436,12 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   if (OB_FAIL(file_reader_.open(load_args.full_file_path_))) {
     LOG_WARN("fail to open file", KR(ret), K(load_args.full_file_path_));
   }
+  /*
+  for (int i = 0; i < SPLIT_THREAD_NUM; i++) {
+    if (OB_FAIL(file_split_readers_[i].open(load_args.full_file_path_))) {
+      LOG_WARN("fail to open file", KR(ret), K(load_args.full_file_path_));
+    }  
+  }*/
   
   
   // init buffer_
@@ -1437,6 +1455,12 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   }
   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
     if (OB_FAIL(buffers_[i].create(BUF_SIZE))) {
+      LOG_WARN("fail to create buffer", KR(ret));
+    }  
+  }
+
+  for (int i = 0; i < SPLIT_THREAD_NUM; i++) {
+    if (OB_FAIL(split_buffers_[i].create(BUF_SIZE))) {
       LOG_WARN("fail to create buffer", KR(ret));
     }  
   }
@@ -1766,7 +1790,7 @@ void ObReadSortWriteThread::run(int64_t idx)
     // read the data, and put them in buffer
     while (OB_SUCC(ret)) {
       if (OB_FAIL(do_load_buffer(buffer, file_reader))) {
-        LOG_INFO("MMMMM ");
+        LOG_INFO("MMMMM fail to load buffer", K(ret));
       }
       while (OB_SUCC(ret)) {
         if (OB_FAIL(csv_parser.fast_get_next_row(buffer, new_row))) {
@@ -1874,6 +1898,106 @@ int ObLoadDataDirectDemo::do_load()
 }
 */
 
+void ObSplitFileThread::run(int64_t idx)
+{
+  const char *buf;
+  int64_t len;
+  int group_id;
+  int buf_cnt = 0;
+
+  int ret = OB_SUCCESS;
+  int64_t offset = idx == 0 ? 0 : end_[idx-1];
+  int64_t pos = offset;
+  int64_t end = end_[idx];
+  ObLoadSequentialFileReader &file_reader = file_readers_[idx];
+  ObLoadDataBuffer &buffer = buffers_[idx];
+  file_reader.set_offset(offset);
+
+  LOG_INFO("MMMMM split thread", K(idx));
+
+  while (OB_SUCC(ret) && pos < end) {
+    if (OB_FAIL(do_load_buffer(buffer, file_reader))) {
+      break;
+    }
+    if (buf_cnt % 100 == 0) {
+      LOG_INFO("MMMMM read buffer", K(buf_cnt));
+    }
+    buf_cnt++;
+    while (OB_SUCC(ret) && pos < end) {
+      if (OB_FAIL(get_row_data(buffer, buf, len, group_id, split_num_))) {
+        if (OB_UNLIKELY(OB_ITER_END != ret)) {
+          LOG_WARN("MMMMM fail to get next row", KR(ret));
+        } else {
+          ret = OB_SUCCESS;
+          break;
+        }
+      } else {
+        std::lock_guard<std::mutex> guard(mutexs_[idx]);
+        if (OB_FAIL(file_writers_[group_id].append(buf, len, false))) {
+          LOG_INFO("MMMMM can't write!");
+        } else {
+          pos += len;
+        }
+      }
+      LOG_INFO("MMMMM split", K(idx), K(pos), K(end), K(group_id));
+    }
+  }
+  if (ret == OB_ITER_END) {
+    ret = OB_SUCCESS;
+  }
+  rets_[idx] = ret;
+}
+
+int ObLoadDataDirectDemo::pre_process_with_thread()
+{
+  int ret = OB_SUCCESS;
+  std::string tmp(filepath_.ptr(), filepath_.length());
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    std::string tmpp = tmp + "." + std::to_string(i);
+    filepaths_.push_back(tmpp);
+    ObString file_path(tmpp.size(), tmpp.c_str());
+    file_writers_[i].open(file_path, true, true);
+  }
+  // try to get 4 separate pos
+  std::ifstream in(tmp, std::ifstream::ate | std::ifstream::binary);
+  int64_t file_size = in.tellg();
+  split_pos_[SPLIT_THREAD_NUM - 1] = file_size;
+  {
+    char buf[350];
+    int64_t read_size = 0;
+    for (int i = 0; i < SPLIT_THREAD_NUM - 1; i++) {
+      int64_t &pos = split_pos_[i];
+      
+      pos = file_size / SPLIT_THREAD_NUM * (i+1);
+      if (OB_FAIL(file_reader_.read_next_buffer_from(buf, 350, pos, read_size))) {
+        LOG_INFO("MMMMM read fail");
+      }
+      char *buf_ptr = buf;
+      while (*buf_ptr != '\n') {
+        buf_ptr++;
+        pos++;
+      }
+      pos++;
+      LOG_INFO("MMMMM split file", K(filepaths_[i].c_str()), K(pos));
+    }
+    LOG_INFO("MMMMM split file", K(filepaths_[SPLIT_THREAD_NUM-1].c_str()), K(file_size));
+  }
+
+  int rets[SPLIT_THREAD_NUM];
+  ObSplitFileThread threads(file_writers_, file_split_readers_, split_buffers_, split_pos_, SPLIT_NUM, rets);
+  threads.set_thread_count(SPLIT_THREAD_NUM);
+  threads.set_run_wrapper(MTL_CTX());
+  threads.start();
+  threads.wait();
+  for (int i = 0; i < SPLIT_THREAD_NUM; i++) {
+    ret = rets[i] == OB_SUCCESS ? ret : rets[i];
+  }
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    file_writers_[i].close();
+  }
+  return ret;
+}
+
 int ObLoadDataDirectDemo::pre_process()
 {
   int ret = OB_SUCCESS;
@@ -1885,6 +2009,7 @@ int ObLoadDataDirectDemo::pre_process()
     ObString file_path(tmpp.size(), tmpp.c_str());
     file_writers_[i].open(file_path, true, true);
   }
+
   const char *buf;
   int64_t len;
   int group_id;
@@ -1933,7 +2058,7 @@ int ObLoadDataDirectDemo::do_load()
   LOG_INFO("MMMMM pre done", KR(ret));
   char *bufs[WRITER_THREAD_NUM];
   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
-    LOG_INFO("MMMMM", K(i));
+    // LOG_INFO("MMMMM", K(i));
     bufs[i] = (char *)malloc(THREAD_BUF_SIZE);
   }
   LOG_INFO("MMMMM allocate memory done");

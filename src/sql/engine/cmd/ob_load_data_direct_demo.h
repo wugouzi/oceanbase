@@ -15,6 +15,7 @@
 #include <future>
 #include <mutex>
 #include <thread>
+#include <fstream>
 
 namespace oceanbase
 {
@@ -66,7 +67,9 @@ namespace oceanbase
       ObLoadSequentialFileReader();
       ~ObLoadSequentialFileReader();
       int open(const ObString &filepath);
+      int read_next_buffer_from(char *buf, int64_t size, int64_t offset, int64_t &read_size);
       int read_next_buffer(ObLoadDataBuffer &buffer);
+      void set_offset(int64_t offset) { offset_ = offset; }
       void close();
     private:
       common::ObFileReader file_reader_;
@@ -304,6 +307,29 @@ namespace oceanbase
       int *rets_;
     };
 
+    class ObSplitFileThread : public lib::Threads 
+    {
+    public:
+      ObSplitFileThread(common::ObFileAppender *file_writers,
+        ObLoadSequentialFileReader *file_readers,
+        ObLoadDataBuffer *buffers, int64_t *end,
+        int split_num, int *rets)
+      : 
+        file_writers_(file_writers), file_readers_(file_readers),
+        buffers_(buffers), end_(end),
+        split_num_(split_num), rets_(rets)
+      {}
+      void run(int64_t idx) final;
+    private:
+      common::ObFileAppender *file_writers_;
+      ObLoadSequentialFileReader *file_readers_;
+      ObLoadDataBuffer *buffers_;
+      int64_t *end_;
+      int split_num_;
+      int *rets_;
+      std::mutex mutexs_[16];
+    };
+
     class ObWriterThread : public lib::Threads 
     {
     public:
@@ -388,15 +414,21 @@ namespace oceanbase
       int do_load();
       // int do_load_buffer(ObLoadSequentialFileReader &file_reader);
       int pre_process();
+      int pre_process_with_thread();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int SPLIT_NUM = 240;
+      static const int SPLIT_THREAD_NUM = 4;
+      // static const int SPLIT_NUM = 240;
+      static const int SPLIT_NUM = 4;
       static const int PARSE_THREAD_NUM = 4;
       static const int WRITER_THREAD_NUM = 6;
 
       ObLoadSequentialFileReader file_reader_;
-      ObLoadSequentialFileReader file_readers_[SPLIT_NUM];
+      ObLoadSequentialFileReader file_split_readers_[SPLIT_THREAD_NUM];
+      ObLoadDataBuffer split_buffers_[SPLIT_THREAD_NUM];
+      int64_t split_pos_[SPLIT_THREAD_NUM];
+      // ObLoadSequentialFileReader file_readers_[SPLIT_NUM];
       // we have BUF_NUM buffers and we load data simultaneously
       // ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
       ObLoadDataBuffer buffer_;
