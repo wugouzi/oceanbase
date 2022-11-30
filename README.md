@@ -129,4 +129,6 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 
 ## benchmark
 1. baseline: 5/240 10m 19-20s demo: 10m21s 10m16s
-2. obj sort: 5/240 10m 18,20,19,18 demo: 9m16s
+2. obj sort: 5/240 10m 18,20,19,18 demo: 9m16s 9m13s
+3. obj sort: 5/240                 demo: 9m16s
+4. ob sort:  5/120 10m 19,18,18,17 demo: 9m21s 9m16s 9m15s
