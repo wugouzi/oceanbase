@@ -112,6 +112,7 @@ namespace oceanbase
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, int &group_id);
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row_with_key(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, KeyRow &key);
+      int fast_get_next_row_with_key(char *&begin, char *end, const common::ObNewRow *&row, KeyRow &key);
       int fast_get_next_row(const char *begin, const char *end, const common::ObNewRow *&row);
       // int parse_next_row(const common::ObNewRow *&row);
     private:
@@ -443,7 +444,7 @@ namespace oceanbase
       // int do_parse_buffer(int i);
     private:
       static const int SPLIT_THREAD_NUM = 2;
-      static const int SPLIT_NUM = 240;
+      static const int SPLIT_NUM = 270;
       // static const int SPLIT_NUM = 120;
       static const int PARSE_THREAD_NUM = 4;
       static const int WRITER_THREAD_NUM = 5;

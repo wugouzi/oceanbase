@@ -572,6 +572,60 @@ int ObLoadCSVPaser::fast_get_next_row(const char *begin, const char *end, const 
   return OB_SUCCESS;
 }
 
+int ObLoadCSVPaser::fast_get_next_row_with_key(char *&begin, char *end, const common::ObNewRow *&row, KeyRow &key) 
+{
+  if (begin == end) {
+    return OB_ITER_END;
+  }
+
+  // LOG_INFO("MMMMM get row");
+  const char *iter = begin;
+  // const char *iters[field_num_];
+
+  int field_cnt = 0;
+  bool first = true;
+
+  const char *ptr = nullptr;
+
+  int &key1 = key.key1;
+  int &key2 = key.key2;
+  key1 = 0, key2 = 0;
+  while (iter < end && *iter != '\n') {
+    if (first) {
+      ptr = iter;
+      first = false;
+    }
+    if (*iter == '|') {
+      ObObj &obj = row_.cells_[field_cnt];
+      obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
+      int len = std::distance(ptr, iter);
+      // printf("MMMMM len %d, %-*s\n", len, len, ptr);
+      obj.set_collation_type(collation_type_);
+      field_cnt++;
+      first = true;
+    }
+    if (field_cnt == 0) {
+      key1 = key1 * 10 + (*iter - '0');
+    }
+    if (field_cnt == 3 && isdigit(*iter)) {
+      key2 = key2 * 10 + (*iter - '0');
+    }
+    iter++;
+  }
+  if (field_cnt != field_num_ || iter == end) {
+    return OB_ITER_END;
+  }
+  if (end != iter) {
+    iter++;
+  }
+  // buffer.consume(iter - begin);
+  begin = const_cast<char *>(iter);
+  row = &row_;
+  assert(*(iter-1) == '\n');
+
+  return OB_SUCCESS;
+}
+
 int ObLoadCSVPaser::fast_get_next_row_with_key(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, KeyRow &key) 
 {
   if (buffer.empty()) {
@@ -2002,7 +2056,50 @@ void ObReadSortWriteThread::run(int64_t idx)
 
   for (int i = idx * n; i < (idx + 1) * n && OB_SUCC(ret); i++) {
     int64_t pos = 0;
-    
+    int cnt = 0;
+
+    int fd = open(file_paths_[i].c_str(), O_RDONLY);
+    int64_t len = lseek(fd,0,SEEK_END);  
+    char *file_data = (char *) mmap(NULL, len, PROT_READ, MAP_PRIVATE,fd, 0);
+    char *file_ptr = file_data;
+    char *file_end = file_data + len;
+    LOG_INFO("MMMMM mmap file", K(file_paths_[i].c_str()), K(len));
+    close(fd);
+
+    common::ObVector<KeyRow> item_list;
+
+    while (OB_SUCC(ret)) {
+      KeyRow new_item;
+      if (OB_FAIL(csv_parser.fast_get_next_row_with_key(file_ptr, file_end, new_row, new_item))) {
+        if (OB_UNLIKELY(OB_ITER_END != ret)) {
+          LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
+        } else {
+          ret = OB_SUCCESS;
+          break;
+        }
+      } else {
+        const int64_t item_size = sizeof(ObNewRow) + new_row->get_deep_copy_size();
+        max_size = max(item_size, max_size);
+        if (item_size + pos > thread_buf_size_) {
+          LOG_INFO("MMMMMM DAMN!!!!!!!!", K(item_list.size()), K(item_size), K(pos));
+        } else if (OB_ISNULL(new_item.row = new (buf + pos) ObNewRow())) {
+          ret = common::OB_ALLOCATE_MEMORY_FAILED;
+          STORAGE_LOG(WARN, "MMMMM fail to placement new item", K(ret));
+        } else {
+          int64_t buf_pos = sizeof(ObNewRow);
+          if (OB_FAIL(new_item.row->deep_copy(*new_row, buf + pos, item_size, buf_pos))) {
+            STORAGE_LOG(WARN, "fail to deep copy item", K(ret));
+          } else if (OB_FAIL(item_list.push_back(new_item))) {
+            STORAGE_LOG(WARN, "fail to push back new item", K(ret));
+          } else {
+            pos += item_size;
+            cnt++;
+          }
+        }
+      }
+    }
+    munmap(file_data, len);
+    /*
     common::ObVector<KeyRow> item_list;
     ObLoadSequentialFileReader file_reader;
     ObString file_path(file_paths_[i].size(), file_paths_[i].c_str());
@@ -2010,7 +2107,7 @@ void ObReadSortWriteThread::run(int64_t idx)
     if (OB_FAIL(file_reader.open(file_path))) {
       LOG_INFO("MMMMM can't open", K(file_paths_[i].c_str()));
       break;
-    } 
+    }
 
     // read the data, and put them in buffer
     while (OB_SUCC(ret)) {
@@ -2048,9 +2145,9 @@ void ObReadSortWriteThread::run(int64_t idx)
           }
         }
       }
-    }
+    }*/
 
-    LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(max_size));
+    LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(max_size), K(cnt));
     // sort
     quicksort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
       return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
@@ -2067,70 +2164,6 @@ void ObReadSortWriteThread::run(int64_t idx)
       }
     }
     LOG_INFO("MMMMM write done", KR(ret), K(idx));
-    
-    /*
-    common::ObVector<ObLoadDatumRow *> item_list;
-    ObLoadSequentialFileReader file_reader;
-    ObString file_path(file_paths_[i].size(), file_paths_[i].c_str());
-    LOG_INFO("MMMMM read", K(file_paths_[i].c_str()));
-    if (OB_FAIL(file_reader.open(file_path))) {
-      LOG_INFO("MMMMM can't open", K(file_paths_[i].c_str()));
-      break;
-    } 
-    // read the data, and put them in buffer
-    while (OB_SUCC(ret)) {
-      if (OB_FAIL(do_load_buffer(buffer, file_reader))) {
-        LOG_INFO("MMMMM fail to load buffer", K(ret), K(idx));
-      }
-      while (OB_SUCC(ret)) {
-        if (OB_FAIL(csv_parser.fast_get_next_row(buffer, new_row))) {
-          if (OB_FAIL(ret)) {
-            if (OB_UNLIKELY(OB_ITER_END != ret)) {
-              LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
-            } else {
-              ret = OB_SUCCESS;
-              break;
-            } 
-          }
-        } else if (OB_FAIL(row_caster.get_casted_row(*new_row, datum_row))) {
-          LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
-        } else {
-          ObLoadDatumRow *new_item = nullptr;
-          const int64_t item_size = sizeof(ObLoadDatumRow) + datum_row->get_deep_copy_size();
-          max_size = max(item_size, max_size);
-          if (item_size + pos > thread_buf_size_) {
-            LOG_INFO("MMMMMM DAMN!!!!!!!!", K(item_list.size()), K(item_size), K(pos));
-          } else if (OB_ISNULL(new_item = new (buf + pos) ObLoadDatumRow())) {
-            ret = common::OB_ALLOCATE_MEMORY_FAILED;
-            STORAGE_LOG(WARN, "MMMMM fail to placement new item", K(ret));
-          } else {
-            int64_t buf_pos = sizeof(ObLoadDatumRow);
-            if (OB_FAIL(new_item->deep_copy(*datum_row, buf + pos, item_size, buf_pos))) {
-              STORAGE_LOG(WARN, "fail to deep copy item", K(ret));
-            } else if (OB_FAIL(item_list.push_back(new_item))) {
-              STORAGE_LOG(WARN, "fail to push back new item", K(ret));
-            } else {
-              pos += item_size;
-            }
-          }
-        }
-      }
-    }
-    LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos));
-    // sort
-    quicksort(item_list.begin(), item_list.end(), compare);
-    LOG_INFO("MMMMM sort done", KR(ret), K(idx));
-    // append
-    if (ret == OB_ITER_END) {
-      ret = OB_SUCCESS;
-    }
-    for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
-      if (OB_FAIL(sstable_writer_.append_row(idx, *item_list[i]))) {
-        LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
-      }
-    }
-    LOG_INFO("MMMMM write done", KR(ret), K(idx));
-  */ 
   }
   LOG_INFO("MMMMM", K(max_size));
   rets_[idx] = ret;
