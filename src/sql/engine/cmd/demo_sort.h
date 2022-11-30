@@ -37,40 +37,37 @@
 
 
 template <class ForwardIterator,
-    typename Compare=std::less<
-        typename std::iterator_traits<ForwardIterator>::value_type
-    >
+  typename Compare=std::less<
+    typename std::iterator_traits<ForwardIterator>::value_type
+  >
 >
 void quicksort(ForwardIterator first, ForwardIterator last, Compare comp = Compare())
 {
-    using value_type = typename std::iterator_traits<ForwardIterator>::value_type;
-    using difference_type = typename std::iterator_traits<ForwardIterator>::difference_type;
-    difference_type dist = std::distance(first,last);
-    assert(dist >= 0);
-    if (dist < 2)
-    {
-        return;
-    }
-    else if (dist < 100000)
-    {
-      std::sort(first,last,comp);
-    }
-    else
-    {
-        auto pivot = *std::next(first, dist/2);
-        auto     ucomp = [pivot,&comp](const value_type& em){ return  comp(em,pivot); };
-        auto not_ucomp = [pivot,&comp](const value_type& em){ return !comp(pivot,em); };
+  using value_type = typename std::iterator_traits<ForwardIterator>::value_type;
+  using difference_type = typename std::iterator_traits<ForwardIterator>::difference_type;
+  difference_type dist = std::distance(first,last);
+  assert(dist >= 0);
+  if (dist < 2) {
+    return;
+  }
+  else if (dist < 100000) {
+    std::sort(first,last,comp);
+  }
+  else {
+    auto pivot = *std::next(first, dist/2);
+    auto     ucomp = [pivot,&comp](const value_type& em){ return  comp(em,pivot); };
+    auto not_ucomp = [pivot,&comp](const value_type& em){ return !comp(pivot,em); };
 
-        auto middle1 = std::partition(first, last, ucomp);
-        auto middle2 = std::partition(middle1, last, not_ucomp);
+    auto middle1 = std::partition(first, last, ucomp);
+    auto middle2 = std::partition(middle1, last, not_ucomp);
 
-        // auto policy = multithreaded ? std::launch::async : std::launch::deferred;
-        auto policy = std::launch::async;
-        auto f1 = std::async(policy, [first  ,middle1,&comp]{quicksort(first  ,middle1,comp);});
-        auto f2 = std::async(policy, [middle2,last   ,&comp]{quicksort(middle2,last   ,comp);});
-        f1.wait();
-        f2.wait();
-    }
+    // auto policy = multithreaded ? std::launch::async : std::launch::deferred;
+    auto policy = std::launch::async;
+    auto f1 = std::async(policy, [first  ,middle1,&comp]{quicksort(first  ,middle1,comp);});
+    auto f2 = std::async(policy, [middle2,last   ,&comp]{quicksort(middle2,last   ,comp);});
+    f1.wait();
+    f2.wait();
+  }
 }
 
 

@@ -128,7 +128,5 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 8. [ ] read file from different offset to eliminate lock
 
 ## benchmark
-1. 8MB sort buffer 54m7s
-2. 2MB sort buffer 49m56s
-3. 1MB sort buffer
-4. fast csv 44m55s
+1. baseline: 5/240 10m 19-20s demo: 10m21s 10m16s
+2. obj sort: 5/240 10m 18,20,19,18 demo: 9m16s

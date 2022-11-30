@@ -30,6 +30,12 @@ namespace oceanbase
       size_t offset = 0;
     } Key;
 
+    typedef struct 
+    {
+      int key1 = 0;
+      int key2 = 0;
+      ObNewRow *row = nullptr;
+    } KeyRow;
 
   
     class ObLoadDataBuffer
@@ -105,6 +111,7 @@ namespace oceanbase
       int get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, int &group_id);
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
+      int fast_get_next_row_with_key(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, KeyRow &key);
       int fast_get_next_row(const char *begin, const char *end, const common::ObNewRow *&row);
       // int parse_next_row(const common::ObNewRow *&row);
     private:
@@ -421,7 +428,7 @@ namespace oceanbase
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       static const int64_t BUF_SIZE = (2LL << 25); // 
       static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
-      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.4; // (1G) 1.5G
+      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.5; // (1G) 1.5G
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -437,9 +444,9 @@ namespace oceanbase
     private:
       static const int SPLIT_THREAD_NUM = 2;
       static const int SPLIT_NUM = 240;
-      // static const int SPLIT_NUM = 6;
+      // static const int SPLIT_NUM = 120;
       static const int PARSE_THREAD_NUM = 4;
-      static const int WRITER_THREAD_NUM = 6;
+      static const int WRITER_THREAD_NUM = 5;
 
       ObLoadSequentialFileReader file_reader_;
       ObLoadSequentialFileReader file_split_readers_[SPLIT_THREAD_NUM];
@@ -460,6 +467,7 @@ namespace oceanbase
       const ObTableSchema *table_schema_;
       common::ObString filepath_;
       ObLoadSequentialFileAppender file_writers_[SPLIT_NUM];
+      common::ObFileAppender single_file_writers_[SPLIT_NUM];
       std::vector<std::string> filepaths_;
     };
 
