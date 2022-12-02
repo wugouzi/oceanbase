@@ -9,6 +9,7 @@
 #include "sql/engine/cmd/ob_load_data_parser.h"
 #include "storage/blocksstable/ob_index_block_builder.h"
 // #include "storage/ob_parallel_external_sort.h"
+#include "sql/engine/cmd/demo_utils.h"
 #include "sql/engine/cmd/demo_sort.h"
 #include "storage/tx_storage/ob_ls_handle.h"
 #include "stdio.h"
@@ -43,6 +44,13 @@ namespace oceanbase
     public:
       ObLoadDataBuffer();
       ~ObLoadDataBuffer();
+      ObLoadDataBuffer(const ObLoadDataBuffer &buffer) {
+        data_ = buffer.data_;
+        begin_pos_ = buffer.begin_pos_;
+        end_pos_ = buffer.end_pos_;
+        capacity_ = buffer.capacity_;
+        do_reset = buffer.do_reset;
+      }
       void reuse();
       void reset();
       int create(int64_t capacity);
@@ -55,16 +63,19 @@ namespace oceanbase
       OB_INLINE int64_t get_remain_size() const { return capacity_ - end_pos_; }
       OB_INLINE void consume(int64_t size) { begin_pos_ += size; }
       OB_INLINE void produce(int64_t size) { end_pos_ += size; }
+      OB_INLINE void trim_to(int64_t end) { end_pos_ = end; }
+      OB_INLINE void no_reset() { do_reset = false; }
 
-      void lock() { mutex_.lock(); }
-      void unlock() { mutex_.unlock(); }
+      // void lock() { mutex_.lock(); }
+      // void unlock() { mutex_.unlock(); }
     private:
-      common::ObArenaAllocator allocator_;
+      // common::ObArenaAllocator allocator_;
       char *data_;
       int64_t begin_pos_;
       int64_t end_pos_;
       int64_t capacity_;
-      std::mutex mutex_;
+      bool do_reset = true;
+      // std::mutex mutex_;
     };
 
     class ObLoadSequentialFileReader
@@ -91,9 +102,11 @@ namespace oceanbase
       ~ObLoadSequentialFileAppender();
       int open(const ObString &filepath, int64_t capacity);
       int write(const char *data, int64_t len);
+      // void wait() { file_writer_.wait(); }
+      // int fsync() { return file_writer_.fsync(); }
       void close();
     private:
-      common::ObFileAppender file_writer_;
+      std::fstream file_;
       ObLoadDataBuffer buffer_;
       int64_t offset_;
       bool is_read_end_;
@@ -345,13 +358,50 @@ namespace oceanbase
       {}
       void run(int64_t idx) final;
     private:
+      static const int64_t SPLIT_BUF_SIZE = (1LL << 28); // 256G
       ObLoadSequentialFileAppender *file_writers_;
+      ObString filepath_;
       ObLoadSequentialFileReader *file_readers_;
       ObLoadDataBuffer *buffers_;
       int64_t *end_;
       int split_num_;
       int *rets_;
       
+    };
+
+    class ObSplitFileThreadV2 : public lib::Threads 
+    {
+    public:
+      ObSplitFileThreadV2(std::queue<ObLoadDataBuffer> *working_queues,
+        std::queue<ObLoadDataBuffer> &buffer_queue,
+        ObLoadSequentialFileAppender *file_writers,
+        int split_num, int *rets, 
+        std::mutex *working_mtxes,
+        std::condition_variable *cond_vars,
+        std::mutex &buffer_mtx,
+        std::condition_variable &buf_cond_var,
+        std::atomic<bool> &done)
+      : working_queues_(working_queues), buffer_queue_(buffer_queue),
+        file_writers_(file_writers), split_num_(split_num),
+        rets_(rets), 
+        working_mtxes_(working_mtxes),
+        cond_vars_(cond_vars),
+        buffer_mtx_(buffer_mtx),
+        buf_cond_var_(buf_cond_var),
+        done_(done)
+      {}
+      void run(int64_t idx) final;
+    private:
+      std::queue<ObLoadDataBuffer> *working_queues_;
+      std::queue<ObLoadDataBuffer> &buffer_queue_;
+      ObLoadSequentialFileAppender *file_writers_;
+      int split_num_;
+      int *rets_;
+      std::mutex *working_mtxes_;
+      std::condition_variable *cond_vars_;
+      std::mutex &buffer_mtx_;
+      std::condition_variable &buf_cond_var_;
+      std::atomic<bool> &done_;
     };
 
     class ObWriterThread : public lib::Threads 
@@ -429,6 +479,9 @@ namespace oceanbase
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       static const int64_t BUF_SIZE = (2LL << 25); // 
       static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
+      static const int64_t READ_BUF_SIZE = (2LL << 21); // 2m
+      static const int64_t READ_BUF_NUM = (1LL << 30)*7 / READ_BUF_SIZE;     // 7G for READ BUFs
+      // static const int64_t READ_BUF_SIZE = 300;
       static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.5; // (1G) 1.5G
     public:
       ObLoadDataDirectDemo();
@@ -440,12 +493,13 @@ namespace oceanbase
       // int do_load_buffer(ObLoadSequentialFileReader &file_reader);
       int pre_process();
       int pre_process_with_thread();
+      int pre_process_with_threadV2();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
       static const int SPLIT_THREAD_NUM = 2;
-      static const int SPLIT_NUM = 270;
-      // static const int SPLIT_NUM = 120;
+      // static const int SPLIT_NUM = 6;
+      static const int SPLIT_NUM = 120;
       static const int PARSE_THREAD_NUM = 4;
       static const int WRITER_THREAD_NUM = 5;
 

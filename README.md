@@ -132,3 +132,14 @@ fio --name=seqread --rw=read --bs=1M  --size=5G --runtime=400 --numjobs=10 --dir
 2. obj sort: 5/240 10m 18,20,19,18 demo: 9m16s 9m13s
 3. obj sort: 5/240                 demo: 9m16s
 4. ob sort:  5/120 10m 19,18,18,17 demo: 9m21s 9m16s 9m15s
+5. obj sort 2thread read: 5/240: 10m 17,16,17 demo: 9m13s
+6.          3thread 
+
+## tools
+1. https://stackoverflow.com/questions/3002122/fastest-file-reading-in-c
+2. https://stackoverflow.com/questions/15278343/c11-thread-safe-queue
+3. https://stackoverflow.com/questions/59740649/c-fastest-way-to-continously-write-data-to-file
+4. https://stackoverflow.com/questions/11563963/how-to-write-a-large-buffer-into-a-binary-file-in-c-fast
+5. https://www.intel.com/content/www/us/en/develop/documentation/cpp-compiler-developer-guide-and-reference/top/compiler-reference/libraries/intel-s-c-asynchronous-i-o-extensions-windows-os/intel-s-c-asynchronous-i-o-library-for-windows-os/example-for-aio-read-and-aio-write-functions.html
+6. ***** https://stackoverflow.com/questions/17925051/fast-textfile-reading-in-c
+7. 
