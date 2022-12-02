@@ -1317,6 +1317,18 @@ int ObLoadSSTableWriter::append_row(int idx, const ObLoadDatumRow &datum_row)
       datum_row.datums_ + rowkey_column_num_, 
       (column_count_ - rowkey_column_num_) * sizeof(ObStorageDatum *));
     */
+    /*
+    parallel_for(column_count_, [&](int start, int end){
+      for (int i = start; i < end; ++i) {
+        if (i < this->rowkey_column_num_) {
+          this->datum_rows_[idx].storage_datums_[i] = datum_row.datums_[i];
+        } else {
+          this->datum_rows_[idx].storage_datums_[i + this->extra_rowkey_column_num_] = datum_row.datums_[i];
+        } 
+      }
+    });
+    */
+    
     for (int64_t i = 0; i < column_count_; ++i) {
       if (i < rowkey_column_num_) {
         datum_rows_[idx].storage_datums_[i] = datum_row.datums_[i];
@@ -1327,6 +1339,7 @@ int ObLoadSSTableWriter::append_row(int idx, const ObLoadDatumRow &datum_row)
     if (OB_FAIL(macro_block_writers_[idx].append_row(datum_rows_[idx]))) {
       LOG_WARN("MMMMM fail to append row", KR(ret));
     }
+    
   }
   return ret;
 }
@@ -1583,7 +1596,50 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   table_schema_ = table_schema;
   return ret;
 }
+int fast_get_row_data(ObLoadDataBuffer &buffer, const char *&buf, int64_t &len, int &group_id, int split) 
+{
+  if (buffer.empty()) {
+    return OB_ITER_END;
+  }
+  const char *begin = buffer.begin();
+  const char *end = buffer.end();
+  const char *iter = begin;
+  int field_cnt = 0;
+  bool first = true;
 
+  int key1 = 0;
+  int key2 = 0;
+
+  // get the keys first
+  while (key2 == 0) {
+    if (*iter == '|') {
+      field_cnt++;
+      first = true;
+    }
+    if (field_cnt == 0) {
+      key1 = key1 * 10 + (*iter - '0');
+    }
+    if (field_cnt == 3 && isdigit(*iter)) {
+      key2 = key2 * 10 + (*iter - '0');
+    }
+    iter++;
+  }
+  iter = begin + 90;
+  while (*iter != '\n') iter++;
+  
+  len = iter - begin + 1;
+  switch (split) {
+    case 4: 
+      group_id = get_group_id_4(key1, key2);break;
+    case 8:
+      group_id = get_group_id_8(key1, key2);break;
+    default:
+      group_id = get_group_id(key1, key2, split);break;
+  }
+  buf = begin;
+  buffer.consume(len);
+  return OB_SUCCESS;
+}
 int get_row_data(char *begin, const char *end, int64_t &len, int &group_id, int split)
 {
   if (begin == end) {
@@ -2194,7 +2250,7 @@ void ObSplitFileThreadV2::run(int64_t idx)
     }
     for (auto &buffer : buffers) {
       while (OB_SUCC(ret)) {
-        if (OB_FAIL(get_row_data(buffer, buf, len, group_id, split_num_))) {
+        if (OB_FAIL(fast_get_row_data(buffer, buf, len, group_id, split_num_))) {
           if (OB_UNLIKELY(OB_ITER_END != ret)) {
             LOG_WARN("MMMMM DAMN FAIL", KR(ret));
           } else {
