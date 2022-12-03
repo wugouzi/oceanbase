@@ -914,7 +914,7 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
   const int64_t datums_len = sizeof(ObDatum) * src.get_column_count();
   bool is_large_row = false;
   if (first_row_) {
-    first_row_ = false;
+    // first_row_ = false;
     ObDatum *datum_arr = nullptr;
     if (datum_rows_.count() > 0
         && (length_ + datums_len >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {

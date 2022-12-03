@@ -31,7 +31,7 @@ namespace blocksstable
 class ObIColumnEncoder;
 class ObEncodingHashTable;
 
-class ObMicroBlockEncoder : public ObIMicroBlockWriter
+class ObDemoMicroBlockEncoder : public ObIMicroBlockWriter
 {
 public:
   static const int64_t MAX_ENCODING_META_LENGTH = UINT16_MAX;
@@ -39,15 +39,15 @@ public:
 
   // maximum row count is restricted to 4 bytes in MicroBlockHeader
   static const int64_t MAX_MICRO_BLOCK_ROW_CNT = UINT32_MAX;
-  // Unlike ObMicroBlockWriter, ObMicroBlockEncoder internally uses ObRowWriter and ObIColumnEncoder
+  // Unlike ObMicroBlockWriter, ObDemoMicroBlockEncoder internally uses ObRowWriter and ObIColumnEncoder
   // to form row and column data. Both ObRowWriter and ObIColumnEncoder check buffer capacity by
   // calling ObBufferWriter::advance_zero. If buffer size is not enough, they return failure.
   // Compared to ObMicroBlockWriter, who calls ObBufferWriter::write to acquire buffer space
-  // automatically, we have to prepared enough buffer space for ObMicroBlockEncoder at beginning.
+  // automatically, we have to prepared enough buffer space for ObDemoMicroBlockEncoder at beginning.
   // So DEFAULT_ROWKEY_BUFFER_SIZE should be equal to macro block size
   //
   // For detail difference about the writing buffer between ObMicroBlockWriter and
-  // ObMicroBlockEncoder, please take a look at method:
+  // ObDemoMicroBlockEncoder, please take a look at method:
   // int ObMacroBlockWriter::get_current_micro_block_buffer(const char *&buf, int64_t &size)
   static const int64_t DEFAULT_DATA_BUFFER_SIZE = common::OB_DEFAULT_MACRO_BLOCK_SIZE;
 
@@ -61,8 +61,8 @@ public:
     TO_STRING_KV(K_(index), K_(offset));
   };
 
-  ObMicroBlockEncoder();
-  virtual ~ObMicroBlockEncoder();
+  ObDemoMicroBlockEncoder();
+  virtual ~ObDemoMicroBlockEncoder();
 
   // Valid to double init. will call reuse() every time befor initialization.
   int init(const ObMicroBlockEncodingCtx &ctx);
@@ -181,7 +181,7 @@ private:
 
   bool first_row_ = true;
 
-  DISALLOW_COPY_AND_ASSIGN(ObMicroBlockEncoder);
+  DISALLOW_COPY_AND_ASSIGN(ObDemoMicroBlockEncoder);
 };
 
 } // end namespace blocksstable

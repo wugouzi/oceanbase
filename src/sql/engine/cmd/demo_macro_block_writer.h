@@ -14,7 +14,7 @@
 #define OCEANBASE_DEMO_MACRO_BLOCK_WRITER_H_
 #include "share/io/ob_io_manager.h"
 #include "storage/blocksstable/encoding/ob_micro_block_decoder.h"
-#include "storage/blocksstable/encoding/ob_micro_block_encoder.h"
+#include "demo_micro_block_encoder.h"
 #include "lib/compress/ob_compressor.h"
 #include "lib/container/ob_array_wrap.h"
 #include "storage/blocksstable/ob_block_manager.h"
@@ -26,7 +26,7 @@
 #include "storage/blocksstable/ob_micro_block_encryption.h"
 #include "storage/blocksstable/ob_micro_block_reader.h"
 #include "storage/blocksstable/ob_micro_block_writer.h"
-#include "storage/blocksstable/share/schema/ob_table_schema.h"
+#include "share/schema/ob_table_schema.h"
 #include "storage/blocksstable/ob_bloom_filter_cache.h"
 #include "storage/blocksstable/ob_micro_block_reader_helper.h"
 
