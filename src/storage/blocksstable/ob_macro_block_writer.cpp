@@ -94,11 +94,10 @@ int ObMicroBlockBufferHelper::compress_encrypt_micro_block(ObMicroBlockDesc &mic
   } else if (OB_FAIL(compressor_.compress(block_buffer, block_size, compress_buf, compress_buf_size))) {
     STORAGE_LOG(WARN, "macro block writer fail to compress.",
         K(ret), K(OB_P(block_buffer)), K(block_size));
-  // HACK: remove check for performance
   } else if (MICRO_BLOCK_MERGE_VERIFY_LEVEL::NONE != micro_block_merge_verify_level_
       && OB_FAIL(check_micro_block(compress_buf, compress_buf_size,
-           block_buffer, block_size, micro_block_desc))) {
-     STORAGE_LOG(WARN, "failed to check micro block", K(ret));
+            block_buffer, block_size, micro_block_desc))) {
+    STORAGE_LOG(WARN, "failed to check micro block", K(ret));
   } else {
     ObMicroBlockHeader *header = const_cast<ObMicroBlockHeader *>(micro_block_desc.header_);
     micro_block_desc.buf_ = compress_buf;
@@ -120,7 +119,6 @@ int ObMicroBlockBufferHelper::check_micro_block(
     const ObMicroBlockDesc &micro_desc)
 {
   int ret = OB_SUCCESS;
-  return ret;
   const char *decomp_buf = nullptr;
   int64_t real_decomp_size = 0;
   if (MICRO_BLOCK_MERGE_VERIFY_LEVEL::ENCODING == micro_block_merge_verify_level_) {
@@ -348,7 +346,6 @@ int ObMacroBlockWriter::open(
       callback_ = callback;
       data_store_desc_ = &data_store_desc;
       current_macro_seq_ = start_seq.get_data_seq();
-      // LOG_INFO("MMMMM get seq", K(current_macro_seq_));
       if (OB_FAIL(build_micro_writer(data_store_desc_,
                                      allocator_,
                                      micro_writer_,
@@ -685,7 +682,7 @@ int ObMacroBlockWriter::check_order(const ObDatumRow &row)
         STORAGE_LOG(WARN, "Failed to compare last key", K(ret), K(cur_key), K(last_key));
       } else if (OB_UNLIKELY(compare_result < 0)) {
         ret = OB_ROWKEY_ORDER_ERROR;
-        STORAGE_LOG(ERROR, "MMMMM input rowkey is less then last rowkey.", K(cur_key), K(last_key), K(ret));
+        STORAGE_LOG(ERROR, "input rowkey is less then last rowkey.", K(cur_key), K(last_key), K(ret));
       } else if (OB_UNLIKELY(0 == compare_result)) { // same schema rowkey
         if (last_key_with_L_flag_) {
           ret = OB_ROWKEY_ORDER_ERROR;
