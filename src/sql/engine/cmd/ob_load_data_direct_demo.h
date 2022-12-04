@@ -315,7 +315,9 @@ namespace oceanbase
         external_sorts_(external_sorts), bufs_(bufs),
         thread_buf_size_(thread_buf_size),
         rets_(rets)
-      {}
+      {
+        additional_size_ = column_count_ * sizeof(ObObj);
+      }
       void run(int64_t idx) final;
     private:
       int split_num_;
@@ -331,6 +333,7 @@ namespace oceanbase
       int64_t thread_buf_size_;
       int *rets_;
       int column_count_ = 16;
+      int64_t additional_size_;
     };
 
     class ObSplitFileThread : public lib::Threads 
@@ -432,7 +435,7 @@ namespace oceanbase
       static const int64_t BUF_SIZE = (2LL << 25); // 
       static const int64_t READ_BUF_SIZE = (2LL << 20); // 
       static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
-      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.1; // (1G) 1.5G
+      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1; // (1G) 1.5G
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -448,7 +451,7 @@ namespace oceanbase
       // int do_parse_buffer(int i);
     private:
       static const int SPLIT_THREAD_NUM = 2;
-      static const int SPLIT_NUM = 240;
+      static const int SPLIT_NUM = 120;
       // static const int SPLIT_NUM = 120;
       static const int PARSE_THREAD_NUM = 4;
       static const int WRITER_THREAD_NUM = 6;

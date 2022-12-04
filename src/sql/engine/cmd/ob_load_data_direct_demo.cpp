@@ -2179,7 +2179,7 @@ void ObReadSortWriteThread::run(int64_t idx)
   int ret = OB_SUCCESS;
 
   sstable_writer_.init_macro_block_writer(table_schema_, idx);
-  int64_t max_size = 0;
+  int64_t max_size = sizeof(ObNewRow) + additional_size_;
 
   for (int i = idx * n; i < (idx + 1) * n && OB_SUCC(ret); i++) {
     int64_t pos = 0;
@@ -2202,7 +2202,7 @@ void ObReadSortWriteThread::run(int64_t idx)
       pos += sizeof(ObNewRow);
       new_row->count_ = column_count_;
       new_row->cells_ = (ObObj*)new (buf + pos) ObObj[column_count_];
-      pos += column_count_ * sizeof(ObObj);
+      pos += additional_size_;
       if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, *new_row, new_item))) {
         if (OB_UNLIKELY(OB_ITER_END != ret)) {
           LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
