@@ -178,7 +178,7 @@ private:
   common::ObArray<ObColumnEncodingCtx> col_ctxs_;
   int64_t length_;
   bool is_inited_;
-
+  bool first_row_ = true;
   DISALLOW_COPY_AND_ASSIGN(ObDemoMicroBlockEncoder);
 };
 

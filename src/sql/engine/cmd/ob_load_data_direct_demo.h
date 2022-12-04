@@ -13,6 +13,7 @@
 #include "sql/engine/cmd/demo_sort.h"
 #include "storage/tx_storage/ob_ls_handle.h"
 #include "stdio.h"
+#include "demo_macro_block_writer.h"
 #include <future>
 #include <mutex>
 #include <thread>
@@ -22,6 +23,11 @@ namespace oceanbase
 {
   namespace sql
   {
+      static const int SPLIT_THREAD_NUM = 2;
+      // static const int SPLIT_NUM = 6;
+      static const int SPLIT_NUM = 4;
+      static const int PARSE_THREAD_NUM = 4;
+      static const int WRITER_THREAD_NUM = 1;
 
     typedef struct 
     {
@@ -31,11 +37,13 @@ namespace oceanbase
       size_t offset = 0;
     } Key;
 
+    class ObLoadDatumRow;
     typedef struct 
     {
       int key1 = 0;
       int key2 = 0;
       ObNewRow *row = nullptr;
+      // ObLoadDatumRow *row = nullptr;
     } KeyRow;
 
   
@@ -196,6 +204,7 @@ namespace oceanbase
       int init(const share::schema::ObTableSchema *table_schema,
                const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int get_casted_row(const common::ObNewRow &new_row, const ObLoadDatumRow *&datum_row);
+      void reuse() { cast_allocator_.reuse(); }
     private:
       int init_column_schemas_and_idxs(
           const share::schema::ObTableSchema *table_schema,
@@ -253,12 +262,20 @@ namespace oceanbase
       int append_row(int idx, const ObLoadDatumRow &datum_row);
       int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
       int close_macro_blocks();
+      int flush_macro_block(int idx) { 
+        LOG_INFO("MMMMM flush block");
+        return macro_block_writers_[idx].flush_current_macro_block(); }
+      bool has_wrote_block(int idx) { return macro_block_writers_[idx].has_wrote_block(); }
+      void clean_row(int idx) { 
+        LOG_INFO("MMMMM clean row", K(datum_row_cnts_[idx]));
+        datum_row_cnts_[idx] = 0; }
       int close();
     private:
       int init_sstable_index_builder(const share::schema::ObTableSchema *table_schema);
       int init_macro_block_writer(const share::schema::ObTableSchema *table_schema);
       int create_sstable();
     private:
+      static const int DATUM_ROW_NUM = 250;
       common::ObTabletID tablet_id_;
       storage::ObTabletHandle tablet_handle_;
       share::ObLSID ls_id_;
@@ -269,10 +286,12 @@ namespace oceanbase
       storage::ObITable::TableKey table_key_;
       blocksstable::ObSSTableIndexBuilder sstable_index_builder_;
       blocksstable::ObDataStoreDesc data_store_desc_;
-      blocksstable::ObMacroBlockWriter macro_block_writer_;
+      blocksstable::ObDemoMacroBlockWriter macro_block_writer_;
       blocksstable::ObDatumRow datum_row_;
-      blocksstable::ObDatumRow datum_rows_[200];
-      blocksstable::ObMacroBlockWriter macro_block_writers_[200];
+      blocksstable::ObDatumRow datum_rows_[WRITER_THREAD_NUM][DATUM_ROW_NUM];
+      int datum_row_cnts_[WRITER_THREAD_NUM];
+      // blocksstable::ObDatumRow datum_rows_[200];
+      blocksstable::ObDemoMacroBlockWriter macro_block_writers_[WRITER_THREAD_NUM];
       bool is_closed_;
       bool is_inited_;
     };
@@ -497,12 +516,6 @@ namespace oceanbase
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int SPLIT_THREAD_NUM = 2;
-      // static const int SPLIT_NUM = 6;
-      static const int SPLIT_NUM = 120;
-      static const int PARSE_THREAD_NUM = 4;
-      static const int WRITER_THREAD_NUM = 5;
-
       ObLoadSequentialFileReader file_reader_;
       ObLoadSequentialFileReader file_split_readers_[SPLIT_THREAD_NUM];
       ObLoadDataBuffer split_buffers_[SPLIT_THREAD_NUM];

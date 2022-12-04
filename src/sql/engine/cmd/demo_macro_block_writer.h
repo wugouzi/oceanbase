@@ -104,6 +104,8 @@ public:
   int append_row(const ObDatumRow &row);
   int check_data_macro_block_need_merge(const ObMacroBlockDesc &macro_desc, bool &need_merge);
   int close();
+  int flush_current_macro_block();
+  bool has_wrote_block();
   void dump_block_and_writer_buffer();
   inline ObMacroBlocksWriteCtx &get_macro_block_write_ctx() { return block_write_ctx_; }
   inline int64_t get_last_macro_seq() const { return current_macro_seq_; } /* save our seq num */
@@ -177,6 +179,8 @@ private:
   blocksstable::ObDatumRow check_datum_row_;
   ObIMacroBlockFlushCallback *callback_;
   ObDataIndexBlockBuilder *builder_;
+
+  bool has_wrote_block_ = false;
 };
 
 }//end namespace blocksstable
