@@ -113,6 +113,7 @@ namespace oceanbase
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row_with_key(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, KeyRow &key);
       int fast_get_next_row_with_key(char *&begin, char *end, const common::ObNewRow *&row, KeyRow &key);
+      int fast_get_next_row_with_key_and_row(char *&begin, char *end, const common::ObNewRow &row, KeyRow &key);
       int fast_get_next_row(const char *begin, const char *end, const common::ObNewRow *&row);
       // int parse_next_row(const common::ObNewRow *&row);
     private:
@@ -329,6 +330,7 @@ namespace oceanbase
       char **bufs_;
       int64_t thread_buf_size_;
       int *rets_;
+      int column_count_ = 16;
     };
 
     class ObSplitFileThread : public lib::Threads 
@@ -430,7 +432,7 @@ namespace oceanbase
       static const int64_t BUF_SIZE = (2LL << 25); // 
       static const int64_t READ_BUF_SIZE = (2LL << 20); // 
       static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
-      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.5; // (1G) 1.5G
+      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.1; // (1G) 1.5G
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -446,10 +448,10 @@ namespace oceanbase
       // int do_parse_buffer(int i);
     private:
       static const int SPLIT_THREAD_NUM = 2;
-      static const int SPLIT_NUM = 240;
+      static const int SPLIT_NUM = 4;
       // static const int SPLIT_NUM = 120;
       static const int PARSE_THREAD_NUM = 4;
-      static const int WRITER_THREAD_NUM = 5;
+      static const int WRITER_THREAD_NUM = 1;
 
       ObLoadSequentialFileReader file_reader_;
       ObLoadSequentialFileReader file_split_readers_[SPLIT_THREAD_NUM];

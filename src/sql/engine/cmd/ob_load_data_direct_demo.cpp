@@ -418,6 +418,7 @@ int ObLoadCSVPaser::init(const ObDataInFileStruct &format, int64_t column_count,
                          ObCollationType collation_type, int field_num)
 {
   int ret = OB_SUCCESS;
+  LOG_INFO("MMMMM csv column", K(column_count));
   if (IS_INIT) {
     ret = OB_INIT_TWICE;
     LOG_WARN("ObLoadCSVPaser init twice", KR(ret), KP(this));
@@ -567,6 +568,60 @@ int ObLoadCSVPaser::fast_get_next_row(const char *begin, const char *end, const 
     iter++;
   }
   row = &row_;
+  assert(*(iter-1) == '\n');
+
+  return OB_SUCCESS;
+}
+
+int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, const common::ObNewRow &row, KeyRow &key) 
+{
+  if (begin == end) {
+    return OB_ITER_END;
+  }
+
+  // LOG_INFO("MMMMM get row");
+  const char *iter = begin;
+  // const char *iters[field_num_];
+
+  int field_cnt = 0;
+  bool first = true;
+
+  const char *ptr = nullptr;
+
+  int &key1 = key.key1;
+  int &key2 = key.key2;
+  key1 = 0, key2 = 0;
+  while (iter < end && *iter != '\n') {
+    if (first) {
+      ptr = iter;
+      first = false;
+    }
+    if (*iter == '|') {
+      // LOG_INFO("MMMMM set type", K(field_cnt), K(ObVarcharType));
+      ObObj &obj = row.cells_[field_cnt];
+      obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
+      int len = std::distance(ptr, iter);
+      // printf("MMMMM len %d, %-*s\n", len, len, ptr);
+      obj.set_collation_type(collation_type_);
+      field_cnt++;
+      first = true;
+    }
+    if (field_cnt == 0) {
+      key1 = key1 * 10 + (*iter - '0');
+    }
+    if (field_cnt == 3 && isdigit(*iter)) {
+      key2 = key2 * 10 + (*iter - '0');
+    }
+    iter++;
+  }
+  if (field_cnt != field_num_ || iter == end) {
+    return OB_ITER_END;
+  }
+  if (end != iter) {
+    iter++;
+  }
+  // buffer.consume(iter - begin);
+  begin = const_cast<char *>(iter);
   assert(*(iter-1) == '\n');
 
   return OB_SUCCESS;
@@ -1140,6 +1195,7 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
       } else {
         const ObColumnSchemaV2 *column_schema = column_schemas_.at(i);
         const ObObj &src_obj = new_row.cells_[column_idx];
+        // LOG_INFO("MMMMM type class", K(src_obj.get_type()), K(src_obj.get_type_class()), K(column_idx));
         ObStorageDatum &dest_datum = datum_row_.datums_[i];
         if (OB_FAIL(cast_obj_to_datum(column_schema, src_obj, dest_datum))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(src_obj));
@@ -2112,7 +2168,7 @@ void ObReadSortWriteThread::run(int64_t idx)
   
   int n = split_num_ / thread_num_;
 
-  const ObNewRow *new_row = nullptr;
+  ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
   ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
   ObLoadRowCaster &row_caster = row_casters_[idx];
@@ -2141,7 +2197,13 @@ void ObReadSortWriteThread::run(int64_t idx)
 
     while (OB_SUCC(ret)) {
       KeyRow new_item;
-      if (OB_FAIL(csv_parser.fast_get_next_row_with_key(file_ptr, file_end, new_row, new_item))) {
+      new_row = new (buf + pos) ObNewRow;
+      new_item.row = new_row;
+      pos += sizeof(ObNewRow);
+      new_row->count_ = column_count_;
+      new_row->cells_ = (ObObj*)new (buf + pos) ObObj[column_count_];
+      pos += column_count_ * sizeof(ObObj);
+      if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, *new_row, new_item))) {
         if (OB_UNLIKELY(OB_ITER_END != ret)) {
           LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
         } else {
@@ -2149,6 +2211,11 @@ void ObReadSortWriteThread::run(int64_t idx)
           break;
         }
       } else {
+        if (OB_FAIL(item_list.push_back(new_item))) {
+          LOG_INFO("MMMMM fail to push back new item", K(ret));
+        }
+        /*
+        // delete this when done
         const int64_t item_size = sizeof(ObNewRow) + new_row->get_deep_copy_size();
         max_size = max(item_size, max_size);
         if (item_size + pos > thread_buf_size_) {
@@ -2166,11 +2233,10 @@ void ObReadSortWriteThread::run(int64_t idx)
             pos += item_size;
             cnt++;
           }
-        }
+        }*/
       }
     }
-    munmap(file_data, len);
-
+  
     LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(max_size), K(cnt));
     // sort
     quicksort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
@@ -2188,6 +2254,8 @@ void ObReadSortWriteThread::run(int64_t idx)
       }
     }
     LOG_INFO("MMMMM write done", KR(ret), K(idx));
+    // data of new_row is still in mmap
+    munmap(file_data, len);
   }
   LOG_INFO("MMMMM", K(max_size));
   rets_[idx] = ret;
