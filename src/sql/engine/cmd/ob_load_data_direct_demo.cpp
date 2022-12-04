@@ -956,7 +956,7 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
     LOG_WARN("ObLoadRowCaster not init", KR(ret));
   } else {
     const int64_t extra_col_cnt = ObMultiVersionRowkeyHelpper::get_extra_rowkey_col_cnt();
-    cast_allocator_.reuse();
+    // cast_allocator_.reuse();
     for (int64_t i = 0; OB_SUCC(ret) && i < column_idxs_.count(); ++i) {
       int64_t column_idx = column_idxs_.at(i);
       if (OB_UNLIKELY(column_idx < 0 || column_idx >= new_row.count_)) {
@@ -2140,7 +2140,7 @@ void ObReadSortWriteThread::run(int64_t idx)
       } else if (OB_FAIL(sstable_writer_.append_row(idx, *datum_row))) {
         LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
       } else if (sstable_writer_.has_wrote_block(idx)) {
-        // row_caster.reuse();
+        row_caster.reuse();
         sstable_writer_.clean_row(idx);
       }
     }

@@ -88,6 +88,7 @@ int ObDemoMicroBlockBufferHelper::compress_encrypt_micro_block(ObMicroBlockDesc 
   int64_t block_size = micro_block_desc.buf_size_;
   const char *compress_buf = NULL;
   int64_t compress_buf_size = 0;
+  LOG_INFO("MMMMM compress micro block");
   if (OB_UNLIKELY(!micro_block_desc.is_valid())) {
     ret = OB_INVALID_ARGUMENT;
     STORAGE_LOG(WARN, "invalid micro block desc", K(ret), K(micro_block_desc));
@@ -797,7 +798,7 @@ int ObDemoMacroBlockWriter::build_micro_block()
   LOG_INFO("MMMMM build micro block");
   if (micro_writer_->get_row_count() <= 0) {
     ret = OB_INNER_STAT_ERROR;
-    STORAGE_LOG(WARN, "micro_block_writer is empty", K(ret));
+    STORAGE_LOG(WARN, "MMMMM micro_block_writer is empty", K(ret));
   } else if (OB_FAIL(micro_writer_->build_micro_block_desc(micro_block_desc))) {
     STORAGE_LOG(WARN, "failed to build micro block desc", K(ret));
   } else if (FALSE_IT(micro_block_desc.last_rowkey_ = last_key_)) {
@@ -835,6 +836,7 @@ int ObDemoMacroBlockWriter::build_micro_block_desc(
     ObMicroBlockHeader &header_for_rewrite)
 {
   int ret = OB_SUCCESS;
+  LOG_INFO("MMMMM build micro desc");
   if (OB_UNLIKELY(!micro_block.micro_index_info_->is_valid())) {
     ret = OB_INVALID_ARGUMENT;
     LOG_WARN("invalid arguments", K(ret), K(micro_block));
