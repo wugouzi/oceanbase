@@ -15,6 +15,7 @@
 #include <future>
 #include <mutex>
 #include <thread>
+#include <fstream>
 
 namespace oceanbase
 {
@@ -29,6 +30,12 @@ namespace oceanbase
       size_t offset = 0;
     } Key;
 
+    typedef struct 
+    {
+      int key1 = 0;
+      int key2 = 0;
+      ObNewRow *row = nullptr;
+    } KeyRow;
 
   
     class ObLoadDataBuffer
@@ -66,13 +73,31 @@ namespace oceanbase
       ObLoadSequentialFileReader();
       ~ObLoadSequentialFileReader();
       int open(const ObString &filepath);
+      int read_next_buffer_from(char *buf, int64_t size, int64_t offset, int64_t &read_size);
       int read_next_buffer(ObLoadDataBuffer &buffer);
+      void set_offset(int64_t offset) { offset_ = offset; }
       void close();
     private:
       common::ObFileReader file_reader_;
       int64_t offset_;
       bool is_read_end_;
       std::mutex mutex_;
+    };
+
+    class ObLoadSequentialFileAppender
+    {
+    public:
+      ObLoadSequentialFileAppender();
+      ~ObLoadSequentialFileAppender();
+      int open(const ObString &filepath, int64_t capacity);
+      int write(const char *data, int64_t len);
+      void close();
+    private:
+      common::ObFileAppender file_writer_;
+      ObLoadDataBuffer buffer_;
+      int64_t offset_;
+      bool is_read_end_;
+      std::mutex mutex_;      
     };
 
     class ObLoadCSVPaser
@@ -86,6 +111,9 @@ namespace oceanbase
       int get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, int &group_id);
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
+      int fast_get_next_row_with_key(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, KeyRow &key);
+      int fast_get_next_row_with_key(char *&begin, char *end, const common::ObNewRow *&row, KeyRow &key);
+      int fast_get_next_row_with_key_and_row(char *&begin, char *end, const common::ObNewRow &row, KeyRow &key);
       int fast_get_next_row(const char *begin, const char *end, const common::ObNewRow *&row);
       // int parse_next_row(const common::ObNewRow *&row);
     private:
@@ -287,7 +315,9 @@ namespace oceanbase
         external_sorts_(external_sorts), bufs_(bufs),
         thread_buf_size_(thread_buf_size),
         rets_(rets)
-      {}
+      {
+        additional_size_ = column_count_ * sizeof(ObObj);
+      }
       void run(int64_t idx) final;
     private:
       int split_num_;
@@ -302,6 +332,31 @@ namespace oceanbase
       char **bufs_;
       int64_t thread_buf_size_;
       int *rets_;
+      int column_count_ = 16;
+      int64_t additional_size_;
+    };
+
+    class ObSplitFileThread : public lib::Threads 
+    {
+    public:
+      ObSplitFileThread(ObLoadSequentialFileAppender *file_writers,
+        ObLoadSequentialFileReader *file_readers,
+        ObLoadDataBuffer *buffers, int64_t *end,
+        int split_num, int *rets)
+      : 
+        file_writers_(file_writers), file_readers_(file_readers),
+        buffers_(buffers), end_(end),
+        split_num_(split_num), rets_(rets)
+      {}
+      void run(int64_t idx) final;
+    private:
+      ObLoadSequentialFileAppender *file_writers_;
+      ObLoadSequentialFileReader *file_readers_;
+      ObLoadDataBuffer *buffers_;
+      int64_t *end_;
+      int split_num_;
+      int *rets_;
+      
     };
 
     class ObWriterThread : public lib::Threads 
@@ -378,7 +433,9 @@ namespace oceanbase
       static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       static const int64_t BUF_SIZE = (2LL << 25); // 
-      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.5; // (1G) 1.5G
+      static const int64_t READ_BUF_SIZE = (2LL << 20); // 
+      static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
+      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1; // (1G) 1.5G
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -388,15 +445,22 @@ namespace oceanbase
       int do_load();
       // int do_load_buffer(ObLoadSequentialFileReader &file_reader);
       int pre_process();
+      int pre_processV2();
+      int pre_process_with_thread();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
-      static const int SPLIT_NUM = 240;
+      static const int SPLIT_THREAD_NUM = 2;
+      static const int SPLIT_NUM = 120;
+      // static const int SPLIT_NUM = 120;
       static const int PARSE_THREAD_NUM = 4;
       static const int WRITER_THREAD_NUM = 6;
 
       ObLoadSequentialFileReader file_reader_;
-      ObLoadSequentialFileReader file_readers_[SPLIT_NUM];
+      ObLoadSequentialFileReader file_split_readers_[SPLIT_THREAD_NUM];
+      ObLoadDataBuffer split_buffers_[SPLIT_THREAD_NUM];
+      int64_t split_pos_[SPLIT_THREAD_NUM];
+      // ObLoadSequentialFileReader file_readers_[SPLIT_NUM];
       // we have BUF_NUM buffers and we load data simultaneously
       // ObLoadDataBuffer buffers_[DEMO_BUF_NUM];
       ObLoadDataBuffer buffer_;
@@ -410,7 +474,8 @@ namespace oceanbase
       ObLoadSSTableWriter sstable_writer_;
       const ObTableSchema *table_schema_;
       common::ObString filepath_;
-      common::ObFileAppender file_writers_[SPLIT_NUM];
+      ObLoadSequentialFileAppender file_writers_[SPLIT_NUM];
+      common::ObFileAppender single_file_writers_[SPLIT_NUM];
       std::vector<std::string> filepaths_;
     };
 
