@@ -1726,7 +1726,7 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   //     LOG_WARN("fail to create buffer", KR(ret));
   //   }
   // }
-  if (OB_FAIL(buffer_.create(BUF_SIZE))) {
+  if (OB_FAIL(buffer_.create(READ_BUF_SIZE))) {
     LOG_WARN("fail to create buffer", KR(ret));
   }
   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
@@ -1771,6 +1771,52 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   // datum_row_buffers_.resize(DEMO_BUF_NUM);
   table_schema_ = table_schema;
   return ret;
+}
+
+int fast_get_row_data(ObLoadDataBuffer &buffer, const char *&buf, int64_t &len, int &group_id, int split) 
+{
+  if (buffer.empty()) {
+    return OB_ITER_END;
+  }
+  const char *begin = buffer.begin();
+  const char *end = buffer.end();
+  // LOG_INFO("MMMMM fast row", K(buffer.get_data_size()));
+  const char *iter = begin;
+  int field_cnt = 0;
+  bool first = true;
+
+  int key1 = 0;
+  int key2 = 0;
+
+  // get the keys first
+  while (key2 == 0) {
+    if (*iter == '|') {
+      field_cnt++;
+      first = true;
+    }
+    if (field_cnt == 0) {
+      key1 = key1 * 10 + (*iter - '0');
+    }
+    if (field_cnt == 3 && isdigit(*iter)) {
+      key2 = key2 * 10 + (*iter - '0');
+    }
+    iter++;
+  }
+  iter = begin + 90;
+  while (*iter != '\n') iter++;
+  
+  len = iter - begin + 1;
+  switch (split) {
+    case 4: 
+      group_id = get_group_id_4(key1, key2);break;
+    case 8:
+      group_id = get_group_id_8(key1, key2);break;
+    default:
+      group_id = get_group_id(key1, key2, split);break;
+  }
+  buf = begin;
+  buffer.consume(len);
+  return OB_SUCCESS;
 }
 
 int get_row_data(ObLoadDataBuffer &buffer, const char *&buf, int64_t &len, int &group_id, int split)
@@ -2225,6 +2271,69 @@ int ObLoadDataDirectDemo::pre_process_with_thread()
   return ret;
 }
 
+int ObLoadDataDirectDemo::pre_processV2()
+{
+  int ret = OB_SUCCESS;
+  std::string tmp(filepath_.ptr(), filepath_.length());
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    std::string tmpp = tmp + "." + std::to_string(i);
+    LOG_INFO("MMMMM", K(tmpp.c_str()));
+    filepaths_.push_back(tmpp);
+    ObString file_path(tmpp.size(), tmpp.c_str());
+    // file_writers_[i].open(file_path, SPLIT_BUF_SIZE);
+    single_file_writers_[i].open(file_path, true, true);
+  }
+
+  int fd = open(tmp.c_str(), O_RDONLY);
+  /* Advise the kernel of our access pattern.  */
+  posix_fadvise(fd, 0, 0, 1);  // FDADVICE_SEQUENTIAL
+  int64_t bytes_read;
+  int64_t len;
+  int group_id;
+  int cnt = 0;
+  const char *buf;
+  while (true) {
+    buffer_.reuse();
+    if (cnt % 100 == 0) {
+      LOG_INFO("MMMMM", K(cnt));
+    }
+    cnt++;
+    char *buf_begin = buffer_.begin();
+    bytes_read = read(fd, buf_begin, READ_BUF_SIZE);
+    if (bytes_read == 0) {
+      break;
+    }
+    char *ptr = buf_begin + bytes_read - 1;
+    while (*ptr != '\n') {
+      ptr--;
+    }
+    ptr++;
+    len = ptr - buf_begin;
+    buffer_.produce(len);
+    lseek(fd, -(bytes_read - len), SEEK_CUR);
+    while (OB_SUCC(ret)) {
+      if (OB_FAIL(fast_get_row_data(buffer_, buf, len, group_id, SPLIT_NUM))) {
+        if (OB_UNLIKELY(OB_ITER_END != ret)) {
+          LOG_WARN("MMMMM fail to get next row", KR(ret));
+        } else {
+          ret = OB_SUCCESS;
+          break;
+        }
+      } else if (OB_FAIL(single_file_writers_[group_id].append(buf, len, false))) {
+      // } else if (OB_FAIL(file_writers_[group_id].write(buf, len))) {
+        LOG_INFO("MMMMM can't write!");
+      }
+      // LOG_INFO("MMMMM write to", K(group_id));
+    } 
+    
+  }
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    single_file_writers_[i].close();
+    // file_writers_[i].close();
+  }
+  return ret;
+}
+
 int ObLoadDataDirectDemo::pre_process()
 {
   int ret = OB_SUCCESS;
@@ -2281,7 +2390,7 @@ int ObLoadDataDirectDemo::pre_process()
 int ObLoadDataDirectDemo::do_load()
 {
   int ret = OB_SUCCESS;
-  if (OB_FAIL(pre_process())) {
+  if (OB_FAIL(pre_processV2())) {
     LOG_INFO("MMMMM pre process fail", KR(ret));
     return ret;
   }

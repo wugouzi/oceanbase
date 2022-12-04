@@ -428,6 +428,7 @@ namespace oceanbase
       static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
       static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
       static const int64_t BUF_SIZE = (2LL << 25); // 
+      static const int64_t READ_BUF_SIZE = (2LL << 20); // 
       static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
       static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1.5; // (1G) 1.5G
     public:
@@ -439,12 +440,13 @@ namespace oceanbase
       int do_load();
       // int do_load_buffer(ObLoadSequentialFileReader &file_reader);
       int pre_process();
+      int pre_processV2();
       int pre_process_with_thread();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
       static const int SPLIT_THREAD_NUM = 2;
-      static const int SPLIT_NUM = 270;
+      static const int SPLIT_NUM = 240;
       // static const int SPLIT_NUM = 120;
       static const int PARSE_THREAD_NUM = 4;
       static const int WRITER_THREAD_NUM = 5;
