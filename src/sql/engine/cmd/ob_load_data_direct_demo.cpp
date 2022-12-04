@@ -1802,9 +1802,34 @@ int fast_get_row_data(ObLoadDataBuffer &buffer, const char *&buf, int64_t &len, 
     }
     iter++;
   }
+  if (begin + 127 >= end) {
+    iter = end-1;
+    while (*iter != '\n') iter--;
+  } else if (*(begin+127) == '\n') {
+    iter = begin + 127;
+  }
+  else {
+    const char *forward = begin + 126;
+    const char *backward = begin + 128;
+    while (*forward != '\n' && backward < end && *backward != '\n') {
+      forward--;
+      backward++;
+    }
+    if (*forward == '\n') {
+      iter = forward;
+    } else if (*backward == '\n') {
+      iter = backward;
+    } else {
+      while (*forward != '\n') forward--;
+      iter = forward;
+    }
+  }
+
+  /*
   iter = begin + 90;
   while (*iter != '\n') iter++;
-  
+  */
+
   len = iter - begin + 1;
   switch (split) {
     case 4: 
