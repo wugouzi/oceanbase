@@ -448,10 +448,10 @@ namespace oceanbase
       // int do_parse_buffer(int i);
     private:
       static const int SPLIT_THREAD_NUM = 2;
-      static const int SPLIT_NUM = 4;
+      static const int SPLIT_NUM = 240;
       // static const int SPLIT_NUM = 120;
       static const int PARSE_THREAD_NUM = 4;
-      static const int WRITER_THREAD_NUM = 1;
+      static const int WRITER_THREAD_NUM = 6;
 
       ObLoadSequentialFileReader file_reader_;
       ObLoadSequentialFileReader file_split_readers_[SPLIT_THREAD_NUM];
