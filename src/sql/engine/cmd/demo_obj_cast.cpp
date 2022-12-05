@@ -4766,9 +4766,9 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
           align_offset = cs->mbminlen - in.get_string_len() % cs->mbminlen;
         }
       }
-      /*if (OB_FAIL(demo_check_convert_string(expect_type, params, in, tmp_out))) {
+      if (OB_FAIL(demo_check_convert_string(expect_type, params, in, tmp_out))) {
         LOG_WARN("failed to check_and_convert_string", K(ret), K(in), K(expect_type));
-      } else */if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(),
+      } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(),
                                      out, align_offset))) {
       } else {
         if (CS_TYPE_INVALID != tmp_out.get_collation_type()) {
