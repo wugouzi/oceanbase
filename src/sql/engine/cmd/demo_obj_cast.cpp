@@ -4659,6 +4659,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
   ObLength res_length = -1;
   ObObj tmp_out;
   
+  /*
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
                    && ObTextTC != in.get_type_class())
       || OB_UNLIKELY(ObStringTC != ob_obj_type_class(expect_type)
@@ -4675,7 +4676,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
   } else if (ObTextTC == in.get_type_class() && in.is_outrow()) {
     ret = OB_NOT_SUPPORTED;
     LOG_WARN("invalid cast of out row lob obj", K(ret), K(in), K(out.get_meta()), K(expect_type), K(cast_mode));
-  } else if (lib::is_oracle_mode()
+  } else */if (lib::is_oracle_mode()
              && in.is_clob()
              && (0 == in.get_string().length())
              && !ob_is_clob(expect_type, params.expect_obj_collation_)) {
@@ -4765,9 +4766,9 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
           align_offset = cs->mbminlen - in.get_string_len() % cs->mbminlen;
         }
       }
-      if (OB_FAIL(demo_check_convert_string(expect_type, params, in, tmp_out))) {
+      /*if (OB_FAIL(demo_check_convert_string(expect_type, params, in, tmp_out))) {
         LOG_WARN("failed to check_and_convert_string", K(ret), K(in), K(expect_type));
-      } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(),
+      } else */if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(),
                                      out, align_offset))) {
       } else {
         if (CS_TYPE_INVALID != tmp_out.get_collation_type()) {
