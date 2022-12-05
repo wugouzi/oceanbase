@@ -198,12 +198,15 @@ namespace oceanbase
                                             const ObObj &obj,
                                             blocksstable::ObStorageDatum &datum);
     private:
+      static const int CACHE_DATUM_NUM = 250;
       common::ObArray<const share::schema::ObColumnSchemaV2 *> column_schemas_;
       common::ObArray<int64_t> column_idxs_; // Mapping of store columns to source data columns
       int64_t column_count_;
       common::ObCollationType collation_type_;
       ObLoadDatumRow datum_row_;
       blocksstable::ObDatumRow ob_datum_row_;
+      blocksstable::ObDatumRow ob_datum_rows_[CACHE_DATUM_NUM];
+      int ob_datum_row_num_ = 0;
       common::ObArenaAllocator cast_allocator_;
       common::ObTimeZoneInfo tz_info_;
       bool is_inited_;
@@ -211,6 +214,7 @@ namespace oceanbase
       int64_t rowkey_column_num_;
       ObDemoCastCtx cast_ctx_;
       ObObjType expect_types_[20];
+      int column_indexes_[20];
     };
 
     class ObLoadExternalSort

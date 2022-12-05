@@ -1133,6 +1133,17 @@ int ObLoadRowCaster::init(const ObTableSchema *table_schema,
     ob_datum_row_.mvcc_row_flag_.set_last_multi_version_row(true);
     ob_datum_row_.storage_datums_[rowkey_column_num_].set_int(-1); // fill trans_version
     ob_datum_row_.storage_datums_[rowkey_column_num_ + 1].set_int(0); // fill sql_no
+    for (int i = 0; i < CACHE_DATUM_NUM && OB_SUCC(ret); i++) {
+      if (OB_FAIL(ob_datum_rows_[i].init(column_count_ + extra_rowkey_column_num_))) {
+        LOG_INFO("MMMMM extra fail", KR(ret));
+      } else {
+        ob_datum_rows_[i].row_flag_.set_flag(ObDmlFlag::DF_INSERT);
+        ob_datum_rows_[i].mvcc_row_flag_.set_last_multi_version_row(true);
+        ob_datum_rows_[i].storage_datums_[rowkey_column_num_].set_int(-1); // fill trans_version
+        ob_datum_rows_[i].storage_datums_[rowkey_column_num_ + 1].set_int(0); // fill sql_no
+      }
+      
+    }
     collation_type_ = table_schema->get_collation_type();
     cast_allocator_.set_tenant_id(MTL_ID());
     ObDataTypeCastParams cast_params(&tz_info_);
@@ -1140,6 +1151,9 @@ int ObLoadRowCaster::init(const ObTableSchema *table_schema,
     is_inited_ = true;
     for (int64_t i = 0; OB_SUCC(ret) && i < column_idxs_.count(); ++i) {
       expect_types_[i] = column_schemas_.at(i)->get_meta_type().get_type();
+    }
+    for (int i = 0; i < column_idxs_.count(); i++) {
+      column_indexes_[i] = column_idxs_.at(i);
     }
   }
   return ret;
@@ -1195,32 +1209,41 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
 {
   int ret = OB_SUCCESS;
   // LOG_INFO("MMMMM cast row");
+  /*
   if (IS_NOT_INIT) {
     ret = OB_NOT_INIT;
     LOG_WARN("ObLoadRowCaster not init", KR(ret));
-  } else {
+  } else {*/
     // LOG_INFO("MMMMM cast", K(column_idxs_));
-    cast_allocator_.reuse();
-    for (int64_t i = 0; OB_SUCC(ret) && i < column_idxs_.count(); ++i) {
-      int64_t column_idx = column_idxs_.at(i);
+    if (ob_datum_row_num_ >= CACHE_DATUM_NUM) {
+      cast_allocator_.reuse();
+      ob_datum_row_num_ = 0;
+    }
+    // cast_allocator_.reuse();
+    blocksstable::ObDatumRow &ob_datum_row = ob_datum_rows_[ob_datum_row_num_];
+    for (int64_t i = 0; OB_SUCC(ret) && i < column_count_; ++i) {
+      int column_idx = column_indexes_[i];
+      // int64_t column_idx = column_idxs_.at(i);
+      /*
       if (OB_UNLIKELY(column_idx < 0 || column_idx >= new_row.count_)) {
         ret = OB_ERR_UNEXPECTED;
         LOG_WARN("unexpected column idx", KR(ret), K(column_idx), K(new_row.count_));
-      } else {
+      } else {*/
         const ObColumnSchemaV2 *column_schema = column_schemas_.at(i);
         const ObObj &src_obj = new_row.cells_[column_idx];
         // LOG_INFO("MMMMM type class", K(src_obj.get_type()), K(src_obj.get_type_class()), K(column_idx));
         int j = i < rowkey_column_num_ ? i : i + extra_rowkey_column_num_;
-        ObStorageDatum &dest_datum = ob_datum_row_.storage_datums_[j];
+        ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
         if (OB_FAIL(cast_obj_to_type_datum(column_schema, expect_types_[i], src_obj, dest_datum))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(src_obj));
         }
-      }
+      // }
     }
-    if (OB_SUCC(ret)) {
-      datum_row = &ob_datum_row_;
-    }
-  }
+    // if (OB_SUCC(ret)) {
+      datum_row = &ob_datum_row;
+      ob_datum_row_num_++;
+    // }
+  // }
   return ret;
 }
 
@@ -1270,21 +1293,25 @@ int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schem
   // ObCastCtx cast_ctx(&cast_allocator_, &cast_params, CM_NONE, collation_type_);
   // const ObObjType expect_type = column_schema->get_meta_type().get_type();
   ObObj casted_obj;
+  /*
   if (obj.is_null()) {
     casted_obj.set_null();
+    LOG_INFO("MMMMM empty");
   } else if (is_oracle_mode() && (obj.is_null_oracle() || 0 == obj.get_val_len())) {
     casted_obj.set_null();
+    LOG_INFO("MMMMM empty");
   } else if (is_mysql_mode() && 0 == obj.get_val_len() && !ob_is_string_tc(expect_type)) {
     ObObj zero_obj;
     zero_obj.set_int(0);
+    LOG_INFO("MMMMM empty");
     if (OB_FAIL(ObDemoObjCaster::to_type(expect_type, cast_ctx_, zero_obj, casted_obj))) {
       LOG_WARN("fail to do to type", KR(ret), K(zero_obj), K(expect_type));
     }
-  } else {
+  } else {*/
     if (OB_FAIL(ObDemoObjCaster::to_type(expect_type, cast_ctx_, obj, casted_obj))) {
       LOG_WARN("fail to do to type", KR(ret), K(obj), K(expect_type));
     }
-  }
+  // }
   if (OB_SUCC(ret)) {
     if (OB_FAIL(datum.from_obj_enhance(casted_obj))) {
       LOG_WARN("fail to from obj enhance", KR(ret), K(casted_obj));

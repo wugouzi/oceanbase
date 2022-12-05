@@ -4281,12 +4281,12 @@ int demo_common_string_integer(const ObDemoCastMode &cast_mode,
     } else {
       out_val = static_cast<int64_t>(ObCharset::strntoullrnd(in_str.ptr(), in_str.length(),
                                                              false, &endptr, &err));
-      if (ERANGE == err && (INT64_MIN == out_val || INT64_MAX == out_val)) {
+      /*if (ERANGE == err && (INT64_MIN == out_val || INT64_MAX == out_val)) {
         ret = OB_DATA_OUT_OF_RANGE;
-      } else {
+      } else {*/
         ret = OB_SUCCESS;
         // ret = demo_check_convert_str_err(in_str.ptr(), endptr, in_str.length(), err, in_cs_type);
-      }
+      //}
     }
   }
   return ret;
@@ -4319,8 +4319,8 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
     const bool is_str_int_cast = true;
     if (CAST_FAIL(demo_common_string_integer(
                 cast_mode, in.get_type(), in.get_collation_type(), str, is_str_int_cast, value))) {
-    } else if (expect_type < ObIntType && CAST_FAIL(int_range_check(expect_type, value, value))) {
-    } else {
+    }/* else if (expect_type < ObIntType && CAST_FAIL(int_range_check(expect_type, value, value))) {
+    } */else {
       SET_RES_INT(out);
     }
   }
@@ -10585,6 +10585,7 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("unexpected type", K(ret), K(in_obj), K(expect_type));
   } else */if (lib::is_oracle_mode()) {
+    LOG_INFO("MMMMM oracle");
     /*if (CM_IS_EXPLICIT_CAST(cast_ctx.cast_mode_)) {
       if (OB_FAIL(DEMO_OBJ_CAST_ORACLE_EXPLICIT[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
         LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
