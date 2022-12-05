@@ -359,74 +359,6 @@ namespace oceanbase
       
     };
 
-    class ObWriterThread : public lib::Threads 
-    {
-    public:
-      ObWriterThread(ObLoadExternalSort *external_sorts, int start_idx,
-        ObLoadSSTableWriter &sstable_writer,
-        const ObTableSchema *table_schema, int *rets, int thread_num
-        )
-        : external_sorts_(external_sorts), start_idx_(start_idx),
-          sstable_writer_(sstable_writer),
-          table_schema_(table_schema),
-          rets_(rets), thread_num_(thread_num) 
-        {}
-      void run(int64_t idx) final;
-    private:
-      ObLoadExternalSort *external_sorts_;
-      int start_idx_;
-      ObLoadSSTableWriter &sstable_writer_;
-      const ObTableSchema *table_schema_;
-      int *rets_;
-      int thread_num_;
-      std::mutex mutex_;
-    };
-
-    // better to initialize external sorts inside thread, but anyway
-    class ObTrivialSortThread : public lib::Threads 
-    {
-    public: 
-      ObTrivialSortThread(ObLoadExternalSort *external_sorts, int start_idx,
-        ObLoadCSVPaser *csv_parsers,
-        ObLoadRowCaster *row_casters, int key_cnt, int thread_num, const ObString &filepath,
-        Key *keys, const ObTableSchema *table_schema) : 
-        external_sorts_(external_sorts), start_idx_(start_idx),
-        csv_parsers_(csv_parsers), row_casters_(row_casters),
-        key_cnt_(key_cnt), thread_num_(thread_num), filepath_(filepath),
-        keys_(keys), table_schema_(table_schema)
-        {}
-      void run(int64_t idx) final;
-    private:
-      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
-      static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
-      ObLoadExternalSort *external_sorts_;
-      int start_idx_;
-      ObLoadCSVPaser *csv_parsers_;
-      ObLoadRowCaster *row_casters_;
-      // int *key_cnts_;
-      int key_cnt_;
-      int thread_num_;
-      const ObString &filepath_;
-      // Key **keylists_;
-      Key *keys_;
-      const ObTableSchema *table_schema_;
-    };
-
-    // class ObBufferThread : public lib::Threads
-    // {
-    // public:
-    //   ObBufferThread() {}
-    //   void run(int64_t) final;
-    // private:
-    //   ObLoadDataBuffer &buffer_;
-    //   ObLoadSequentialFileReader
-      
-
-    // };
-
-    
-    
-
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
       // TODO: fine tuning
@@ -446,7 +378,6 @@ namespace oceanbase
       // int do_load_buffer(ObLoadSequentialFileReader &file_reader);
       int pre_process();
       int pre_processV2();
-      int pre_process_with_thread();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
