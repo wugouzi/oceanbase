@@ -32,7 +32,7 @@
 namespace oceanbase
 {
 using namespace lib;
-namespace demo
+namespace common
 {
 using namespace number;
 
@@ -42,7 +42,7 @@ static int cast_identity(const ObObjType expect_type,
                          ObDemoObjCastParams &params,
                          const ObObj &in,
                          ObObj &out,
-                         const ObCastMode cast_mode)
+                         const ObDemoCastMode cast_mode)
 {
   UNUSED(expect_type);
   UNUSED(params);
@@ -57,7 +57,7 @@ static int cast_not_support(const ObObjType expect_type,
                             ObDemoObjCastParams &params,
                             const ObObj &in,
                             ObObj &out,
-                            const ObCastMode cast_mode)
+                            const ObDemoCastMode cast_mode)
 {
   UNUSED(params);
   LOG_WARN("not supported obj type convert",
@@ -69,7 +69,7 @@ static int cast_not_expected(const ObObjType expect_type,
                              ObDemoObjCastParams &params,
                              const ObObj &in,
                              ObObj &out,
-                             const ObCastMode cast_mode)
+                             const ObDemoCastMode cast_mode)
 {
   UNUSED(params);
   LOG_WARN("not expected obj type convert",
@@ -81,7 +81,7 @@ static int cast_inconsistent_types(const ObObjType expect_type,
                                    ObDemoObjCastParams &params,
                                    const ObObj &in,
                                    ObObj &out,
-                                   const ObCastMode cast_mode)
+                                   const ObDemoCastMode cast_mode)
 {
   UNUSED(params);
   UNUSED(out);
@@ -127,7 +127,7 @@ static int unknown_other(const ObObjType expect_type,
                          ObDemoObjCastParams &params,
                          const ObObj &in,
                          ObObj &out,
-                         const ObCastMode cast_mode)
+                         const ObDemoCastMode cast_mode)
 {
   return cast_not_support(expect_type, params, in, out, cast_mode);
 }
@@ -203,7 +203,7 @@ static int copy_string(const ObDemoObjCastParams &params,
  * @note
  *  This is called after one has called strntoull10rnd() or strntod function.
  */
-int check_convert_str_err(const char *str,
+int demo_check_convert_str_err(const char *str,
                           const char *endptr,
                           const int32_t len,
                           const int err,
@@ -228,7 +228,7 @@ int check_convert_str_err(const char *str,
     // 3. so here we are sure that both str and endptr are not NULL.
     if (endptr < str + len) {
       ret = OB_ERR_DATA_TRUNCATED; //1265
-      LOG_DEBUG("check_convert_str_err", K(len), K(str - endptr));
+      LOG_DEBUG("demo_check_convert_str_err", K(len), K(str - endptr));
     }
   }
   return ret;
@@ -277,7 +277,7 @@ static int convert_string_collation(const ObString &in,
 
 ////////////////////////////////////////////////////////////////
 
-OB_INLINE int get_cast_ret(const ObCastMode cast_mode,
+OB_INLINE int get_cast_ret(const ObDemoCastMode cast_mode,
                            int ret,
                            int &warning)
 {
@@ -945,7 +945,7 @@ int ObDemoHexUtils::copy_raw(const common::ObObj &obj, common::ObDemoCastCtx &ca
   return ret;
 }
 
-static int check_convert_string(const ObObjType expect_type, ObDemoObjCastParams &params,
+static int demo_check_convert_string(const ObObjType expect_type, ObDemoObjCastParams &params,
     const ObObj &in, ObObj &out)
 {
   int ret = OB_SUCCESS;
@@ -967,7 +967,7 @@ static int check_convert_string(const ObObjType expect_type, ObDemoObjCastParams
 //      out = in;
 //      LOG_DEBUG("do nothing");
 //    }
-//    LOG_DEBUG("finish check_convert_string", K(ret), "in_type", in.get_type(), "in_cs_type", in.get_collation_type(), K(in), K(expect_type), "expect_cs_type", params.dest_collation_, K(out));
+//    LOG_DEBUG("finish demo_check_convert_string", K(ret), "in_type", in.get_type(), "in_cs_type", in.get_collation_type(), K(in), K(expect_type), "expect_cs_type", params.dest_collation_, K(out));
   if (lib::is_oracle_mode()
       && ob_is_blob(expect_type, params.expect_obj_collation_)
       && !in.is_blob() && !in.is_raw()) {
@@ -986,27 +986,27 @@ static int check_convert_string(const ObObjType expect_type, ObDemoObjCastParams
   return ret;
 }
 
-static int check_convert_string(const ObObjType expect_type, ObDemoObjCastParams &params,
+static int demo_check_convert_string(const ObObjType expect_type, ObDemoObjCastParams &params,
     const ObString &in_string, ObObj &out)
 {
   ObObj tmp_obj;
   tmp_obj.set_varchar(in_string);
-  return check_convert_string(expect_type, params, tmp_obj, out);
+  return demo_check_convert_string(expect_type, params, tmp_obj, out);
 }
 
-static int check_convert_string(const ObObjType expect_type, ObDemoObjCastParams &params,
+static int demo_check_convert_string(const ObObjType expect_type, ObDemoObjCastParams &params,
     const char *in_str, const int64_t len, ObObj &out)
 {
   ObObj tmp_obj;
   tmp_obj.set_varchar(in_str, static_cast<ObString::obstr_size_t>(len));
-  return check_convert_string(expect_type, params, tmp_obj, out);
+  return demo_check_convert_string(expect_type, params, tmp_obj, out);
 }
 
 ////////////////////////////////////////////////////////////////
 // Int -> XXX
 
-static int int_int(const ObObjType expect_type, ObDemoObjCastParams &params, const ObObj &in,
-                   ObObj &out, const ObCastMode cast_mode)
+static int demo_int_int(const ObObjType expect_type, ObDemoObjCastParams &params, const ObObj &in,
+                   ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -1027,8 +1027,8 @@ static int int_int(const ObObjType expect_type, ObDemoObjCastParams &params, con
   return ret;
 }
 
-static int int_uint(const ObObjType expect_type, ObDemoObjCastParams &params, const ObObj &in,
-                    ObObj &out, const ObCastMode cast_mode)
+static int demo_int_uint(const ObObjType expect_type, ObDemoObjCastParams &params, const ObObj &in,
+                    ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -1053,8 +1053,8 @@ static int int_uint(const ObObjType expect_type, ObDemoObjCastParams &params, co
   return ret;
 }
 
-static int int_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+static int demo_int_float(const ObObjType expect_type, ObDemoObjCastParams &params,
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObIntTC != in.get_type_class()
@@ -1073,8 +1073,8 @@ static int int_float(const ObObjType expect_type, ObDemoObjCastParams &params,
   return ret;
 }
 
-static int int_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+static int demo_int_double(const ObObjType expect_type, ObDemoObjCastParams &params,
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObIntTC != in.get_type_class()
@@ -1094,7 +1094,7 @@ static int int_double(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int int_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -1118,7 +1118,7 @@ static int int_number(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int int_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObIntTC != in.get_type_class()
@@ -1149,7 +1149,7 @@ static int int_datetime(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int int_datetime_interval(const ObObjType expect_type, ObDemoObjCastParams &params,
-    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObIntTC != in.get_type_class())
@@ -1167,7 +1167,7 @@ static int int_datetime_interval(const ObObjType expect_type, ObDemoObjCastParam
   return ret;
 }
 static int int_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObIntTC != in.get_type_class()
@@ -1192,7 +1192,7 @@ static int int_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int int_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObIntTC != in.get_type_class()
@@ -1212,7 +1212,7 @@ static int int_time(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int int_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObIntTC != in.get_type_class()
@@ -1232,7 +1232,7 @@ static int int_year(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int int_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -1255,9 +1255,9 @@ static int int_string(const ObObjType expect_type, ObDemoObjCastParams &params,
       LOG_WARN("fail to convert string collation", K(ret));
     // 检查字符转换，如果是oracle模式从varchar/char转为blob，那么使用hextoraw接口对字符串进行转换，
     // 结果放在ObObjCastParams.allocator_v2_->alloc分配的空间, 与上面是同一个alloc接口
-    } else if (OB_FAIL(check_convert_string(expect_type, params, tmp_str.ptr(),
+    } else if (OB_FAIL(demo_check_convert_string(expect_type, params, tmp_str.ptr(),
                                             tmp_str.length(), tmp_out))) {
-      LOG_WARN("fail to check_convert_string", K(ret), K(in), K(expect_type));
+      LOG_WARN("fail to demo_check_convert_string", K(ret), K(in), K(expect_type));
     // 根据align_offset和zerofill进行前后补，结果放在ObObjCastParams.alloc申请的空间中。
     } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
     } else {
@@ -1271,7 +1271,7 @@ static int int_string(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int int_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -1281,7 +1281,7 @@ static int int_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
                   || ObBitTC != ob_obj_type_class(expect_type))) {
     ret = OB_ERR_UNEXPECTED;
     LOG_ERROR("invalid input type", K(ret), K(in), K(expect_type));
-  } else if (OB_FAIL(get_bit_len(value, bit_len))) {
+  } else if (OB_FAIL(demo_get_bit_len(value, bit_len))) {
     LOG_WARN("fail to get bit len", K(ret), K(value), K(bit_len));
   } else {
     SET_RES_BIT(out);
@@ -1331,17 +1331,17 @@ static int int_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &par
   return ret;
 }
 static int string_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode,
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode,
                          const ObLobLocator *lob_locator);
 static int string_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   return string_lob(expect_type, params, in, out, cast_mode, NULL);
 }
 
 #define CAST_TO_LOB_METHOD(TYPE, TYPE_CLASS)  \
   static int TYPE##_lob(const ObObjType expect_type, ObDemoObjCastParams &params,        \
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)    \
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)    \
   {                           \
     int ret = OB_SUCCESS;     \
     ObObj tmp_val;            \
@@ -1360,7 +1360,7 @@ static int string_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
 CAST_TO_LOB_METHOD(int, ObIntTC);
 
 static int int_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -1393,7 +1393,7 @@ static int int_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 // UInt -> XXX
 
 static int uint_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -1418,8 +1418,8 @@ static int uint_int(const ObObjType expect_type, ObDemoObjCastParams &params,
   return ret;
 }
 
-static int uint_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+static int demo_uint_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -1441,7 +1441,7 @@ static int uint_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int uint_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObUIntTC != in.get_type_class()
@@ -1460,7 +1460,7 @@ static int uint_float(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int uint_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObUIntTC != in.get_type_class()
@@ -1477,7 +1477,7 @@ static int uint_double(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int uint_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   number::ObNumber nmb;
@@ -1498,7 +1498,7 @@ static int uint_number(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int uint_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj int64;
@@ -1515,7 +1515,7 @@ static int uint_datetime(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int uint_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj int64;
@@ -1532,7 +1532,7 @@ static int uint_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int uint_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj int64;
@@ -1549,7 +1549,7 @@ static int uint_time(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int uint_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj int64;
@@ -1566,7 +1566,7 @@ static int uint_year(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int uint_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -1583,9 +1583,9 @@ static int uint_string(const ObObjType expect_type, ObDemoObjCastParams &params,
     if (OB_FAIL(convert_string_collation(ObString(ffi.length(), ffi.ptr()),
         ObCharset::get_system_collation(), tmp_str, params.dest_collation_, params))) {
       LOG_WARN("fail to convert string collation", K(ret));
-    } else if (OB_FAIL(check_convert_string(expect_type, params,
+    } else if (OB_FAIL(demo_check_convert_string(expect_type, params,
                       tmp_str.ptr(), tmp_str.length(), tmp_out))) {
-      LOG_WARN("fail to check_convert_string", K(ret), K(in), K(expect_type));
+      LOG_WARN("fail to demo_check_convert_string", K(ret), K(in), K(expect_type));
     } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
     } else {
       res_length = static_cast<ObLength>(out.get_string_len());
@@ -1599,7 +1599,7 @@ static int uint_string(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int uint_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -1609,7 +1609,7 @@ static int uint_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
                   || ObBitTC != ob_obj_type_class(expect_type))) {
     ret = OB_ERR_UNEXPECTED;
     LOG_ERROR("invalid input type", K(ret), K(in), K(expect_type));
-  } else if (OB_FAIL(get_bit_len(value, bit_len))) {
+  } else if (OB_FAIL(demo_get_bit_len(value, bit_len))) {
     LOG_WARN("fail to get bit len", K(ret), K(value), K(bit_len));
   } else {
     SET_RES_BIT(out);
@@ -1621,7 +1621,7 @@ static int uint_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
 static int uint_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParams &params, const ObObj &in, ObObj &out)
 {
  int ret = OB_SUCCESS;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   const ObIArray<ObString> * type_infos = NULL;
   if (OB_UNLIKELY(ObEnumType != expect_type.get_type())
       || OB_UNLIKELY(ObUIntTC != in.get_type_class())
@@ -1649,7 +1649,7 @@ static int uint_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParams &p
 static int uint_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &params, const ObObj &in, ObObj &out)
 {
   int ret = OB_SUCCESS;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   const ObIArray<ObString> * type_infos = NULL;
   int64_t val_cnt = 0;
   if (OB_UNLIKELY(ObSetType != expect_type.get_type())
@@ -1683,7 +1683,7 @@ static int uint_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &pa
 CAST_TO_LOB_METHOD(uint, ObUIntTC);
 
 static int uint_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -1726,7 +1726,7 @@ static int uint_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 
 // trunc_min_value和trunc_max_value分别是in大于最大值和小于最小值时应该trunc成的值。
 // float转int时，如果超过LLONG_MAX应该trunc成LLONG_MIN，而double转int时超过LLONG_MAX应该trunc成LLONG_MAX
-int common_double_int(const double in, int64_t &out,
+int demo_common_double_int(const double in, int64_t &out,
                       const int64_t trunc_min_value,
                       const int64_t trunc_max_value)
 {
@@ -1752,7 +1752,7 @@ int common_double_int(const double in, int64_t &out,
 }
 
 static int float_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -1764,7 +1764,7 @@ static int float_int(const ObObjType expect_type, ObDemoObjCastParams &params,
         K(ret), K(in), K(expect_type));
   } else {
     //和LLONG_MAX相等的float值cast到int时，如果是insert value结果应该是LLONG_MAX，否则cast结果应该是LLONG_MIN
-    if (CAST_FAIL(common_double_int(in.get_float(), value, LLONG_MIN,
+    if (CAST_FAIL(demo_common_double_int(in.get_float(), value, LLONG_MIN,
                   CM_IS_COLUMN_CONVERT(cast_mode) ? LLONG_MAX : LLONG_MIN))) {
       LOG_WARN("cast float to int failed", K(ret), K(in), K(value));
     } else if (CAST_FAIL(int_range_check(expect_type, value, value))) {
@@ -1780,7 +1780,7 @@ static int float_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int float_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint64_t value = 0;
@@ -1831,7 +1831,7 @@ static int float_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int float_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   float value = in.get_float();
@@ -1849,7 +1849,7 @@ static int float_float(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int float_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   double value = static_cast<double>(in.get_float());
@@ -1867,7 +1867,7 @@ static int float_double(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int float_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   float value = in.get_float();
@@ -1903,9 +1903,9 @@ static int float_number(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int double_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int float_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                          const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                          const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj dbl;
@@ -1922,9 +1922,9 @@ static int float_datetime(const ObObjType expect_type, ObDemoObjCastParams &para
 }
 
 static int double_datetime_interval(const ObObjType expect_type, ObDemoObjCastParams &params,
-                                    const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int float_datetime_interval(const ObObjType expect_type, ObDemoObjCastParams &params,
-                                   const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                                   const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj dbl;
@@ -1940,9 +1940,9 @@ static int float_datetime_interval(const ObObjType expect_type, ObDemoObjCastPar
 }
 
 static int double_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int float_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj dbl;
@@ -1959,9 +1959,9 @@ static int float_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int double_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int float_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj dbl;
@@ -1978,7 +1978,7 @@ static int float_time(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int float_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   char buf[OB_CAST_TO_VARCHAR_MAX_LENGTH] = {0};
@@ -2016,9 +2016,9 @@ static int float_string(const ObObjType expect_type, ObDemoObjCastParams &params
     if (OB_FAIL(convert_string_collation(str, ObCharset::get_system_collation(),
                                          tmp_str, params.dest_collation_, params))) {
       LOG_WARN("fail to convert string collation", K(ret));
-    } else if (OB_FAIL(check_convert_string(expect_type, params,
+    } else if (OB_FAIL(demo_check_convert_string(expect_type, params,
                     tmp_str.ptr(), tmp_str.length(), tmp_out))) {
-      LOG_WARN("fail to check_convert_string", K(ret), K(in), K(expect_type));
+      LOG_WARN("fail to demo_check_convert_string", K(ret), K(in), K(expect_type));
     } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
     } else {
       res_length = static_cast<ObLength>(out.get_string_len());
@@ -2031,7 +2031,7 @@ static int float_string(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int float_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -2041,7 +2041,7 @@ static int float_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
                   || ObBitTC != ob_obj_type_class(expect_type))) {
     ret = OB_ERR_UNEXPECTED;
     LOG_ERROR("invalid input type", K(ret), K(in), K(expect_type));
-  } else if (OB_FAIL(get_bit_len(value, bit_len))) {
+  } else if (OB_FAIL(demo_get_bit_len(value, bit_len))) {
     LOG_WARN("fail to get bit len", K(ret), K(value), K(bit_len));
   } else {
     SET_RES_BIT(out);
@@ -2088,7 +2088,7 @@ static int float_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &p
 CAST_TO_LOB_METHOD(float, ObFloatTC);
 
 static int float_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -2121,7 +2121,7 @@ static int float_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 // Double -> XXX
 
 static int double_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -2132,7 +2132,7 @@ static int double_int(const ObObjType expect_type, ObDemoObjCastParams &params,
     LOG_ERROR("invalid input type",
         K(ret), K(in), K(expect_type));
   } else {
-    if (CAST_FAIL(common_double_int(in.get_double(), value, LLONG_MIN, LLONG_MAX))) {
+    if (CAST_FAIL(demo_common_double_int(in.get_double(), value, LLONG_MIN, LLONG_MAX))) {
       LOG_WARN("common double to in failed", K(ret), K(in), K(cast_mode));
     } else if (CAST_FAIL(int_range_check(expect_type, value, value))) {
       LOG_WARN("int range check failed", K(ret), K(value));
@@ -2148,7 +2148,7 @@ static int double_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int double_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint64_t value = 0;
@@ -2202,7 +2202,7 @@ static int double_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int double_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   float value = static_cast<float>(in.get_double());
@@ -2222,7 +2222,7 @@ static int double_float(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int double_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   double value = in.get_double();
@@ -2240,7 +2240,7 @@ static int double_double(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int double_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   double value = in.get_double();
@@ -2269,9 +2269,9 @@ static int double_number(const ObObjType expect_type, ObDemoObjCastParams &param
   return ret;
 }
 static int number_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int double_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   // double to datetime must cast to number first, then cast string to datetime.
   // because double 20151016153421.8 may actually 20151016153421.801 in memory,
@@ -2304,7 +2304,7 @@ static int double_datetime(const ObObjType expect_type, ObDemoObjCastParams &par
 }
 
 static int double_datetime_interval(const ObObjType expect_type, ObDemoObjCastParams &params,
-                                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObScale res_scale = -1;
@@ -2322,7 +2322,7 @@ static int double_datetime_interval(const ObObjType expect_type, ObDemoObjCastPa
 }
 
 static int double_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //TODO<xiaoni> In datediff,mysql does truncate NOT round
   //So,we have to revise double 2 int which act as round (right now) to truncation
@@ -2341,7 +2341,7 @@ static int double_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int double_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   // double to time must cast to string first, then cast string to time.
   // see comment in double_datetime.
@@ -2368,7 +2368,7 @@ static int double_time(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int double_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDoubleTC != in.get_type_class()
@@ -2391,7 +2391,7 @@ static int double_year(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int double_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -2429,8 +2429,8 @@ static int double_string(const ObObjType expect_type, ObDemoObjCastParams &param
     if (OB_FAIL(convert_string_collation(str, ObCharset::get_system_collation(),
                                          tmp_str, params.dest_collation_, params))) {
       LOG_WARN("fail to convert string collation", K(ret));
-    } else if (OB_FAIL(check_convert_string(expect_type, params, tmp_str, tmp_out))) {
-      LOG_WARN("fail to check_convert_string", K(ret), K(in), K(expect_type));
+    } else if (OB_FAIL(demo_check_convert_string(expect_type, params, tmp_str, tmp_out))) {
+      LOG_WARN("fail to demo_check_convert_string", K(ret), K(in), K(expect_type));
     } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
     } else {
       res_length = static_cast<ObLength>(out.get_string_len());
@@ -2443,7 +2443,7 @@ static int double_string(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int double_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -2453,7 +2453,7 @@ static int double_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
                   || ObBitTC != ob_obj_type_class(expect_type))) {
     ret = OB_ERR_UNEXPECTED;
     LOG_ERROR("invalid input type", K(ret), K(in), K(expect_type));
-  } else if (OB_FAIL(get_bit_len(value, bit_len))) {
+  } else if (OB_FAIL(demo_get_bit_len(value, bit_len))) {
     LOG_WARN("fail to get bit len", K(ret), K(value), K(bit_len));
   } else {
     SET_RES_BIT(out);
@@ -2499,7 +2499,7 @@ static int double_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &
 CAST_TO_LOB_METHOD(double, ObDoubleTC);
 
 static int double_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -2532,9 +2532,9 @@ static int double_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 // Number -> XXX
 
 static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int number_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -2565,9 +2565,9 @@ static int number_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int number_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -2597,9 +2597,9 @@ static int number_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int number_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObNumberTC != in.get_type_class()
@@ -2624,9 +2624,9 @@ static int number_float(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int string_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int number_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObNumberTC != in.get_type_class()
@@ -2650,7 +2650,7 @@ static int number_double(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int number_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObNumberTC != in.get_type_class()
@@ -2674,9 +2674,9 @@ static int number_number(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int string_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int number_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   const int64_t three_digit_min = 100;
@@ -2726,7 +2726,7 @@ static int number_datetime(const ObObjType expect_type, ObDemoObjCastParams &par
 }
 
 static int number_datetime_interval(const ObObjType expect_type, ObDemoObjCastParams &params,
-                                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObNumberTC != in.get_type_class())
@@ -2751,9 +2751,9 @@ static int number_datetime_interval(const ObObjType expect_type, ObDemoObjCastPa
 }
 
 static int string_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int number_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj int64;
@@ -2796,9 +2796,9 @@ static int number_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int number_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObNumberTC != in.get_type_class()
@@ -2823,9 +2823,9 @@ static int number_time(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int number_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObNumberTC != in.get_type_class()
@@ -2856,7 +2856,7 @@ static int number_year(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int number_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   char buf[OB_CAST_TO_VARCHAR_MAX_LENGTH] = {0};
@@ -2888,8 +2888,8 @@ static int number_string(const ObObjType expect_type, ObDemoObjCastParams &param
       if (OB_FAIL(convert_string_collation(ObString(len, buf), ObCharset::get_system_collation(),
                                            tmp_str, params.dest_collation_, params))) {
         LOG_WARN("fail to convert string collation", K(ret));
-      } else if (OB_FAIL(check_convert_string(expect_type, params, tmp_str, tmp_out))) {
-        LOG_WARN("fail to check_convert_string", K(ret), K(in), K(expect_type));
+      } else if (OB_FAIL(demo_check_convert_string(expect_type, params, tmp_str, tmp_out))) {
+        LOG_WARN("fail to demo_check_convert_string", K(ret), K(in), K(expect_type));
       } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
       } else {
         res_length = static_cast<ObLength>(out.get_string_len());
@@ -2903,7 +2903,7 @@ static int number_string(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int number_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj tmp_val;
@@ -2924,7 +2924,7 @@ static int number_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParams 
 {
   int ret = OB_SUCCESS;
   ObObj double_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObEnumType != expect_type.get_type())
       || OB_UNLIKELY(ObNumberTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -2942,7 +2942,7 @@ static int number_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &
 {
   int ret = OB_SUCCESS;
   ObObj double_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObSetType != expect_type.get_type())
       || OB_UNLIKELY(ObNumberTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -2958,7 +2958,7 @@ static int number_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &
 CAST_TO_LOB_METHOD(number, ObNumberTC);
 
 static int number_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -2992,7 +2992,7 @@ static int number_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 // Datetime -> XXX
 
 static int datetime_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -3016,7 +3016,7 @@ static int datetime_int(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int datetime_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -3043,7 +3043,7 @@ static int datetime_uint(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int datetime_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                          const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                          const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDateTimeTC != in.get_type_class()
@@ -3067,7 +3067,7 @@ static int datetime_float(const ObObjType expect_type, ObDemoObjCastParams &para
 }
 
 static int datetime_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDateTimeTC != in.get_type_class()
@@ -3089,7 +3089,7 @@ static int datetime_double(const ObObjType expect_type, ObDemoObjCastParams &par
 }
 
 static int datetime_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -3119,7 +3119,7 @@ static int datetime_number(const ObObjType expect_type, ObDemoObjCastParams &par
 }
 
 static int datetime_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDateTimeTC != in.get_type_class()
@@ -3147,7 +3147,7 @@ static int datetime_datetime(const ObObjType expect_type, ObDemoObjCastParams &p
 }
 
 static int datetime_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDateTimeTC != in.get_type_class()
@@ -3169,7 +3169,7 @@ static int datetime_date(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int datetime_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDateTimeTC != in.get_type_class()
@@ -3191,7 +3191,7 @@ static int datetime_time(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int datetime_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDateTimeTC != in.get_type_class()
@@ -3213,7 +3213,7 @@ static int datetime_year(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int datetime_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -3240,8 +3240,8 @@ static int datetime_string(const ObObjType expect_type, ObDemoObjCastParams &par
       ObObj tmp_out;
       if (OB_FAIL(convert_string_collation(ObString(len, buf), ObCharset::get_system_collation(), tmp_str, params.dest_collation_, params))) {
         LOG_WARN("fail to convert string collation", K(ret));
-      } else if (OB_FAIL(check_convert_string(expect_type, params, tmp_str, tmp_out))) {
-        LOG_WARN("fail to check_convert_string", K(ret), K(in), K(expect_type));
+      } else if (OB_FAIL(demo_check_convert_string(expect_type, params, tmp_str, tmp_out))) {
+        LOG_WARN("fail to demo_check_convert_string", K(ret), K(in), K(expect_type));
       } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
       } else {
         res_length = static_cast<ObLength>(out.get_string_len());
@@ -3255,9 +3255,9 @@ static int datetime_string(const ObObjType expect_type, ObDemoObjCastParams &par
 }
 
 static int string_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int datetime_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj tmp_val;
@@ -3280,7 +3280,7 @@ static int datetime_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParam
 {
   int ret = OB_SUCCESS;
   ObObj str_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObEnumType != expect_type.get_type())
       || OB_UNLIKELY(ObDateTimeTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -3298,7 +3298,7 @@ static int datetime_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams
 {
   int ret = OB_SUCCESS;
   ObObj str_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObSetType != expect_type.get_type())
       || OB_UNLIKELY(ObDateTimeTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -3312,7 +3312,7 @@ static int datetime_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams
 }
 
 static int datetime_otimestamp(const ObObjType expect_type, ObDemoObjCastParams &params,
-    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDateTimeTC != in.get_type_class())
@@ -3352,7 +3352,7 @@ static int datetime_otimestamp(const ObObjType expect_type, ObDemoObjCastParams 
 CAST_TO_LOB_METHOD(datetime, ObDateTimeTC);
 
 static int datetime_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -3396,7 +3396,7 @@ static int datetime_json(const ObObjType expect_type, ObDemoObjCastParams &param
 // Date -> XXX
 
 static int date_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -3417,7 +3417,7 @@ static int date_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int date_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -3442,7 +3442,7 @@ static int date_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int date_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -3461,7 +3461,7 @@ static int date_float(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int date_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -3480,7 +3480,7 @@ static int date_double(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int date_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj obj_int;
@@ -3497,7 +3497,7 @@ static int date_number(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int date_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDateTC != in.get_type_class()
@@ -3519,7 +3519,7 @@ static int date_datetime(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int date_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObDateTC != in.get_type_class()
@@ -3536,7 +3536,7 @@ static int date_time(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int date_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint8_t value = 0;
@@ -3555,7 +3555,7 @@ static int date_year(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int date_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   char buf[OB_CAST_TO_VARCHAR_MAX_LENGTH] = {0};
@@ -3582,7 +3582,7 @@ static int date_string(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int date_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj tmp_val;
@@ -3603,7 +3603,7 @@ static int date_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParams &p
 {
   int ret = OB_SUCCESS;
   ObObj str_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObEnumType != expect_type.get_type())
       || OB_UNLIKELY(ObDateTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -3621,7 +3621,7 @@ static int date_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &pa
 {
   int ret = OB_SUCCESS;
   ObObj str_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObSetType != expect_type.get_type())
       || OB_UNLIKELY(ObDateTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -3637,7 +3637,7 @@ static int date_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &pa
 CAST_TO_LOB_METHOD(date, ObDateTC);
 
 static int date_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -3676,7 +3676,7 @@ static int date_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 // Time -> XXX
 
 static int time_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -3697,7 +3697,7 @@ static int time_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int time_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t int64 = 0;
@@ -3722,7 +3722,7 @@ static int time_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int time_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   double value = 0.0;
@@ -3743,7 +3743,7 @@ static int time_float(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int time_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   double value = 0.0;
@@ -3763,7 +3763,7 @@ static int time_double(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int time_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   char buf[OB_CAST_TO_VARCHAR_MAX_LENGTH] = {0};
@@ -3786,7 +3786,7 @@ static int time_number(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int time_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   const ObTimeZoneInfo *tz_info = params.dtc_params_.tz_info_;
@@ -3806,7 +3806,7 @@ static int time_datetime(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int time_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   const ObTimeZoneInfo *tz_info = params.dtc_params_.tz_info_;
@@ -3834,7 +3834,7 @@ static int time_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int time_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   char buf[OB_CAST_TO_VARCHAR_MAX_LENGTH] = {0};
@@ -3861,7 +3861,7 @@ static int time_string(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int time_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj tmp_val;
@@ -3882,7 +3882,7 @@ static int time_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParams &p
 {
   int ret = OB_SUCCESS;
   ObObj str_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObEnumType != expect_type.get_type())
       || OB_UNLIKELY(ObTimeTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -3900,7 +3900,7 @@ static int time_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &pa
 {
   int ret = OB_SUCCESS;
   ObObj str_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObSetType != expect_type.get_type())
       || OB_UNLIKELY(ObTimeTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -3916,7 +3916,7 @@ static int time_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &pa
 CAST_TO_LOB_METHOD(time, ObTimeTC);
 
 static int time_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -3955,7 +3955,7 @@ static int time_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 // Year -> XXX
 
 static int year_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -3976,7 +3976,7 @@ static int year_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int year_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t int64 = 0;
@@ -4001,7 +4001,7 @@ static int year_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int year_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -4020,7 +4020,7 @@ static int year_float(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int year_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -4039,7 +4039,7 @@ static int year_double(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int year_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj obj_int;
@@ -4056,7 +4056,7 @@ static int year_number(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int year_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t int_value = 0;
@@ -4076,7 +4076,7 @@ static int year_datetime(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int year_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t in_value = 0;
@@ -4098,7 +4098,7 @@ static int year_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int year_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   char buf[OB_CAST_TO_VARCHAR_MAX_LENGTH] = {0};
@@ -4125,7 +4125,7 @@ static int year_string(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int year_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj tmp_val;
@@ -4146,7 +4146,7 @@ static int year_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParams &p
 {
   int ret = OB_SUCCESS;
   ObObj uint_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObEnumType != expect_type.get_type())
       || OB_UNLIKELY(ObYearTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -4164,7 +4164,7 @@ static int year_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &pa
 {
   int ret = OB_SUCCESS;
   ObObj uint_val;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   if (OB_UNLIKELY(ObSetType != expect_type.get_type())
       || OB_UNLIKELY(ObYearTC != in.get_type_class())) {
     ret = OB_INVALID_ARGUMENT;
@@ -4180,7 +4180,7 @@ static int year_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &pa
 CAST_TO_LOB_METHOD(year, ObYearTC);
 
 static int year_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -4215,7 +4215,7 @@ static int year_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 ////////////////////////////////////////////////////////////
 // String -> XXX
 
-int common_string_unsigned_integer(const ObCastMode &cast_mode,
+int demo_common_string_unsigned_integer(const ObDemoCastMode &cast_mode,
                                    const ObObjType &in_type,
                                    const ObCollationType &in_cs_type,
                                    const ObString &in_str,
@@ -4245,7 +4245,7 @@ int common_string_unsigned_integer(const ObCastMode &cast_mode,
       if (ERANGE == err && (0 == out_val || UINT64_MAX == out_val)) {
         ret = OB_DATA_OUT_OF_RANGE;
       } else {
-        ret = check_convert_str_err(in_str.ptr(), endptr, in_str.length(), err, in_cs_type);
+        ret = demo_check_convert_str_err(in_str.ptr(), endptr, in_str.length(), err, in_cs_type);
       }
     }
   }
@@ -4253,7 +4253,7 @@ int common_string_unsigned_integer(const ObCastMode &cast_mode,
 }
 
 // 与MySQL有不兼容行为: https://work.aone.alibaba-inc.com/issue/24594885
-int common_string_integer(const ObCastMode &cast_mode,
+int demo_common_string_integer(const ObDemoCastMode &cast_mode,
                                  const ObObjType &in_type,
                                  const ObCollationType &in_cs_type,
                                  const ObString &in_str,
@@ -4284,7 +4284,8 @@ int common_string_integer(const ObCastMode &cast_mode,
       if (ERANGE == err && (INT64_MIN == out_val || INT64_MAX == out_val)) {
         ret = OB_DATA_OUT_OF_RANGE;
       } else {
-        ret = check_convert_str_err(in_str.ptr(), endptr, in_str.length(), err, in_cs_type);
+        ret = OB_SUCCESS;
+        // ret = demo_check_convert_str_err(in_str.ptr(), endptr, in_str.length(), err, in_cs_type);
       }
     }
   }
@@ -4292,12 +4293,13 @@ int common_string_integer(const ObCastMode &cast_mode,
 }
 
 static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObString utf8_string;
 
   ObPrecision res_precision = -1;
+  /*
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
                   && ObTextTC != in.get_type_class())
                   || ObIntTC != ob_obj_type_class(expect_type))) {
@@ -4308,13 +4310,13 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
     ret = OB_NOT_SUPPORTED;
     LOG_ERROR("invalid use of blob type", K(ret), K(in), K(expect_type));
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "Cast to blob type");
-  } else if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
+  } else */if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
       LOG_WARN("convert_string_collation", K(ret));
   } else {
     const ObString &str = utf8_string;
     int64_t value = 0;
     const bool is_str_int_cast = true;
-    if (CAST_FAIL(common_string_integer(
+    if (CAST_FAIL(demo_common_string_integer(
                 cast_mode, in.get_type(), in.get_collation_type(), str, is_str_int_cast, value))) {
     } else if (expect_type < ObIntType && CAST_FAIL(int_range_check(expect_type, value, value))) {
     } else {
@@ -4329,7 +4331,7 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -4347,7 +4349,7 @@ static int string_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
     const ObString &str = in.get_string();
     uint64_t value = 0;
     const bool is_str_int_cast = true;
-    if (CAST_FAIL(common_string_unsigned_integer(
+    if (CAST_FAIL(demo_common_string_unsigned_integer(
                 cast_mode, in.get_type(), in.get_collation_type(), str, is_str_int_cast, value))) {
     } else if (expect_type < ObUInt64Type && CM_NEED_RANGE_CHECK(cast_mode)
                && CAST_FAIL(uint_upper_check(expect_type, value))) {
@@ -4363,7 +4365,7 @@ static int string_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj dbl;
@@ -4385,7 +4387,7 @@ static int string_float(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int string_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
@@ -4423,9 +4425,9 @@ static int string_double(const ObObjType expect_type, ObDemoObjCastParams &param
               ret = OB_ERR_DOUBLE_TRUNCATED;
               LOG_WARN("convert string to double failed", K(ret), K(str_utf8));
             }
-          } else if (OB_SUCCESS != (ret = check_convert_str_err(
+          } else if (OB_SUCCESS != (ret = demo_check_convert_str_err(
                                           str_utf8.ptr(), endptr, str_utf8.length(), err, in.get_collation_type()))) {
-            LOG_WARN("failed to check_convert_str_err", K(ret), K(str_utf8), K(value), K(err), K(in.get_collation_type()));
+            LOG_WARN("failed to demo_check_convert_str_err", K(ret), K(str_utf8), K(value), K(err), K(in.get_collation_type()));
             ret = OB_ERR_DOUBLE_TRUNCATED;
             if (CM_IS_WARN_ON_FAIL(cast_mode)) {
               LOG_USER_WARN(OB_ERR_DOUBLE_TRUNCATED, str_utf8.length(), str_utf8.ptr());
@@ -4446,13 +4448,14 @@ static int string_double(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int string_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = PRECISION_UNKNOWN_YET;
   ObScale res_scale = NUMBER_SCALE_UNKNOWN_YET;
   ObString utf8_string;
 
+  /*
   if (OB_ISNULL(params.allocator_v2_)) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("invalid allocator", K(ret));
@@ -4466,7 +4469,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
     ret = OB_NOT_SUPPORTED;
     LOG_ERROR("invalid use of blob type", K(ret), K(in), K(expect_type));
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "Cast to blob type");
-  } else {
+  } else {*/
     number::ObNumber value;
     if (ObHexStringType == in.get_type()) {
       ret = value.from(hex_to_uint64(in.get_string()), params);
@@ -4501,7 +4504,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
           LOG_WARN("copy min number failed", K(ret), K(tmp_ret), KPC(bound_num));
         }
       }
-    }
+    // }
     if (CAST_FAIL(ret)) {
       LOG_WARN("string_number failed", K(ret), K(in), K(expect_type), K(cast_mode));
     } else if (ObUNumberType == expect_type && CAST_FAIL(numeric_negative_check(value))) {
@@ -4515,7 +4518,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int string_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObScale res_scale = -1;
@@ -4564,13 +4567,14 @@ static int string_datetime(const ObObjType expect_type, ObDemoObjCastParams &par
 }
 
 static int string_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int32_t value = 0;
   ObDateSqlMode date_sql_mode;
   date_sql_mode.allow_invalid_dates_ = CM_IS_ALLOW_INVALID_DATES(cast_mode);
   date_sql_mode.no_zero_date_ = CM_IS_NO_ZERO_DATE(cast_mode);
+  /*
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
                   && ObTextTC != in.get_type_class())
                   || ObDateTC != ob_obj_type_class(expect_type))) {
@@ -4581,12 +4585,12 @@ static int string_date(const ObObjType expect_type, ObDemoObjCastParams &params,
     ret = OB_NOT_SUPPORTED;
     LOG_ERROR("invalid use of blob type", K(ret), K(in), K(expect_type));
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "Cast to blob type");
-  } else if (CAST_FAIL(ObTimeConverter::str_to_date(in.get_string(), value, date_sql_mode))) {
-  } else if (CM_IS_ERROR_ON_SCALE_OVER(cast_mode) && value == ObTimeConverter::ZERO_DATE) {
+  } else */if (CAST_FAIL(ObTimeConverter::str_to_date(in.get_string(), value, date_sql_mode))) {
+  } /*else if (CM_IS_ERROR_ON_SCALE_OVER(cast_mode) && value == ObTimeConverter::ZERO_DATE) {
     // check zero date for scale over mode
     ret = OB_INVALID_DATE_VALUE;
     LOG_USER_ERROR(OB_INVALID_DATE_VALUE, in.get_string().length(), in.get_string().ptr(), "");
-  } else {
+  } */else {
     SET_RES_DATE(out);
   }
   SET_RES_ACCURACY(DEFAULT_PRECISION_FOR_TEMPORAL, DEFAULT_SCALE_FOR_DATE, DEFAULT_LENGTH_FOR_TEMPORAL);
@@ -4594,7 +4598,7 @@ static int string_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t value = 0;
@@ -4618,7 +4622,7 @@ static int string_time(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj int64;
@@ -4646,11 +4650,12 @@ static int string_year(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
   ObObj tmp_out;
+  /*
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
                    && ObTextTC != in.get_type_class())
       || OB_UNLIKELY(ObStringTC != ob_obj_type_class(expect_type)
@@ -4673,7 +4678,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
              && !ob_is_clob(expect_type, params.expect_obj_collation_)) {
     // oracle 模式下的 empty_clob 被 cast 成其他类型时结果是 NULL
     out.set_null();
-  } else {
+  } else {*/
     ObString str;
     // 考虑不同字符集的情况
     if (OB_FAIL(in.get_string(str))) {
@@ -4756,10 +4761,10 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
         if (cs->mbminlen > 0 && in.get_string_len() % cs->mbminlen != 0) {
           align_offset = cs->mbminlen - in.get_string_len() % cs->mbminlen;
         }
-      }
-      if (OB_FAIL(check_convert_string(expect_type, params, in, tmp_out))) {
+      }/*
+      if (OB_FAIL(demo_check_convert_string(expect_type, params, in, tmp_out))) {
         LOG_WARN("failed to check_and_convert_string", K(ret), K(in), K(expect_type));
-      } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(),
+      } else */if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(),
                                      out, align_offset))) {
       } else {
         if (CS_TYPE_INVALID != tmp_out.get_collation_type()) {
@@ -4770,7 +4775,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
         }
       }
     }
-  }
+  //}
   if (OB_SUCC(ret)) {
     res_length = static_cast<ObLength>(out.get_string_len());
   }
@@ -4780,7 +4785,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int string_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint64_t value = 0;
@@ -4796,7 +4801,7 @@ static int string_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
   } else {
     int32_t bit_len = 0;
     const ObString &str = in.get_string();
-    if (OB_FAIL(get_bit_len(str, bit_len))) {
+    if (OB_FAIL(demo_get_bit_len(str, bit_len))) {
       LOG_WARN("fail to get bit length", K(ret), K(str));
     } else if (OB_UNLIKELY(bit_len <= 0)) {
       ret = OB_ERR_UNEXPECTED;
@@ -4830,7 +4835,7 @@ static int string_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
 static int string_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParams &params, const ObObj &in, ObObj &out)
 {
   int ret = OB_SUCCESS;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   const ObIArray<ObString> * type_infos = NULL;
   const ObCollationType in_cs_type = ObCharset::is_valid_collation(in.get_collation_type())
       ? in.get_collation_type()
@@ -4888,7 +4893,7 @@ static int string_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParams 
 static int string_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &params, const ObObj &in, ObObj &out)
 {
   int ret = OB_SUCCESS;
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   const ObIArray<ObString> * type_infos = NULL;
   const ObCollationType in_cs_type = ObCharset::is_valid_collation(in.get_collation_type())
       ? in.get_collation_type()
@@ -4987,7 +4992,7 @@ static int string_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &
 }
 
 static int string_otimestamp(const ObObjType expect_type, ObDemoObjCastParams &params,
-                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -5019,7 +5024,7 @@ static int string_otimestamp(const ObObjType expect_type, ObDemoObjCastParams &p
 }
 
 static int string_raw(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -5040,7 +5045,7 @@ static int string_raw(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_interval(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -5079,7 +5084,7 @@ static int string_interval(const ObObjType expect_type, ObDemoObjCastParams &par
 }
 
 static int string_rowid(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ob_obj_type_class(expect_type) != ObRowIDTC) ||
@@ -5107,7 +5112,7 @@ static int string_rowid(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int string_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode,
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode,
                          const ObLobLocator *lob_locator)
 {
   int ret = OB_SUCCESS;
@@ -5170,7 +5175,7 @@ static int string_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int string_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj tmp_val;
@@ -5245,7 +5250,7 @@ static int string_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 ////////////////////////////////////////////////////////////
 // bit -> XXX
 static int bit_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -5269,7 +5274,7 @@ static int bit_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int bit_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -5293,9 +5298,9 @@ static int bit_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int bit_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int bit_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj dbl;
@@ -5313,7 +5318,7 @@ static int bit_float(const ObObjType expect_type, ObDemoObjCastParams &params,
 
 
 static int bit_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -5331,7 +5336,7 @@ static int bit_double(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int bit_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -5352,7 +5357,7 @@ static int bit_number(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int bit_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint64_t bit_value = in.get_bit();
@@ -5398,7 +5403,7 @@ static int bit_datetime(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int bit_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint64_t bit_value = in.get_bit();
@@ -5440,7 +5445,7 @@ static int bit_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int bit_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint64_t bit_value = in.get_bit();
@@ -5479,7 +5484,7 @@ static int bit_time(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int bit_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint64_t bit_value = in.get_bit();
@@ -5499,7 +5504,7 @@ static int bit_year(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int bit_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint64_t value = in.get_bit();
@@ -5543,7 +5548,7 @@ static int bit_string(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int bit_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -5553,7 +5558,7 @@ static int bit_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
                   || ObBitTC != ob_obj_type_class(expect_type))) {
     ret = OB_ERR_UNEXPECTED;
     LOG_ERROR("invalid input type", K(ret), K(in), K(expect_type));
-  } else if (OB_FAIL(get_bit_len(value, bit_len))) {
+  } else if (OB_FAIL(demo_get_bit_len(value, bit_len))) {
     LOG_WARN("fail to get bit len", K(ret), K(value), K(bit_len));
   } else {
     SET_RES_BIT(out);
@@ -5605,7 +5610,7 @@ static int bit_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams &par
 CAST_TO_LOB_METHOD(bit, ObBitTC);
 
 static int bit_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   UNUSED(cast_mode);
@@ -5652,7 +5657,7 @@ static int enumset_enum(const ObDemoExpectType &expect_type, ObDemoObjCastParams
 {
   int ret = OB_SUCCESS;
   uint64_t value = static_cast<uint64_t>(in.get_enum());
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   const ObIArray<ObString> * type_infos = NULL;
   if (OB_UNLIKELY(ObEnumType != expect_type.get_type())
       || OB_UNLIKELY(ObEnumType != in.get_type())
@@ -5675,7 +5680,7 @@ static int enumset_set(const ObDemoExpectType &expect_type, ObDemoObjCastParams 
 {
   int ret = OB_SUCCESS;
   uint64_t value = static_cast<uint64_t>(in.get_set());
-  ObCastMode cast_mode = params.cast_mode_;
+  ObDemoCastMode cast_mode = params.cast_mode_;
   const ObIArray<ObString> * type_infos = NULL;
   if (OB_UNLIKELY(ObSetType != expect_type.get_type())
       || OB_UNLIKELY(ObSetType != in.get_type())
@@ -5746,7 +5751,7 @@ static int enumsetinner_set(const ObDemoExpectType &expect_type, ObDemoObjCastPa
   }*/
 
 
-ObCastEnumOrSetFunc OB_CAST_ENUM_OR_SET[ObMaxTC][2] =
+ObDemoCastEnumOrSetFunc OB_DEMO_CAST_ENUM_OR_SET[ObMaxTC][2] =
 {
   {
     /*null -> enum_or_set*/
@@ -5844,7 +5849,7 @@ ObCastEnumOrSetFunc OB_CAST_ENUM_OR_SET[ObMaxTC][2] =
 // enum -> XXX
 
 static int enumset_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint64 when int_value is needed
   int ret = OB_SUCCESS;
@@ -5862,7 +5867,7 @@ static int enumset_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int enumset_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -5884,7 +5889,7 @@ static int enumset_uint(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int enumset_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObEnumSetTC != in.get_type_class()
@@ -5901,7 +5906,7 @@ static int enumset_float(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int enumset_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObEnumSetTC != in.get_type_class()
@@ -5918,7 +5923,7 @@ static int enumset_double(const ObObjType expect_type, ObDemoObjCastParams &para
 }
 
 static int enumset_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   number::ObNumber nmb;
@@ -5941,7 +5946,7 @@ static int enumset_number(const ObObjType expect_type, ObDemoObjCastParams &para
 }
 
 static int enumset_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj int64;
@@ -5958,7 +5963,7 @@ static int enumset_year(const ObObjType expect_type, ObDemoObjCastParams &params
   }
 
 static int enumset_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -5968,7 +5973,7 @@ static int enumset_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
                   || ObBitTC != ob_obj_type_class(expect_type))) {
     ret = OB_ERR_UNEXPECTED;
     LOG_ERROR("invalid input type", K(ret), K(in), K(expect_type));
-  } else if (OB_FAIL(get_bit_len(value, bit_len))) {
+  } else if (OB_FAIL(demo_get_bit_len(value, bit_len))) {
     LOG_WARN("fail to get bit len", K(ret), K(value), K(bit_len));
   } else {
     SET_RES_BIT(out);
@@ -6010,7 +6015,7 @@ static int get_string_from_enumset_inner(const ObObj &in, ObObj &out)
   /* used for case when or in , comment temporary */
 
   //static int enumset_inner_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-  //                          const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+  //                          const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
   //{
   //  //we regard enum as uint16 when int_value is needed
   //  int ret = OB_SUCCESS;
@@ -6029,7 +6034,7 @@ static int get_string_from_enumset_inner(const ObObj &in, ObObj &out)
 //}
 //
 //static int enumset_inner_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-//                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+//                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 //{
 //  //we regard enum as uint16 when int_value is needed
 //  int ret = OB_SUCCESS;
@@ -6041,14 +6046,14 @@ static int get_string_from_enumset_inner(const ObObj &in, ObObj &out)
 //        K(ret), K(in), K(expect_type));
 //  } else if (OB_FAIL(get_uint64_from_enumset_inner(in, uint64))) {
 //    LOG_WARN("failed to get_uint64_from_enumset_inner", K(in), K(ret));
-//  } else if (OB_FAIL(uint_uint(expect_type, params, uint64, out, cast_mode))) {
+//  } else if (OB_FAIL(demo_uint_uint(expect_type, params, uint64, out, cast_mode))) {
 //    LOG_WARN("failed to cast uint to uint", K(in), K(uint64), K(ret));
 //  } else {/*do nothing*/}
 //  return ret;
 //}
 //
 //static int enumset_inner_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-//                            const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+//                            const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 //{
 //  //we regard enum as uint16 when int_value is needed
 //  int ret = OB_SUCCESS;
@@ -6067,7 +6072,7 @@ static int get_string_from_enumset_inner(const ObObj &in, ObObj &out)
 //}
 //
 //static int enumset_inner_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-//                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+//                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 //{
 //  //we regard enum as uint16 when int_value is needed
 //  int ret = OB_SUCCESS;
@@ -6086,7 +6091,7 @@ static int get_string_from_enumset_inner(const ObObj &in, ObObj &out)
 //}
 //
 //static int enumset_inner_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-//                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+//                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 //{
 //  //we regard enum as uint16 when int_value is needed
 //  int ret = OB_SUCCESS;
@@ -6104,7 +6109,7 @@ static int get_string_from_enumset_inner(const ObObj &in, ObObj &out)
 //}
 
 static int enumset_inner_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6123,7 +6128,7 @@ static int enumset_inner_int(const ObObjType expect_type, ObDemoObjCastParams &p
 }
 
 static int enumset_inner_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6135,14 +6140,14 @@ static int enumset_inner_uint(const ObObjType expect_type, ObDemoObjCastParams &
         K(ret), K(in), K(expect_type));
   } else if (OB_FAIL(get_uint64_from_enumset_inner(in, uint64))) {
     LOG_WARN("failed to get_uint64_from_enumset_inner", K(in), K(ret));
-  } else if (OB_FAIL(uint_uint(expect_type, params, uint64, out, cast_mode))) {
+  } else if (OB_FAIL(demo_uint_uint(expect_type, params, uint64, out, cast_mode))) {
     LOG_WARN("failed to cast uint to uint", K(in), K(uint64), K(ret));
   } else {/*do nothing*/}
   return ret;
 }
 
 static int enumset_inner_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                            const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                            const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6161,7 +6166,7 @@ static int enumset_inner_float(const ObObjType expect_type, ObDemoObjCastParams 
 }
 
 static int enumset_inner_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6180,7 +6185,7 @@ static int enumset_inner_double(const ObObjType expect_type, ObDemoObjCastParams
 }
 
 static int enumset_inner_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6199,7 +6204,7 @@ static int enumset_inner_number(const ObObjType expect_type, ObDemoObjCastParams
 
 
 static int enumset_inner_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint64 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6218,7 +6223,7 @@ static int enumset_inner_year(const ObObjType expect_type, ObDemoObjCastParams &
 }
 
 static int enumset_inner_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                          const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                          const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6237,7 +6242,7 @@ static int enumset_inner_bit(const ObObjType expect_type, ObDemoObjCastParams &p
 }
 
 static int enumset_inner_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                               const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                               const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6255,7 +6260,7 @@ static int enumset_inner_datetime(const ObObjType expect_type, ObDemoObjCastPara
 }
 
 static int enumset_inner_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6273,7 +6278,7 @@ static int enumset_inner_date(const ObObjType expect_type, ObDemoObjCastParams &
 }
 
 static int enumset_inner_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                              const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                              const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6291,7 +6296,7 @@ static int enumset_inner_time(const ObObjType expect_type, ObDemoObjCastParams &
 }
 
 static int enumset_inner_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   //we regard enum as uint16 when int_value is needed
   int ret = OB_SUCCESS;
@@ -6313,7 +6318,7 @@ static int enumset_inner_string(const ObObjType expect_type, ObDemoObjCastParams
 // OTimestamp -> XXX
 
 static int otimestamp_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                                 const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                                 const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   int64_t usec = 0;
@@ -6334,7 +6339,7 @@ static int otimestamp_datetime(const ObObjType expect_type, ObDemoObjCastParams 
 }
 
 static int otimestamp_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
@@ -6354,8 +6359,8 @@ static int otimestamp_string(const ObObjType expect_type, ObDemoObjCastParams &p
       ObObj tmp_out;
       if (OB_FAIL(convert_string_collation(ObString(len, buf), ObCharset::get_system_collation(), tmp_str, params.dest_collation_, params))) {
         LOG_WARN("fail to convert string collation", K(ret));
-      } else if (OB_FAIL(check_convert_string(expect_type, params, tmp_str, tmp_out))) {
-        LOG_WARN("fail to check_convert_string", K(ret), K(in), K(expect_type));
+      } else if (OB_FAIL(demo_check_convert_string(expect_type, params, tmp_str, tmp_out))) {
+        LOG_WARN("fail to demo_check_convert_string", K(ret), K(in), K(expect_type));
       } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
         LOG_WARN("failed to copy_string", K(ret), K(expect_type), K(len));
       } else {
@@ -6371,7 +6376,7 @@ static int otimestamp_string(const ObObjType expect_type, ObDemoObjCastParams &p
 }
 
 static int otimestamp_otimestamp(const ObObjType expect_type, ObDemoObjCastParams &params,
-                                 const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                                 const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObOTimestampData value;
@@ -6412,7 +6417,7 @@ static int otimestamp_otimestamp(const ObObjType expect_type, ObDemoObjCastParam
 ////////////////////////////////////////////////////////////
 // Interval -> XXX
 static int interval_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   char buf[OB_CAST_TO_VARCHAR_MAX_LENGTH] = {0};
@@ -6435,8 +6440,8 @@ static int interval_string(const ObObjType expect_type, ObDemoObjCastParams &par
       ObObj tmp_out;
       if (OB_FAIL(convert_string_collation(ObString(len, buf), ObCharset::get_system_collation(), tmp_str, params.dest_collation_, params))) {
         LOG_WARN("fail to convert string collation", K(ret));
-      } else if (OB_FAIL(check_convert_string(expect_type, params, tmp_str, tmp_out))) {
-        LOG_WARN("fail to check_convert_string", K(ret), K(in), K(expect_type));
+      } else if (OB_FAIL(demo_check_convert_string(expect_type, params, tmp_str, tmp_out))) {
+        LOG_WARN("fail to demo_check_convert_string", K(ret), K(in), K(expect_type));
       } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
         LOG_WARN("failed to copy_string", K(ret), K(expect_type), K(len));
       } else {
@@ -6452,7 +6457,7 @@ static int interval_string(const ObObjType expect_type, ObDemoObjCastParams &par
 }
 
 static int interval_interval(const ObObjType expect_type, ObDemoObjCastParams &params,
-                             const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                             const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObIntervalTC != ob_obj_type_class(expect_type) || ObIntervalTC != in.get_type_class())) {
@@ -6473,7 +6478,7 @@ static int interval_interval(const ObObjType expect_type, ObDemoObjCastParams &p
 
 // 这里的 string 不包括 lob 类型
 static int raw_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -6512,7 +6517,7 @@ static int raw_string(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int raw_longtext(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -6564,7 +6569,7 @@ static int raw_longtext(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int raw_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
-                   const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                   const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj tmp_val;
@@ -6582,7 +6587,7 @@ static int raw_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int raw_raw(const ObObjType expect_type, ObDemoObjCastParams &params,
-                   const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                   const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -6592,7 +6597,7 @@ static int raw_raw(const ObObjType expect_type, ObDemoObjCastParams &params,
   if (OB_UNLIKELY((ObRawTC != in.get_type_class()) || OB_UNLIKELY(ObRawTC != ob_obj_type_class(expect_type)))) {
      ret = OB_ERR_UNEXPECTED;
      LOG_ERROR("invalid input type", K(ret), K(in), K(expect_type));
-  } else if (OB_FAIL(check_convert_string(expect_type, params, in, tmp_out))) {
+  } else if (OB_FAIL(demo_check_convert_string(expect_type, params, in, tmp_out))) {
     LOG_WARN("failed to check_and_convert_string", K(ret), K(in), K(expect_type));
   } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
     LOG_WARN("failed to copy string", K(ret), K(in), K(expect_type));
@@ -6608,7 +6613,7 @@ static int raw_raw(const ObObjType expect_type, ObDemoObjCastParams &params,
 ////////////////////////////////////////////////////////////
 // rowid -> XXX
 static int rowid_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                        const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                        const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -6638,7 +6643,7 @@ static int rowid_string(const ObObjType expect_type, ObDemoObjCastParams &params
                                            params.dest_collation_,
                                            params))) {
         LOG_WARN("failed to convert string collation", K(ret));
-      } else if (OB_FAIL(check_convert_string(expect_type, params, tmp_str, tmp_out))) {
+      } else if (OB_FAIL(demo_check_convert_string(expect_type, params, tmp_str, tmp_out))) {
         LOG_WARN("failed to check convert string", K(ret));
       } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(), out))) {
         LOG_WARN("failed to copy_string", K(ret), K(expect_type));
@@ -6654,7 +6659,7 @@ static int rowid_string(const ObObjType expect_type, ObDemoObjCastParams &params
 }
 
 static int rowid_rowid(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObRowIDTC != in.get_type_class()) ||
@@ -6678,7 +6683,7 @@ static int rowid_rowid(const ObObjType expect_type, ObDemoObjCastParams &params,
 // Lob -> XXX
 #define CAST_LOB_TO_OTHER_TYPE(TYPE, TYPE_CLASS)  \
 static int lob_##TYPE(const ObObjType expect_type, ObDemoObjCastParams &params,         \
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)      \
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)      \
 {                                 \
   int ret = OB_SUCCESS;           \
   if (OB_UNLIKELY(ObLobTC != in.get_type_class()                          \
@@ -6721,7 +6726,7 @@ CAST_LOB_TO_OTHER_TYPE(interval, ObIntervalTC);
 CAST_LOB_TO_OTHER_TYPE(rowid, ObRowIDTC);
 
 static int lob_raw(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   int ret = OB_SUCCESS;
@@ -6746,7 +6751,7 @@ static int lob_raw(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int lob_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj tmp_out;
@@ -6769,7 +6774,7 @@ static int lob_string(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int lob_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
-                   const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                   const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObLobTC != in.get_type_class()
@@ -6807,7 +6812,7 @@ static int lob_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int lob_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj tmp_out;
@@ -6831,7 +6836,7 @@ static int lob_json(const ObObjType expect_type, ObDemoObjCastParams &params,
 // json -> XXX
 
 static int json_int(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -6865,7 +6870,7 @@ static int json_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -6899,9 +6904,9 @@ static int json_uint(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode);
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode);
 static int json_float(const ObObjType expect_type, ObDemoObjCastParams &params,
-                      const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                      const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObJsonType != in.get_type() || ObFloatTC != ob_obj_type_class(expect_type))) {
@@ -6922,7 +6927,7 @@ static int json_float(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_double(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObPrecision res_precision = -1;
@@ -6956,7 +6961,7 @@ static int json_double(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_number(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   // ToDo convert json to other none string type is also not allowed.
@@ -6988,7 +6993,7 @@ static int json_number(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_datetime(const ObObjType expect_type, ObDemoObjCastParams &params,
-                         const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                         const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   // ToDo convert json to other none string type is also not allowed.
@@ -7018,7 +7023,7 @@ static int json_datetime(const ObObjType expect_type, ObDemoObjCastParams &param
 }
 
 static int json_date(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   // ToDo convert json to other none string type is also not allowed.
@@ -7048,7 +7053,7 @@ static int json_date(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_time(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   // ToDo convert json to other none string type is also not allowed.
@@ -7078,7 +7083,7 @@ static int json_time(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_year(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   // ToDo convert json to other none string type is also not allowed.
@@ -7115,7 +7120,7 @@ static int json_year(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_string(const ObObjType expect_type, ObDemoObjCastParams &params,
-                       const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   // ToDo convert json to other none string type is also not allowed.
@@ -7179,7 +7184,7 @@ static int json_string(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   uint64_t value;
@@ -7198,7 +7203,7 @@ static int json_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
     } else if (CAST_FAIL(j_base->to_bit(value))) {
       ret = OB_ERR_INVALID_JSON_VALUE_FOR_CAST;
       LOG_USER_ERROR(OB_ERR_INVALID_JSON_VALUE_FOR_CAST);
-    } else if (OB_FAIL(get_bit_len(value, bit_len))) {
+    } else if (OB_FAIL(demo_get_bit_len(value, bit_len))) {
       LOG_WARN("fail to get bit len", K(ret), K(value), K(bit_len));
     } else {
       SET_RES_BIT(out);
@@ -7212,7 +7217,7 @@ static int json_bit(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_otimestamp(const ObObjType expect_type, ObDemoObjCastParams &params,
-                           const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                           const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   ObObj datetime_obj;
@@ -7232,7 +7237,7 @@ static int json_otimestamp(const ObObjType expect_type, ObDemoObjCastParams &par
 }
 
 static int json_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
-                    const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                    const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (!lib::is_oracle_mode()) {
@@ -7251,7 +7256,7 @@ static int json_lob(const ObObjType expect_type, ObDemoObjCastParams &params,
 }
 
 static int json_json(const ObObjType expect_type, ObDemoObjCastParams &params,
-                     const ObObj &in, ObObj &out, const ObCastMode cast_mode)
+                     const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ObJsonType != in.get_type()) || OB_UNLIKELY(ObJsonTC != ob_obj_type_class(expect_type))) {
@@ -7267,7 +7272,7 @@ static int json_json(const ObObjType expect_type, ObDemoObjCastParams &params,
   return ret;
 }
 
-ObObjCastFunc OB_OBJ_CAST[ObMaxTC][ObMaxTC] =
+ObDemoObjCastFunc OB_Demo_OBJ_CAST[ObMaxTC][ObMaxTC] =
 {
   {
     /*null -> XXX*/
@@ -7298,10 +7303,10 @@ ObObjCastFunc OB_OBJ_CAST[ObMaxTC][ObMaxTC] =
   {
     /*int -> XXX*/
     cast_not_support,/*null*/
-    int_int,/*int*/
-    int_uint,/*uint*/
-    int_float,/*float*/
-    int_double,/*double*/
+    demo_int_int,/*int*/
+    demo_int_uint,/*uint*/
+    demo_int_float,/*float*/
+    demo_int_double,/*double*/
     int_number,/*number*/
     int_datetime,/*datetime*/
     int_date,/*date*/
@@ -7325,7 +7330,7 @@ ObObjCastFunc OB_OBJ_CAST[ObMaxTC][ObMaxTC] =
     /*uint -> XXX*/
     cast_not_support,/*null*/
     uint_int,/*int*/
-    uint_uint,/*uint*/
+    demo_uint_uint,/*uint*/
     uint_float,/*float*/
     uint_double,/*double*/
     uint_number,/*number*/
@@ -7869,7 +7874,7 @@ ObObjCastFunc OB_OBJ_CAST[ObMaxTC][ObMaxTC] =
   },
 };
 
-ObObjCastFunc OBJ_CAST_ORACLE_EXPLICIT[ObMaxTC][ObMaxTC] =
+ObDemoObjCastFunc DEMO_OBJ_CAST_ORACLE_EXPLICIT[ObMaxTC][ObMaxTC] =
 {
   {
     /*null -> XXX*/
@@ -7900,10 +7905,10 @@ ObObjCastFunc OBJ_CAST_ORACLE_EXPLICIT[ObMaxTC][ObMaxTC] =
   {
     /*int -> XXX*/
     cast_not_support,/*null*/
-    int_int,/*int*/
-    int_uint,/*uint*/
-    int_float,/*float*/
-    int_double,/*double*/
+    demo_int_int,/*int*/
+    demo_int_uint,/*uint*/
+    demo_int_float,/*float*/
+    demo_int_double,/*double*/
     int_number,/*number*/
     cast_not_support,/*datetime*/
     cast_not_support,/*date*/
@@ -7927,7 +7932,7 @@ ObObjCastFunc OBJ_CAST_ORACLE_EXPLICIT[ObMaxTC][ObMaxTC] =
     /*uint -> XXX*/
     cast_not_support,/*null*/
     uint_int,/*int*/
-    uint_uint,/*uint*/
+    demo_uint_uint,/*uint*/
     uint_float,/*float*/
     uint_double,/*double*/
     uint_number,/*number*/
@@ -8473,13 +8478,13 @@ ObObjCastFunc OBJ_CAST_ORACLE_EXPLICIT[ObMaxTC][ObMaxTC] =
 
 /*
  * 1. I think not_support() means something we will support in future, and cast_not_expected() means
- *    something wrong, so there is no not_support() appears in OBJ_CAST_ORACLE_IMPLICIT now.
+ *    something wrong, so there is no not_support() appears in DEMO_OBJ_CAST_ORACLE_IMPLICIT now.
  * 2. int and uint are needed in inner operation, for example, some system variable is uint,
  *    like auto_increment_increment, which will be cast to uint in load_default_sys_variable().
  *    so this matrix allows cast from or to int / uint.
  * 3. we can't use ObObjOType as index of this matrix, because int / uint too.
  */
-ObObjCastFunc OBJ_CAST_ORACLE_IMPLICIT[ObMaxTC][ObMaxTC] =
+ObDemoObjCastFunc DEMO_OBJ_CAST_ORACLE_IMPLICIT[ObMaxTC][ObMaxTC] =
 {
   {
     /*null -> XXX*/
@@ -8510,10 +8515,10 @@ ObObjCastFunc OBJ_CAST_ORACLE_IMPLICIT[ObMaxTC][ObMaxTC] =
   {
     /*int -> XXX*/
     cast_not_expected,/*null*/
-    int_int,/*int*/
-    int_uint,/*uint*/
-    int_float,/*float*/
-    int_double,/*double*/
+    demo_int_int,/*int*/
+    demo_int_uint,/*uint*/
+    demo_int_float,/*float*/
+    demo_int_double,/*double*/
     int_number,/*number*/
     cast_inconsistent_types,/*datetime*/
     cast_not_expected,/*date*/
@@ -8537,7 +8542,7 @@ ObObjCastFunc OBJ_CAST_ORACLE_IMPLICIT[ObMaxTC][ObMaxTC] =
     /*uint -> XXX*/
     cast_not_expected,/*null*/
     uint_int,/*int*/
-    uint_uint,/*uint*/
+    demo_uint_uint,/*uint*/
     uint_float,/*float*/
     uint_double,/*double*/
     uint_number,/*number*/
@@ -9082,7 +9087,7 @@ ObObjCastFunc OBJ_CAST_ORACLE_IMPLICIT[ObMaxTC][ObMaxTC] =
 };
 
 ////////////////////////////////////////////////////////////////
-bool cast_supported(const ObObjType orig_type, const ObCollationType orig_cs_type,
+bool demo_cast_supported(const ObObjType orig_type, const ObCollationType orig_cs_type,
                     const ObObjType expect_type, const ObCollationType expect_cs_type)
 {
   bool bret = false;
@@ -9106,17 +9111,17 @@ bool cast_supported(const ObObjType orig_type, const ObCollationType orig_cs_typ
       LOG_WARN("cast between intervalYM and intervalDS not allowed",
                 K(bret), K(orig_type), K(expect_type));
     } else {
-      ObObjCastFunc cast_func = lib::is_oracle_mode() ?
-                                  OBJ_CAST_ORACLE_IMPLICIT[orig_tc][expect_tc] :
-                                  OB_OBJ_CAST[orig_tc][expect_tc];
+      ObDemoObjCastFunc cast_func = lib::is_oracle_mode() ?
+                                  DEMO_OBJ_CAST_ORACLE_IMPLICIT[orig_tc][expect_tc] :
+                                  OB_Demo_OBJ_CAST[orig_tc][expect_tc];
       bret = (cast_func != cast_not_support && cast_func != cast_inconsistent_types);
     }
   }
   return bret;
 }
 
-int float_range_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
-                      const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObCastMode cast_mode)
+int demo_float_range_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+                      const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   float value = obj.get_float();
@@ -9142,8 +9147,8 @@ int float_range_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
   return ret;
 }
 
-int double_check_precision(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
-                           const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObCastMode cast_mode)
+int demo_double_check_precision(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+                           const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   double value = obj.get_double();
@@ -9167,8 +9172,8 @@ int double_check_precision(ObDemoObjCastParams &params, const ObAccuracy &accura
   return ret;
 }
 
-int number_range_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
-                       const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObCastMode cast_mode)
+int demo_number_range_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+                       const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   res_obj = NULL;
@@ -9227,8 +9232,8 @@ int number_range_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
   return ret;
 }
 
-int number_range_check_for_oracle(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
-                       const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObCastMode cast_mode)
+int demo_number_range_check_for_oracle(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+                       const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   res_obj = NULL;
@@ -9350,9 +9355,9 @@ int number_range_check_for_oracle(ObDemoObjCastParams &params, const ObAccuracy 
   return ret;
 }
 
-int number_range_check_v2(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+int demo_number_range_check_v2(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
                           const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj,
-                          const ObCastMode cast_mode)
+                          const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   res_obj = NULL;
@@ -9477,7 +9482,7 @@ int number_range_check_v2(ObDemoObjCastParams &params, const ObAccuracy &accurac
         }
       }
     }
-    LOG_DEBUG("succ to number_range_check_v2", K(ret), K(cast_ret),  K(is_finish),
+    LOG_DEBUG("succ to demo_number_range_check_v2", K(ret), K(cast_ret),  K(is_finish),
               K(precision), K(scale), KPC(min_check_num), KPC(max_check_num),
               KPC(min_num_mysql), KPC(max_num_mysql), K(in_val), K(obj), K(buf_obj));
     res_obj = &buf_obj;
@@ -9485,7 +9490,7 @@ int number_range_check_v2(ObDemoObjCastParams &params, const ObAccuracy &accurac
   return ret;
 }
 
-int number_range_check_only(const ObAccuracy &accuracy, const ObObj &obj)
+int demo_number_range_check_only(const ObAccuracy &accuracy, const ObObj &obj)
 {
   int ret = OB_SUCCESS;
   UNUSED(obj);
@@ -9508,7 +9513,7 @@ int number_range_check_only(const ObAccuracy &accuracy, const ObObj &obj)
 }
 
 // check usec scale for ObTimeType, ObDateTimeType
-int time_usec_scale_check(const ObCastMode &cast_mode,
+int demo_time_usec_scale_check(const ObDemoCastMode &cast_mode,
                           const ObAccuracy &accuracy,
                           const int64_t value)
 {
@@ -9530,8 +9535,8 @@ int time_usec_scale_check(const ObCastMode &cast_mode,
   return ret;
 }
 
-int datetime_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
-                         const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObCastMode cast_mode)
+int demo_datetime_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+                         const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   res_obj = NULL;
@@ -9541,7 +9546,7 @@ int datetime_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy
     LOG_USER_ERROR(OB_ERR_TOO_BIG_PRECISION, scale, "CAST", static_cast<int64_t>(MAX_SCALE_FOR_TEMPORAL));
   } else {
     int64_t value = obj.get_datetime();
-    if (OB_FAIL(time_usec_scale_check(cast_mode, accuracy, value))) {
+    if (OB_FAIL(demo_time_usec_scale_check(cast_mode, accuracy, value))) {
       LOG_WARN("check zero scale fail.", K(ret), K(value), K(scale));
     } else if (OB_UNLIKELY(0 <= scale && scale < MAX_SCALE_FOR_TEMPORAL)) {
       ObTimeConverter::round_datetime(scale, value);
@@ -9560,8 +9565,8 @@ int datetime_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy
 }
 
 
-int otimestamp_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy, const ObObj &obj,
-                             ObObj &buf_obj, const ObObj *&res_obj, const ObCastMode cast_mode)
+int demo_otimestamp_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy, const ObObj &obj,
+                             ObObj &buf_obj, const ObObj *&res_obj, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   res_obj = NULL;
@@ -9586,8 +9591,8 @@ int otimestamp_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accura
   return ret;
 }
 
-int interval_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy, const ObObj &obj,
-                         ObObj &buf_obj, const ObObj *&res_obj, const ObCastMode cast_mode)
+int demo_interval_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy, const ObObj &obj,
+                         ObObj &buf_obj, const ObObj *&res_obj, const ObDemoCastMode cast_mode)
 {
   UNUSED(cast_mode);
   UNUSED(params);
@@ -9629,7 +9634,7 @@ int interval_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy
   return ret;
 }
 
-int datetime_scale_check_only(const ObAccuracy &accuracy, const ObObj &obj)
+int demo_datetime_scale_check_only(const ObAccuracy &accuracy, const ObObj &obj)
 {
   int ret = OB_SUCCESS;
   ObScale scale = accuracy.get_scale();
@@ -9646,14 +9651,14 @@ int datetime_scale_check_only(const ObAccuracy &accuracy, const ObObj &obj)
   return ret;
 }
 
-int time_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
-                     const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObCastMode cast_mode)
+int demo_time_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+                     const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   res_obj = NULL;
   ObScale scale = accuracy.get_scale();
   int64_t value = obj.get_time();
-  if (OB_FAIL(time_usec_scale_check(cast_mode, accuracy, value))) {
+  if (OB_FAIL(demo_time_usec_scale_check(cast_mode, accuracy, value))) {
     LOG_WARN("check usec scale fail.", K(ret), K(value));
   } else if (OB_LIKELY(0 <= scale && scale < MAX_SCALE_FOR_TEMPORAL)) {
     ObTimeConverter::round_datetime(scale, value);
@@ -9667,7 +9672,7 @@ int time_scale_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
   return ret;
 }
 
-int time_scale_check_only(const ObAccuracy &accuracy, const ObObj &obj)
+int demo_time_scale_check_only(const ObAccuracy &accuracy, const ObObj &obj)
 {
   int ret = OB_SUCCESS;
   UNUSED(accuracy);
@@ -9677,7 +9682,7 @@ int time_scale_check_only(const ObAccuracy &accuracy, const ObObj &obj)
 
 //empty string时,bit_len 为0
 //非empty string的情况，为char 对应二进制值去掉前导0后的长度, 例如'3b'的长度为15
-int get_bit_len(const ObString &str, int32_t &bit_len)
+int demo_get_bit_len(const ObString &str, int32_t &bit_len)
 {
   int ret = OB_SUCCESS;
   if (str.empty()) {
@@ -9706,7 +9711,7 @@ int get_bit_len(const ObString &str, int32_t &bit_len)
   return ret;
 }
 
-int get_bit_len(uint64_t value, int32_t &bit_len)
+int demo_get_bit_len(uint64_t value, int32_t &bit_len)
 {
   int ret = OB_SUCCESS;
   if (0 == value) {
@@ -9717,9 +9722,9 @@ int get_bit_len(uint64_t value, int32_t &bit_len)
   return ret;
 }
 
-int string_length_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+int demo_string_length_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
     const ObCollationType cs_type, const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj,
-    const ObCastMode cast_mode)
+    const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   const ObLength max_accuracy_len = accuracy.get_length();
@@ -9837,7 +9842,7 @@ int string_length_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
 }
 
 // no truncate
-int string_length_check_only(const ObAccuracy &accuracy, const ObCollationType cs_type, const ObObj &obj)
+int demo_string_length_check_only(const ObAccuracy &accuracy, const ObCollationType cs_type, const ObObj &obj)
 {
   int ret = OB_SUCCESS;
   const ObLength max_len_char = accuracy.get_length();
@@ -9856,9 +9861,9 @@ int string_length_check_only(const ObAccuracy &accuracy, const ObCollationType c
   return ret;
 }
 
-int raw_length_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+int demo_raw_length_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
     const ObCollationType cs_type, const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj,
-    const ObCastMode cast_mode)
+    const ObDemoCastMode cast_mode)
 {
   UNUSED(params);
   UNUSED(cs_type);
@@ -9878,15 +9883,15 @@ int raw_length_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
   return ret;
 }
 
-int bit_length_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
-                           const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObCastMode cast_mode)
+int demo_bit_length_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+                           const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
   res_obj = NULL;
   uint64_t value = obj.get_bit();
   int32_t bit_len = 0;
   int32_t dst_bit_len = accuracy.get_precision();
-  if (OB_FAIL(get_bit_len(value, bit_len))) {
+  if (OB_FAIL(demo_get_bit_len(value, bit_len))) {
     LOG_WARN("fail to get_bit_length", K(ret), K(value), K(bit_len));
   } else if(OB_UNLIKELY(bit_len <= 0)) {
     ret = OB_ERR_UNEXPECTED;
@@ -9911,13 +9916,13 @@ int bit_length_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
   return ret;
 }
 
-int bit_length_check_only(const ObAccuracy &accuracy, const ObObj &obj)
+int demo_bit_length_check_only(const ObAccuracy &accuracy, const ObObj &obj)
 {
   int ret = OB_SUCCESS;
   uint64_t value = obj.get_bit();
   int32_t bit_len = 0;
   int32_t dst_bit_len = accuracy.get_precision();
-  if (OB_FAIL(get_bit_len(value, bit_len))) {
+  if (OB_FAIL(demo_get_bit_len(value, bit_len))) {
     LOG_WARN("fail to get_bit_length", K(ret), K(value), K(bit_len));
   } else if(OB_UNLIKELY(bit_len <= 0)) {
     ret = OB_ERR_UNEXPECTED;
@@ -9931,7 +9936,7 @@ int bit_length_check_only(const ObAccuracy &accuracy, const ObObj &obj)
   return ret;
 }
 
-int obj_collation_check(const bool is_strict_mode, const ObCollationType cs_type, ObObj &obj)
+int demo_obj_collation_check(const bool is_strict_mode, const ObCollationType cs_type, ObObj &obj)
 {
   int ret = OB_SUCCESS;
   if (!ob_is_string_type(obj.get_type()) && ! ob_is_lob_locator(obj.get_type())) {
@@ -9989,7 +9994,7 @@ int obj_collation_check(const bool is_strict_mode, const ObCollationType cs_type
   return ret;
 }
 
-int urwoid_length_check_only(const ObAccuracy &accuracy, const ObObj &obj)
+int demo_urwoid_length_check_only(const ObAccuracy &accuracy, const ObObj &obj)
 {
   int ret = OB_SUCCESS;
   ObURowIDData urowid_data = obj.get_urowid();
@@ -10005,59 +10010,59 @@ int urwoid_length_check_only(const ObAccuracy &accuracy, const ObObj &obj)
   return ret;
 }
 
-int obj_accuracy_check(ObDemoCastCtx &cast_ctx, const ObAccuracy &accuracy, const ObCollationType cs_type,
+int demo_obj_accuracy_check(ObDemoCastCtx &cast_ctx, const ObAccuracy &accuracy, const ObCollationType cs_type,
                        const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj)
 {
   int ret = OB_SUCCESS;
-  LOG_DEBUG("obj_accuracy_check before", K(obj), K(accuracy), K(cs_type));
+  LOG_DEBUG("demo_obj_accuracy_check before", K(obj), K(accuracy), K(cs_type));
   switch (obj.get_type_class()) {
     case ObFloatTC: {
-      ret = float_range_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_float_range_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObDoubleTC: {
-      ret = double_check_precision(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_double_check_precision(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObNumberTC: {
-      ret = number_range_check_v2(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_number_range_check_v2(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObDateTimeTC: {
-      ret = datetime_scale_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_datetime_scale_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObOTimestampTC: {
-      ret = otimestamp_scale_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_otimestamp_scale_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObTimeTC: {
-      ret = time_scale_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_time_scale_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObStringTC: {
-      ret = string_length_check(cast_ctx, accuracy, cs_type, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_string_length_check(cast_ctx, accuracy, cs_type, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObRawTC: {
-      ret = raw_length_check(cast_ctx, accuracy, cs_type, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_raw_length_check(cast_ctx, accuracy, cs_type, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObTextTC: {
       // TODO@hanhui texttc share with stringtc temporarily
-      ret = string_length_check(cast_ctx, accuracy, cs_type, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_string_length_check(cast_ctx, accuracy, cs_type, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObBitTC: {
-      ret = bit_length_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_bit_length_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObIntervalTC: {
-      ret = interval_scale_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
+      ret = demo_interval_scale_check(cast_ctx, accuracy, obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
     case ObRowIDTC: {
-      ret = string_length_check(cast_ctx, accuracy, cs_type,
+      ret = demo_string_length_check(cast_ctx, accuracy, cs_type,
                                 obj, buf_obj, res_obj, cast_ctx.cast_mode_);
       break;
     }
@@ -10076,7 +10081,7 @@ int obj_accuracy_check(ObDemoCastCtx &cast_ctx, const ObAccuracy &accuracy, cons
   return ret;
 }
 
-int ob_obj_accuracy_check_only(const ObAccuracy &accuracy, const ObCollationType cs_type, const ObObj &obj)
+int demo_ob_obj_accuracy_check_only(const ObAccuracy &accuracy, const ObCollationType cs_type, const ObObj &obj)
 {
   int ret = OB_SUCCESS;
   switch(obj.get_type_class()) {
@@ -10121,22 +10126,22 @@ int ob_obj_accuracy_check_only(const ObAccuracy &accuracy, const ObCollationType
         break;
       }
     case ObNumberTC:
-      ret = number_range_check_only(accuracy, obj);
+      ret = demo_number_range_check_only(accuracy, obj);
       break;
     case ObDateTimeTC:
-      ret = datetime_scale_check_only(accuracy, obj);
+      ret = demo_datetime_scale_check_only(accuracy, obj);
       break;
     case ObTimeTC:
-      ret = time_scale_check_only(accuracy, obj);
+      ret = demo_time_scale_check_only(accuracy, obj);
       break;
     case ObStringTC:
-      ret = string_length_check_only(accuracy, cs_type, obj);
+      ret = demo_string_length_check_only(accuracy, cs_type, obj);
       break;
     case ObTextTC:
-      ret = string_length_check_only(accuracy, cs_type, obj);
+      ret = demo_string_length_check_only(accuracy, cs_type, obj);
       break;
     case ObBitTC:
-      ret = bit_length_check_only(accuracy, obj);
+      ret = demo_bit_length_check_only(accuracy, obj);
       break;
     case ObIntTC:
       {
@@ -10156,7 +10161,7 @@ int ob_obj_accuracy_check_only(const ObAccuracy &accuracy, const ObCollationType
   return ret;
 }
 
-int ob_obj_to_ob_time_with_date(const ObObj& obj,
+int ob_demo_obj_to_ob_time_with_date(const ObObj& obj,
                                 const ObTimeZoneInfo* tz_info,
                                 ObTime& ob_time,
                                 const int64_t cur_ts_value,
@@ -10237,7 +10242,7 @@ int ob_obj_to_ob_time_with_date(const ObObj& obj,
   return ret;
 }
 
-int ob_obj_to_ob_time_without_date(const ObObj &obj, const ObTimeZoneInfo *tz_info, ObTime &ob_time)
+int ob_demo_obj_to_ob_time_without_date(const ObObj &obj, const ObTimeZoneInfo *tz_info, ObTime &ob_time)
 {
   int ret = OB_SUCCESS;
   switch (obj.get_type_class()) {
@@ -10559,16 +10564,16 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
     LOG_WARN("unexpected type", K(ret), K(in_obj), K(expect_type));
   } else if (lib::is_oracle_mode()) {
     /*if (CM_IS_EXPLICIT_CAST(cast_ctx.cast_mode_)) {
-      if (OB_FAIL(OBJ_CAST_ORACLE_EXPLICIT[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
+      if (OB_FAIL(DEMO_OBJ_CAST_ORACLE_EXPLICIT[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
         LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
       }
     } else {*/
-      if (OB_FAIL(OBJ_CAST_ORACLE_IMPLICIT[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
+      if (OB_FAIL(DEMO_OBJ_CAST_ORACLE_IMPLICIT[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
         LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
       }
     //}
   } else {
-    if (OB_FAIL(OB_OBJ_CAST[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
+    if (OB_FAIL(OB_Demo_OBJ_CAST[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
       LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
     }
   }
@@ -10607,7 +10612,7 @@ int ObDemoObjCaster::to_type(const ObDemoExpectType &expect_type,
       || OB_UNLIKELY(ob_is_invalid_obj_tc(in_tc))) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("unexpected expect_type", K(ret), K(expect_type), K(in_obj));
-  } else if (OB_FAIL(OB_CAST_ENUM_OR_SET[in_tc][ObSetType == out_type](expect_type, cast_ctx, in_obj, out_obj))) {
+  } else if (OB_FAIL(OB_DEMO_CAST_ENUM_OR_SET[in_tc][ObSetType == out_type](expect_type, cast_ctx, in_obj, out_obj))) {
     LOG_WARN("fail to cast to enum or set", K(ret), K(in_obj), K(expect_type));
   } else {
     LOG_DEBUG("succ to to_type", K(expect_type), K(in_obj), K(out_obj));
@@ -10619,7 +10624,7 @@ int ObDemoObjCaster::get_zero_value(const ObObjType expect_type, ObCollationType
 {
   int ret = OB_SUCCESS;
   ObDemoObjCastParams params; //构造一个空的cast_param对象，适配SET_RES_XXX宏定义
-  ObCastMode cast_mode = CM_WARN_ON_FAIL;
+  ObDemoCastMode cast_mode = CM_WARN_ON_FAIL;
   params.warning_ = 1; //将warning code设置为1，避免SET_RES_XXX宏将其当做真实的warning处理
   if (ob_is_string_tc(expect_type) || ob_is_text_tc(expect_type)) {
     zero_obj.set_string(expect_type, "");
@@ -10974,10 +10979,10 @@ int ObDemoObjCaster::can_cast_in_oracle_mode(
   int ret = OB_SUCCESS;
   ObObjTypeClass dest_tc = ob_obj_type_class(dest_type);
   ObObjTypeClass src_tc = ob_obj_type_class(src_type);
-  if (cast_not_expected == OBJ_CAST_ORACLE_IMPLICIT[src_tc][dest_tc]) {
+  if (cast_not_expected == DEMO_OBJ_CAST_ORACLE_IMPLICIT[src_tc][dest_tc]) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("not expected obj type convert", K(src_tc), K(dest_tc), K(ret));
-  } else if (cast_inconsistent_types == OBJ_CAST_ORACLE_IMPLICIT[src_tc][dest_tc]) {
+  } else if (cast_inconsistent_types == DEMO_OBJ_CAST_ORACLE_IMPLICIT[src_tc][dest_tc]) {
     ret = OB_ERR_INVALID_TYPE_FOR_OP;
     LOG_WARN("inconsistent datatypes", "expected", dest_tc, "got", src_tc, K(ret));
   } else {
@@ -12624,7 +12629,7 @@ const bool ObDemoObjCaster::INJECTION_WITH_BOTH_STRING[ObCharset::VALID_COLLATIO
   }
 };
 
-int ObDemoObjEvaluator::is_true(const ObObj &obj, ObCastMode cast_mode, bool &result)
+int ObDemoObjEvaluator::is_true(const ObObj &obj, ObDemoCastMode cast_mode, bool &result)
 {
   int ret = OB_SUCCESS;
   result = false;
@@ -12652,7 +12657,7 @@ int ObDemoObjEvaluator::is_true(const ObObj &obj, ObCastMode cast_mode, bool &re
   return ret;
 }
 
-int ObDemoObjEvaluator::is_false(const ObObj &obj, ObCastMode cast_mode, bool &b_result)
+int ObDemoObjEvaluator::is_false(const ObObj &obj, ObDemoCastMode cast_mode, bool &b_result)
 {
   int ret = OB_SUCCESS;
   b_result = true;

@@ -1135,7 +1135,12 @@ int ObLoadRowCaster::init(const ObTableSchema *table_schema,
     ob_datum_row_.storage_datums_[rowkey_column_num_ + 1].set_int(0); // fill sql_no
     collation_type_ = table_schema->get_collation_type();
     cast_allocator_.set_tenant_id(MTL_ID());
+    ObDataTypeCastParams cast_params(&tz_info_);
+    cast_ctx_ = ObDemoCastCtx(&cast_allocator_, &cast_params, CM_NONE, collation_type_);
     is_inited_ = true;
+    for (int64_t i = 0; OB_SUCC(ret) && i < column_idxs_.count(); ++i) {
+      expect_types_[i] = column_schemas_.at(i)->get_meta_type().get_type();
+    }
   }
   return ret;
 }
@@ -1195,7 +1200,6 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
     LOG_WARN("ObLoadRowCaster not init", KR(ret));
   } else {
     // LOG_INFO("MMMMM cast", K(column_idxs_));
-    const int64_t extra_col_cnt = ObMultiVersionRowkeyHelpper::get_extra_rowkey_col_cnt();
     cast_allocator_.reuse();
     for (int64_t i = 0; OB_SUCC(ret) && i < column_idxs_.count(); ++i) {
       int64_t column_idx = column_idxs_.at(i);
@@ -1208,7 +1212,7 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
         // LOG_INFO("MMMMM type class", K(src_obj.get_type()), K(src_obj.get_type_class()), K(column_idx));
         int j = i < rowkey_column_num_ ? i : i + extra_rowkey_column_num_;
         ObStorageDatum &dest_datum = ob_datum_row_.storage_datums_[j];
-        if (OB_FAIL(cast_obj_to_datum(column_schema, src_obj, dest_datum))) {
+        if (OB_FAIL(cast_obj_to_type_datum(column_schema, expect_types_[i], src_obj, dest_datum))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(src_obj));
         }
       }
@@ -1255,14 +1259,47 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
   return ret;
 }
 
+int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
+                                            const ObObjType &expect_type,
+                                            const ObObj &obj,
+                                            blocksstable::ObStorageDatum &datum)
+{
+  int ret = OB_SUCCESS;
+  // ObDataTypeCastParams cast_params(&tz_info_);
+  // ObCastCtx cast_ctx(&cast_allocator_, &cast_params, CM_NONE, collation_type_);
+  // const ObObjType expect_type = column_schema->get_meta_type().get_type();
+  ObObj casted_obj;
+  if (obj.is_null()) {
+    casted_obj.set_null();
+  } else if (is_oracle_mode() && (obj.is_null_oracle() || 0 == obj.get_val_len())) {
+    casted_obj.set_null();
+  } else if (is_mysql_mode() && 0 == obj.get_val_len() && !ob_is_string_tc(expect_type)) {
+    ObObj zero_obj;
+    zero_obj.set_int(0);
+    if (OB_FAIL(ObDemoObjCaster::to_type(expect_type, cast_ctx_, zero_obj, casted_obj))) {
+      LOG_WARN("fail to do to type", KR(ret), K(zero_obj), K(expect_type));
+    }
+  } else {
+    if (OB_FAIL(ObDemoObjCaster::to_type(expect_type, cast_ctx_, obj, casted_obj))) {
+      LOG_WARN("fail to do to type", KR(ret), K(obj), K(expect_type));
+    }
+  }
+  if (OB_SUCC(ret)) {
+    if (OB_FAIL(datum.from_obj_enhance(casted_obj))) {
+      LOG_WARN("fail to from obj enhance", KR(ret), K(casted_obj));
+    }
+  }
+  return ret;
+}
+
 // datum is allocated by cast_allocator_, if we don't reuse it, then it will 
 // be in memory (i guess)
 int ObLoadRowCaster::cast_obj_to_datum(const ObColumnSchemaV2 *column_schema, const ObObj &obj,
                                        ObStorageDatum &datum)
 {
   int ret = OB_SUCCESS;
-  ObDataTypeCastParams cast_params(&tz_info_);
-  ObCastCtx cast_ctx(&cast_allocator_, &cast_params, CM_NONE, collation_type_);
+  // ObDataTypeCastParams cast_params(&tz_info_);
+  // ObCastCtx cast_ctx(&cast_allocator_, &cast_params, CM_NONE, collation_type_);
   const ObObjType expect_type = column_schema->get_meta_type().get_type();
   ObObj casted_obj;
   if (obj.is_null()) {
@@ -1272,11 +1309,11 @@ int ObLoadRowCaster::cast_obj_to_datum(const ObColumnSchemaV2 *column_schema, co
   } else if (is_mysql_mode() && 0 == obj.get_val_len() && !ob_is_string_tc(expect_type)) {
     ObObj zero_obj;
     zero_obj.set_int(0);
-    if (OB_FAIL(ObObjCaster::to_type(expect_type, cast_ctx, zero_obj, casted_obj))) {
+    if (OB_FAIL(ObDemoObjCaster::to_type(expect_type, cast_ctx_, zero_obj, casted_obj))) {
       LOG_WARN("fail to do to type", KR(ret), K(zero_obj), K(expect_type));
     }
   } else {
-    if (OB_FAIL(ObObjCaster::to_type(expect_type, cast_ctx, obj, casted_obj))) {
+    if (OB_FAIL(ObDemoObjCaster::to_type(expect_type, cast_ctx_, obj, casted_obj))) {
       LOG_WARN("fail to do to type", KR(ret), K(obj), K(expect_type));
     }
   }
@@ -1595,26 +1632,11 @@ int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_sche
 int ObLoadSSTableWriter::append_datum_row(int idx, const blocksstable::ObDatumRow &datum_row)
 {
   int ret = OB_SUCCESS;
-  if (IS_NOT_INIT) {
-    ret = OB_NOT_INIT;
-    LOG_WARN("ObLoadSSTableWriter not init", KR(ret), KP(this));
-  } else if (OB_UNLIKELY(is_closed_)) {
-    ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected closed external sort", KR(ret));
-  } else if (OB_UNLIKELY(!datum_row.is_valid() || datum_row.count_ != column_count_ + extra_rowkey_column_num_)) {
-    ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("MMMMM invalid args", KR(ret), K(datum_row), K(column_count_));
-  } else {
-    /*
-    MEMCPY(datum_rows_[idx].storage_datums_, datum_row.datums_, rowkey_column_num_ * sizeof(ObStorageDatum *));
-    MEMCPY(datum_rows_[idx].storage_datums_ + rowkey_column_num_ + extra_rowkey_column_num_,
-      datum_row.datums_ + rowkey_column_num_, 
-      (column_count_ - rowkey_column_num_) * sizeof(ObStorageDatum *));
-    */
-    if (OB_FAIL(macro_block_writers_[idx].append_row(datum_row))) {
-      LOG_WARN("MMMMM fail to append row", KR(ret));
-    }
+
+  if (OB_FAIL(macro_block_writers_[idx].append_row(datum_row))) {
+    LOG_WARN("MMMMM fail to append row", KR(ret));
   }
+
   return ret;
 }
 

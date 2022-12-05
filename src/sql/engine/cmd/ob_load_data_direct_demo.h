@@ -5,7 +5,7 @@
 #include "lib/thread/ob_async_task_queue.h"
 #include "lib/thread/ob_work_queue.h"
 #include "lib/thread/threads.h"
-// #include "demo_obj_cast.h"
+#include "demo_obj_cast.h"
 #include "sql/engine/cmd/ob_load_data_impl.h"
 #include "sql/engine/cmd/ob_load_data_parser.h"
 #include "storage/blocksstable/ob_index_block_builder.h"
@@ -193,6 +193,10 @@ namespace oceanbase
           const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int cast_obj_to_datum(const share::schema::ObColumnSchemaV2 *column_schema,
                             const common::ObObj &obj, blocksstable::ObStorageDatum &datum);
+      int cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
+                                            const ObObjType &expect_type,
+                                            const ObObj &obj,
+                                            blocksstable::ObStorageDatum &datum);
     private:
       common::ObArray<const share::schema::ObColumnSchemaV2 *> column_schemas_;
       common::ObArray<int64_t> column_idxs_; // Mapping of store columns to source data columns
@@ -205,6 +209,8 @@ namespace oceanbase
       bool is_inited_;
       int64_t extra_rowkey_column_num_;
       int64_t rowkey_column_num_;
+      ObDemoCastCtx cast_ctx_;
+      ObObjType expect_types_[20];
     };
 
     class ObLoadExternalSort

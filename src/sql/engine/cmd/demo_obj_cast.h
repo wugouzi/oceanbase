@@ -60,7 +60,7 @@ namespace common
 #define CM_INSERT_UPDATE_SCOPE           (1ULL << 62)
 #define CM_INTERNAL_CALL                 (1ULL << 63)
 
-typedef uint64_t ObCastMode;
+typedef uint64_t ObDemoCastMode;
 
 #define CM_IS_WARN_ON_FAIL(mode)              ((CM_WARN_ON_FAIL & (mode)) != 0)
 #define CM_IS_ERROR_ON_FAIL(mode)             (!CM_IS_WARN_ON_FAIL(mode))
@@ -122,7 +122,7 @@ struct ObDemoObjCastParams
   }
 
   ObDemoObjCastParams(ObIAllocator *allocator_v2, const ObDataTypeCastParams *dtc_params,
-                  ObCastMode cast_mode, ObCollationType dest_collation,
+                  ObDemoCastMode cast_mode, ObCollationType dest_collation,
                   ObAccuracy *res_accuracy = NULL)
     : allocator_(NULL),
       allocator_v2_(allocator_v2),
@@ -144,7 +144,7 @@ struct ObDemoObjCastParams
   }
 
   ObDemoObjCastParams(ObIAllocator *allocator_v2, const ObDataTypeCastParams *dtc_params,
-                  int64_t cur_time, ObCastMode cast_mode,
+                  int64_t cur_time, ObDemoCastMode cast_mode,
                   ObCollationType dest_collation,
                   const ObZerofillInfo *zf_info = NULL,
                   ObAccuracy *res_accuracy = NULL)
@@ -206,7 +206,7 @@ struct ObDemoObjCastParams
   IAllocator *allocator_;
   ObIAllocator *allocator_v2_;
   int64_t cur_time_;
-  ObCastMode cast_mode_;
+  ObDemoCastMode cast_mode_;
   int warning_;
   const ObZerofillInfo *zf_info_;
   ObCollationType dest_collation_;//seems like a global collection for one statement, not for each column
@@ -260,32 +260,32 @@ private:
 };
 
 
-typedef int (*ObObjCastFunc)(ObObjType expect_type, ObDemoObjCastParams &params,
-                             const ObObj &in_obj, ObObj &out_obj, const ObCastMode cast_mode);
+typedef int (*ObDemoObjCastFunc)(ObObjType expect_type, ObDemoObjCastParams &params,
+                             const ObObj &in_obj, ObObj &out_obj, const ObDemoCastMode cast_mode);
 
-typedef int (*ObCastEnumOrSetFunc)(const ObDemoExpectType &expect_type, ObDemoObjCastParams &params, const ObObj &in_obj, ObObj &out_obj);
+typedef int (*ObDemoCastEnumOrSetFunc)(const ObDemoExpectType &expect_type, ObDemoObjCastParams &params, const ObObj &in_obj, ObObj &out_obj);
 
 
 // whether the cast is supported
-bool cast_supported(const ObObjType orig_type, const ObCollationType orig_cs_type,
+bool demo_cast_supported(const ObObjType orig_type, const ObCollationType orig_cs_type,
                     const ObObjType expect_type, const ObCollationType expect_cs_type);
-int ob_obj_to_ob_time_with_date(const ObObj& obj, const ObTimeZoneInfo* tz_info, ObTime& ob_time,
+int ob_demo_obj_to_ob_time_with_date(const ObObj& obj, const ObTimeZoneInfo* tz_info, ObTime& ob_time,
                                 const int64_t cur_ts_value, bool is_dayofmonth = false,
                                 const ObDateSqlMode date_sql_mode = 0);
-int ob_obj_to_ob_time_without_date(const ObObj &obj, const ObTimeZoneInfo *tz_info, ObTime &ob_time);
+int ob_demo_obj_to_ob_time_without_date(const ObObj &obj, const ObTimeZoneInfo *tz_info, ObTime &ob_time);
 
 
 // CM_STRING_INTEGER_TRUNC only affect string to [unsigned] integer cast.
 // ignore CM_STRING_INTEGER_TRUNC if not string to integer cast (is_str_integer_cast is false)
 // e.g:
 //  cast number to int will invoke this functon, but it's not string to integer cast.
-int common_string_unsigned_integer(const ObCastMode &cast_mode,
+int demo_common_string_unsigned_integer(const ObDemoCastMode &cast_mode,
                                  const ObObjType &in_type,
                                  const ObCollationType &in_cs_type,
                                  const ObString &in_str,
                                  const bool is_str_integer_cast,
                                  uint64_t &out_val);
-int common_string_integer(const ObCastMode &cast_mode,
+int demo_common_string_integer(const ObDemoCastMode &cast_mode,
                                  const ObObjType &in_type,
                                  const ObCollationType &in_cs_type,
                                  const ObString &in_str,
@@ -312,12 +312,12 @@ private:
 //==============================
 
 
-int obj_collation_check(const bool is_strict_mode, const ObCollationType cs_type, ObObj &obj);
-int obj_accuracy_check(ObDemoCastCtx &cast_ctx, const ObAccuracy &accuracy, const ObCollationType cs_type,
+int demo_obj_collation_check(const bool is_strict_mode, const ObCollationType cs_type, ObObj &obj);
+int demo_obj_accuracy_check(ObDemoCastCtx &cast_ctx, const ObAccuracy &accuracy, const ObCollationType cs_type,
                        const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj);
-int get_bit_len(const ObString &str, int32_t &bit_len);
-int get_bit_len(uint64_t value, int32_t &bit_len);
-int ob_obj_accuracy_check_only(const ObAccuracy &accuracy, const ObCollationType cs_type, const ObObj &obj);
+int demo_get_bit_len(const ObString &str, int32_t &bit_len);
+int demo_get_bit_len(uint64_t value, int32_t &bit_len);
+int demo_ob_obj_accuracy_check_only(const ObAccuracy &accuracy, const ObCollationType cs_type, const ObObj &obj);
 class ObDemoObjCaster
 {
 public:
@@ -436,20 +436,20 @@ public:
   {
     return ObDemoObjEvaluator::is_false(obj, CM_WARN_ON_FAIL, result);
   }
-  static int is_true(const ObObj &obj, ObCastMode cast_mode, bool &result);
+  static int is_true(const ObObj &obj, ObDemoCastMode cast_mode, bool &result);
   // is_false() 不是 !is_true()，因为布尔表达式的计算结果有三种：true，false，unknown
-  static int is_false(const ObObj &obj, ObCastMode cast_mode, bool &result);
+  static int is_false(const ObObj &obj, ObDemoCastMode cast_mode, bool &result);
 };
 
-int number_range_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+int demo_number_range_check(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
                        const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj,
-                       const ObCastMode cast_mode);
-int number_range_check_for_oracle(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+                       const ObDemoCastMode cast_mode);
+int demo_number_range_check_for_oracle(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
                        const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj,
-                       const ObCastMode cast_mode);
-int number_range_check_v2(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
+                       const ObDemoCastMode cast_mode);
+int demo_number_range_check_v2(ObDemoObjCastParams &params, const ObAccuracy &accuracy,
                           const ObObj &obj, ObObj &buf_obj, const ObObj *&res_obj,
-                          const ObCastMode cast_mode);
+                          const ObDemoCastMode cast_mode);
 
 class ObDemoNumberConstValue
 {
