@@ -4300,6 +4300,7 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
 
   ObPrecision res_precision = -1;
   
+  /*
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
                   && ObTextTC != in.get_type_class())
                   || ObIntTC != ob_obj_type_class(expect_type))) {
@@ -4310,7 +4311,7 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
     ret = OB_NOT_SUPPORTED;
     LOG_ERROR("invalid use of blob type", K(ret), K(in), K(expect_type));
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "Cast to blob type");
-  } else if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
+  } else */if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
       LOG_WARN("convert_string_collation", K(ret));
   } else {
     const ObString &str = utf8_string;
