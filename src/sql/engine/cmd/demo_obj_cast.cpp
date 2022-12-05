@@ -4457,6 +4457,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
   ObString utf8_string;
 
   
+  /*
   if (OB_ISNULL(params.allocator_v2_)) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("invalid allocator", K(ret));
@@ -4470,7 +4471,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
     ret = OB_NOT_SUPPORTED;
     LOG_ERROR("invalid use of blob type", K(ret), K(in), K(expect_type));
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "Cast to blob type");
-  } else {
+  } else {*/
     number::ObNumber value;
     if (ObHexStringType == in.get_type()) {
       ret = value.from(hex_to_uint64(in.get_string()), params);
@@ -4513,7 +4514,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
     } else {
       out.set_number(expect_type, value);
     }
-  }
+  // }
   SET_RES_ACCURACY(res_precision, res_scale, DEFAULT_LENGTH_FOR_NUMERIC);
   return ret;
 }
