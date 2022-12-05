@@ -4676,13 +4676,15 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
   } else if (ObTextTC == in.get_type_class() && in.is_outrow()) {
     ret = OB_NOT_SUPPORTED;
     LOG_WARN("invalid cast of out row lob obj", K(ret), K(in), K(out.get_meta()), K(expect_type), K(cast_mode));
-  } else */if (lib::is_oracle_mode()
+  } else if (lib::is_oracle_mode()
              && in.is_clob()
              && (0 == in.get_string().length())
              && !ob_is_clob(expect_type, params.expect_obj_collation_)) {
     // oracle 模式下的 empty_clob 被 cast 成其他类型时结果是 NULL
     out.set_null();
+    LOG_INFO("MMMMM NULL");
   } else {
+    
     ObString str;
     // 考虑不同字符集的情况
     if (OB_FAIL(in.get_string(str))) {
@@ -4693,6 +4695,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
         && (ObCharset::charset_type_by_coll(in.get_collation_type())
             != ObCharset::charset_type_by_coll(params.dest_collation_))) {
       char *buf = NULL;
+      LOG_INFO("MMMMM string string 2");
       // buf_len 和编码长度有关，gbk 使用 2 个字节编码一个字符，utf8mb4 使用 1 到 4 个字节
       // CharConvertFactorNum 是申请的内存大小的倍数
       const int32_t CharConvertFactorNum = 2;
@@ -4701,6 +4704,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
       if (OB_UNLIKELY(NULL == (buf = static_cast<char*>(params.alloc(buf_len))))) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
         LOG_ERROR("alloc memory failed", K(ret));
+      // todo: maybe we don't need this
       } else if (OB_FAIL(ObCharset::charset_convert(in.get_collation_type(),
                                                     str.ptr(),
                                                     str.length(),
@@ -4755,7 +4759,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
           out.set_collation_type(params.dest_collation_);
         }
       }
-    } else {
+    } else {*/
       // When convert blob to other charset, need to align to mbminlen of destination charset
       // by add '\0' prefix in mysql mode. (see mysql String::copy)
       int64_t align_offset = 0;
@@ -4766,8 +4770,16 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
           align_offset = cs->mbminlen - in.get_string_len() % cs->mbminlen;
         }
       }
+      if (OB_FAIL(demo_check_convert_string(expect_type, params, in, out))) {
+        LOG_WARN("MMMMM failed to check_and_convert_string", K(ret), K(in), K(expect_type));
+      } else {
+        if (ObTextTC == ob_obj_type_class(expect_type)) {
+          out.set_inrow();
+        }
+      }
+      /*
       if (OB_FAIL(demo_check_convert_string(expect_type, params, in, tmp_out))) {
-        LOG_WARN("failed to check_and_convert_string", K(ret), K(in), K(expect_type));
+        LOG_WARN("MMMMM failed to check_and_convert_string", K(ret), K(in), K(expect_type));
       } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(),
                                      out, align_offset))) {
       } else {
@@ -4777,9 +4789,9 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
         if (ObTextTC == ob_obj_type_class(expect_type)) {
           out.set_inrow();
         }
-      }
-    }
-  }
+      }*/
+  //  }
+  // }
   if (OB_SUCC(ret)) {
     res_length = static_cast<ObLength>(out.get_string_len());
   }
@@ -10568,11 +10580,11 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
     expect_cs_type = cast_ctx.dest_collation_;
   } else {
     cast_ctx.dest_collation_ = expect_cs_type;
-  }*/
+  }
   if (OB_UNLIKELY(ob_is_invalid_obj_tc(in_tc) || ob_is_invalid_obj_tc(out_tc))) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("unexpected type", K(ret), K(in_obj), K(expect_type));
-  } else if (lib::is_oracle_mode()) {
+  } else */if (lib::is_oracle_mode()) {
     /*if (CM_IS_EXPLICIT_CAST(cast_ctx.cast_mode_)) {
       if (OB_FAIL(DEMO_OBJ_CAST_ORACLE_EXPLICIT[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
         LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
