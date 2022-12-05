@@ -1259,6 +1259,7 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
   return ret;
 }
 
+// only use type 3 and 4
 int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
                                             const ObObjType &expect_type,
                                             const ObObj &obj,

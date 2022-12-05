@@ -4299,7 +4299,7 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
   ObString utf8_string;
 
   ObPrecision res_precision = -1;
-  /*
+  
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
                   && ObTextTC != in.get_type_class())
                   || ObIntTC != ob_obj_type_class(expect_type))) {
@@ -4310,7 +4310,7 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
     ret = OB_NOT_SUPPORTED;
     LOG_ERROR("invalid use of blob type", K(ret), K(in), K(expect_type));
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "Cast to blob type");
-  } else */if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
+  } else if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
       LOG_WARN("convert_string_collation", K(ret));
   } else {
     const ObString &str = utf8_string;
@@ -4455,7 +4455,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
   ObScale res_scale = NUMBER_SCALE_UNKNOWN_YET;
   ObString utf8_string;
 
-  /*
+  
   if (OB_ISNULL(params.allocator_v2_)) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("invalid allocator", K(ret));
@@ -4469,7 +4469,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
     ret = OB_NOT_SUPPORTED;
     LOG_ERROR("invalid use of blob type", K(ret), K(in), K(expect_type));
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "Cast to blob type");
-  } else {*/
+  } else {
     number::ObNumber value;
     if (ObHexStringType == in.get_type()) {
       ret = value.from(hex_to_uint64(in.get_string()), params);
@@ -4504,7 +4504,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
           LOG_WARN("copy min number failed", K(ret), K(tmp_ret), KPC(bound_num));
         }
       }
-    // }
+    }
     if (CAST_FAIL(ret)) {
       LOG_WARN("string_number failed", K(ret), K(in), K(expect_type), K(cast_mode));
     } else if (ObUNumberType == expect_type && CAST_FAIL(numeric_negative_check(value))) {
@@ -4574,7 +4574,7 @@ static int string_date(const ObObjType expect_type, ObDemoObjCastParams &params,
   ObDateSqlMode date_sql_mode;
   date_sql_mode.allow_invalid_dates_ = CM_IS_ALLOW_INVALID_DATES(cast_mode);
   date_sql_mode.no_zero_date_ = CM_IS_NO_ZERO_DATE(cast_mode);
-  /*
+  
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
                   && ObTextTC != in.get_type_class())
                   || ObDateTC != ob_obj_type_class(expect_type))) {
@@ -4585,12 +4585,12 @@ static int string_date(const ObObjType expect_type, ObDemoObjCastParams &params,
     ret = OB_NOT_SUPPORTED;
     LOG_ERROR("invalid use of blob type", K(ret), K(in), K(expect_type));
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "Cast to blob type");
-  } else */if (CAST_FAIL(ObTimeConverter::str_to_date(in.get_string(), value, date_sql_mode))) {
-  } /*else if (CM_IS_ERROR_ON_SCALE_OVER(cast_mode) && value == ObTimeConverter::ZERO_DATE) {
+  } else if (CAST_FAIL(ObTimeConverter::str_to_date(in.get_string(), value, date_sql_mode))) {
+  } else if (CM_IS_ERROR_ON_SCALE_OVER(cast_mode) && value == ObTimeConverter::ZERO_DATE) {
     // check zero date for scale over mode
     ret = OB_INVALID_DATE_VALUE;
     LOG_USER_ERROR(OB_INVALID_DATE_VALUE, in.get_string().length(), in.get_string().ptr(), "");
-  } */else {
+  } else {
     SET_RES_DATE(out);
   }
   SET_RES_ACCURACY(DEFAULT_PRECISION_FOR_TEMPORAL, DEFAULT_SCALE_FOR_DATE, DEFAULT_LENGTH_FOR_TEMPORAL);
@@ -4655,7 +4655,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
   int ret = OB_SUCCESS;
   ObLength res_length = -1;
   ObObj tmp_out;
-  /*
+  
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
                    && ObTextTC != in.get_type_class())
       || OB_UNLIKELY(ObStringTC != ob_obj_type_class(expect_type)
@@ -4678,7 +4678,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
              && !ob_is_clob(expect_type, params.expect_obj_collation_)) {
     // oracle 模式下的 empty_clob 被 cast 成其他类型时结果是 NULL
     out.set_null();
-  } else {*/
+  } else {
     ObString str;
     // 考虑不同字符集的情况
     if (OB_FAIL(in.get_string(str))) {
@@ -4761,10 +4761,10 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
         if (cs->mbminlen > 0 && in.get_string_len() % cs->mbminlen != 0) {
           align_offset = cs->mbminlen - in.get_string_len() % cs->mbminlen;
         }
-      }/*
+      }
       if (OB_FAIL(demo_check_convert_string(expect_type, params, in, tmp_out))) {
         LOG_WARN("failed to check_and_convert_string", K(ret), K(in), K(expect_type));
-      } else */if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(),
+      } else if (OB_FAIL(copy_string(params, expect_type, tmp_out.get_string(),
                                      out, align_offset))) {
       } else {
         if (CS_TYPE_INVALID != tmp_out.get_collation_type()) {
@@ -4775,7 +4775,7 @@ static int string_string(const ObObjType expect_type, ObDemoObjCastParams &param
         }
       }
     }
-  //}
+  }
   if (OB_SUCC(ret)) {
     res_length = static_cast<ObLength>(out.get_string_len());
   }
@@ -10312,6 +10312,7 @@ int ob_demo_obj_to_ob_time_without_date(const ObObj &obj, const ObTimeZoneInfo *
 int ObDemoObjCaster::to_type(const ObObjType expect_type, ObDemoCastCtx &cast_ctx,
                          const ObObj &in_obj, ObObj &buf_obj, const ObObj *&res_obj)
 {
+  // LOG_INFO("MMMMM type 1");
   int ret = OB_SUCCESS;
   res_obj = NULL;
   cast_ctx.warning_ = OB_SUCCESS;
@@ -10393,6 +10394,7 @@ int ObDemoObjCaster::to_datetime(const ObObjType expect_type, ObDemoCastCtx &cas
 int ObDemoObjCaster::to_type(const ObDemoExpectType &expect_type, ObDemoCastCtx &cast_ctx,
                          const ObObj &in_obj, ObObj &buf_obj, const ObObj *&res_obj)
 {
+  // LOG_INFO("MMMMM type 2");
   int ret = OB_SUCCESS;
   res_obj = NULL;
   cast_ctx.warning_ = OB_SUCCESS;
@@ -10422,9 +10424,12 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
                          const ObObj &in_obj,
                          ObObj &out_obj)
 {
+  // LOG_INFO("MMMMM type 3");
   int ret = OB_SUCCESS;
+  
   ObObjType in_type = in_obj.get_type();
   bool is_string = ob_is_string_type(in_type) || ob_is_lob_locator(in_type);
+  /*
   if (OB_UNLIKELY((expect_type == in_type && (!is_string))
       || ObNullType == in_type)) {
     out_obj = in_obj;
@@ -10436,7 +10441,7 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
     // fast path for char/varchar string_string cast.
     out_obj = in_obj;
     const_cast<ObObjMeta &>(out_obj.get_meta()).set_type_simple(expect_type);
-  } else {
+  } else {*/
     if (lib::is_oracle_mode() && in_obj.is_character_type()) {
       //防御措施：转成oracle的string类型，
       //字符集是由两个NLS变量决定的，这两个值通过ObCastCtx传入
@@ -10453,7 +10458,7 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
                   cast_ctx,
                   in_obj,
                   out_obj);
-  }
+  // }
   return ret;
 }
 
@@ -10543,6 +10548,7 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
                          const ObObj &in_obj,
                          ObObj &out_obj)
 {
+  // LOG_INFO("MMMMM type 4");
   int ret = OB_SUCCESS;
   const ObObjTypeClass in_tc = in_obj.get_type_class();
   const ObObjTypeClass out_tc = ob_obj_type_class(expect_type);
@@ -10605,6 +10611,7 @@ int ObDemoObjCaster::to_type(const ObDemoExpectType &expect_type,
                          const ObObj &in_obj,
                          ObObj &out_obj)
 {
+  // LOG_INFO("MMMMM type 5");
   int ret = OB_SUCCESS;
   const ObObjTypeClass in_tc = in_obj.get_type_class();
   const ObObjType out_type = expect_type.get_type();
