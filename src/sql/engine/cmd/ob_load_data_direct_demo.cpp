@@ -1110,6 +1110,9 @@ int ObLoadRowCaster::init(const ObTableSchema *table_schema,
                           const ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list)
 {
   int ret = OB_SUCCESS;
+  extra_rowkey_column_num_ = ObMultiVersionRowkeyHelpper::get_extra_rowkey_col_cnt();
+  rowkey_column_num_ = table_schema->get_rowkey_column_num();
+  column_count_ = table_schema->get_column_count();
   if (IS_INIT) {
     ret = OB_INIT_TWICE;
     LOG_WARN("ObLoadRowCaster init twice", KR(ret));
@@ -1120,10 +1123,16 @@ int ObLoadRowCaster::init(const ObTableSchema *table_schema,
     LOG_WARN("fail to get tenant time zone", KR(ret));
   } else if (OB_FAIL(init_column_schemas_and_idxs(table_schema, field_or_var_list))) {
     LOG_WARN("fail to init column schemas and idxs", KR(ret));
-  } else if (OB_FAIL(datum_row_.init(table_schema->get_column_count()))) {
+  } else if (OB_FAIL(datum_row_.init(column_count_))) {
     LOG_WARN("fail to init datum row", KR(ret));
-  } else {
-    column_count_ = table_schema->get_column_count();
+  } else if (OB_FAIL(ob_datum_row_.init(column_count_ + extra_rowkey_column_num_))) {
+    LOG_INFO("MMMMM extra fail", KR(ret));
+  }else {
+    LOG_INFO("MMMMM caster", K(extra_rowkey_column_num_), K(rowkey_column_num_), K(column_count_));
+    ob_datum_row_.row_flag_.set_flag(ObDmlFlag::DF_INSERT);
+    ob_datum_row_.mvcc_row_flag_.set_last_multi_version_row(true);
+    ob_datum_row_.storage_datums_[rowkey_column_num_].set_int(-1); // fill trans_version
+    ob_datum_row_.storage_datums_[rowkey_column_num_ + 1].set_int(0); // fill sql_no
     collation_type_ = table_schema->get_collation_type();
     cast_allocator_.set_tenant_id(MTL_ID());
     is_inited_ = true;
@@ -1177,6 +1186,42 @@ int ObLoadRowCaster::init_column_schemas_and_idxs(
   return ret;
 }
 
+int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row)
+{
+  int ret = OB_SUCCESS;
+  // LOG_INFO("MMMMM cast row");
+  if (IS_NOT_INIT) {
+    ret = OB_NOT_INIT;
+    LOG_WARN("ObLoadRowCaster not init", KR(ret));
+  } else {
+    // LOG_INFO("MMMMM cast", K(column_idxs_));
+    const int64_t extra_col_cnt = ObMultiVersionRowkeyHelpper::get_extra_rowkey_col_cnt();
+    cast_allocator_.reuse();
+    for (int64_t i = 0; OB_SUCC(ret) && i < column_idxs_.count(); ++i) {
+      int64_t column_idx = column_idxs_.at(i);
+      if (OB_UNLIKELY(column_idx < 0 || column_idx >= new_row.count_)) {
+        ret = OB_ERR_UNEXPECTED;
+        LOG_WARN("unexpected column idx", KR(ret), K(column_idx), K(new_row.count_));
+      } else {
+        const ObColumnSchemaV2 *column_schema = column_schemas_.at(i);
+        const ObObj &src_obj = new_row.cells_[column_idx];
+        // LOG_INFO("MMMMM type class", K(src_obj.get_type()), K(src_obj.get_type_class()), K(column_idx));
+        int j = i < rowkey_column_num_ ? i : i + extra_rowkey_column_num_;
+        ObStorageDatum &dest_datum = ob_datum_row_.storage_datums_[j];
+        if (OB_FAIL(cast_obj_to_datum(column_schema, src_obj, dest_datum))) {
+          LOG_WARN("fail to cast obj to datum", KR(ret), K(src_obj));
+        }
+      }
+    }
+    if (OB_SUCC(ret)) {
+      datum_row = &ob_datum_row_;
+    }
+  }
+  return ret;
+}
+
+
+
 int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRow *&datum_row)
 {
   int ret = OB_SUCCESS;
@@ -1185,6 +1230,7 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
     ret = OB_NOT_INIT;
     LOG_WARN("ObLoadRowCaster not init", KR(ret));
   } else {
+    LOG_INFO("MMMMM cast", K(column_idxs_));
     const int64_t extra_col_cnt = ObMultiVersionRowkeyHelpper::get_extra_rowkey_col_cnt();
     cast_allocator_.reuse();
     for (int64_t i = 0; OB_SUCC(ret) && i < column_idxs_.count(); ++i) {
@@ -1209,6 +1255,8 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
   return ret;
 }
 
+// datum is allocated by cast_allocator_, if we don't reuse it, then it will 
+// be in memory (i guess)
 int ObLoadRowCaster::cast_obj_to_datum(const ObColumnSchemaV2 *column_schema, const ObObj &obj,
                                        ObStorageDatum &datum)
 {
@@ -1427,6 +1475,7 @@ int ObLoadSSTableWriter::init(const ObTableSchema *table_schema)
     rowkey_column_num_ = table_schema->get_rowkey_column_num();
     extra_rowkey_column_num_ = ObMultiVersionRowkeyHelpper::get_extra_rowkey_col_cnt();
     column_count_ = table_schema->get_column_count();
+    LOG_INFO("MMMMM writer", K(rowkey_column_num_), K(extra_rowkey_column_num_));
     ObLocationService *location_service = nullptr;
     bool is_cache_hit = false;
     ObLSService *ls_service = nullptr;
@@ -1539,6 +1588,32 @@ int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_sche
   data_seq.set_parallel_degree(idx);
   if (OB_FAIL(macro_block_writers_[idx].open(data_store_desc_, data_seq))) {
     LOG_WARN("MMMMM fail to init macro block writer", KR(ret), K(data_store_desc_), K(data_seq));
+  }
+  return ret;
+}
+
+int ObLoadSSTableWriter::append_datum_row(int idx, const blocksstable::ObDatumRow &datum_row)
+{
+  int ret = OB_SUCCESS;
+  if (IS_NOT_INIT) {
+    ret = OB_NOT_INIT;
+    LOG_WARN("ObLoadSSTableWriter not init", KR(ret), KP(this));
+  } else if (OB_UNLIKELY(is_closed_)) {
+    ret = OB_ERR_UNEXPECTED;
+    LOG_WARN("unexpected closed external sort", KR(ret));
+  } else if (OB_UNLIKELY(!datum_row.is_valid() || datum_row.count_ != column_count_ + extra_rowkey_column_num_)) {
+    ret = OB_INVALID_ARGUMENT;
+    LOG_WARN("MMMMM invalid args", KR(ret), K(datum_row), K(column_count_));
+  } else {
+    /*
+    MEMCPY(datum_rows_[idx].storage_datums_, datum_row.datums_, rowkey_column_num_ * sizeof(ObStorageDatum *));
+    MEMCPY(datum_rows_[idx].storage_datums_ + rowkey_column_num_ + extra_rowkey_column_num_,
+      datum_row.datums_ + rowkey_column_num_, 
+      (column_count_ - rowkey_column_num_) * sizeof(ObStorageDatum *));
+    */
+    if (OB_FAIL(macro_block_writers_[idx].append_row(datum_row))) {
+      LOG_WARN("MMMMM fail to append row", KR(ret));
+    }
   }
   return ret;
 }
@@ -2088,6 +2163,7 @@ void ObReadSortWriteThread::run(int64_t idx)
 
   ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
+  const blocksstable::ObDatumRow *ob_datum_row = nullptr;
   ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
   ObLoadRowCaster &row_caster = row_casters_[idx];
   ObLoadDataBuffer &buffer = buffers_[idx];
@@ -2145,11 +2221,18 @@ void ObReadSortWriteThread::run(int64_t idx)
       ret = OB_SUCCESS;
     }
     for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
+      if (OB_FAIL(row_caster.get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
+        LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
+      } else if (OB_FAIL(sstable_writer_.append_datum_row(idx, *ob_datum_row))) {
+        LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
+      }
+      /*
       if (OB_FAIL(row_caster.get_casted_row(*item_list[i].row, datum_row))) {
         LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
       } else if (OB_FAIL(sstable_writer_.append_row(idx, *datum_row))) {
         LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
       }
+      */
     }
     LOG_INFO("MMMMM write done", KR(ret), K(idx));
     // data of new_row is still in mmap

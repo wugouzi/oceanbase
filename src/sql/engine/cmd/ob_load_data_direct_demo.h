@@ -5,12 +5,14 @@
 #include "lib/thread/ob_async_task_queue.h"
 #include "lib/thread/ob_work_queue.h"
 #include "lib/thread/threads.h"
+// #include "demo_obj_cast.h"
 #include "sql/engine/cmd/ob_load_data_impl.h"
 #include "sql/engine/cmd/ob_load_data_parser.h"
 #include "storage/blocksstable/ob_index_block_builder.h"
 // #include "storage/ob_parallel_external_sort.h"
 #include "sql/engine/cmd/demo_sort.h"
 #include "storage/tx_storage/ob_ls_handle.h"
+#include "demo_macro_block_writer.h"
 #include "stdio.h"
 #include <future>
 #include <mutex>
@@ -184,6 +186,7 @@ namespace oceanbase
       int init(const share::schema::ObTableSchema *table_schema,
                const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int get_casted_row(const common::ObNewRow &new_row, const ObLoadDatumRow *&datum_row);
+      int get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
     private:
       int init_column_schemas_and_idxs(
           const share::schema::ObTableSchema *table_schema,
@@ -196,9 +199,12 @@ namespace oceanbase
       int64_t column_count_;
       common::ObCollationType collation_type_;
       ObLoadDatumRow datum_row_;
+      blocksstable::ObDatumRow ob_datum_row_;
       common::ObArenaAllocator cast_allocator_;
       common::ObTimeZoneInfo tz_info_;
       bool is_inited_;
+      int64_t extra_rowkey_column_num_;
+      int64_t rowkey_column_num_;
     };
 
     class ObLoadExternalSort
@@ -239,6 +245,7 @@ namespace oceanbase
       int init(const share::schema::ObTableSchema *table_schema);
       int append_row(const ObLoadDatumRow &datum_row);
       int append_row(int idx, const ObLoadDatumRow &datum_row);
+      int append_datum_row(int idx, const blocksstable::ObDatumRow &datum_row);
       int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
       int close_macro_blocks();
       int close();
@@ -257,10 +264,10 @@ namespace oceanbase
       storage::ObITable::TableKey table_key_;
       blocksstable::ObSSTableIndexBuilder sstable_index_builder_;
       blocksstable::ObDataStoreDesc data_store_desc_;
-      blocksstable::ObMacroBlockWriter macro_block_writer_;
+      blocksstable::ObDemoMacroBlockWriter macro_block_writer_;
       blocksstable::ObDatumRow datum_row_;
       blocksstable::ObDatumRow datum_rows_[200];
-      blocksstable::ObMacroBlockWriter macro_block_writers_[200];
+      blocksstable::ObDemoMacroBlockWriter macro_block_writers_[200];
       bool is_closed_;
       bool is_inited_;
     };
@@ -382,8 +389,8 @@ namespace oceanbase
       // int do_parse_buffer(int i);
     private:
       static const int SPLIT_THREAD_NUM = 2;
+      // static const int SPLIT_NUM = 4;
       static const int SPLIT_NUM = 120;
-      // static const int SPLIT_NUM = 120;
       static const int PARSE_THREAD_NUM = 4;
       static const int WRITER_THREAD_NUM = 6;
 
