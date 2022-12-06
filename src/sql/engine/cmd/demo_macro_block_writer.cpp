@@ -951,15 +951,6 @@ int ObDemoMacroBlockWriter::build_micro_block_desc_with_rewrite(
   return ret;
 }
 
-bool ObDemoMacroBlockWriter::has_wrote_block()
-{
-  if (has_wrote_block_) {
-    has_wrote_block_ = false;
-    return true;
-  }
-  return false;
-}
-
 int ObDemoMacroBlockWriter::write_micro_block(ObMicroBlockDesc &micro_block_desc)
 {
   int ret = OB_SUCCESS;

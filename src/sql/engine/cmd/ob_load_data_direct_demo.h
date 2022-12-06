@@ -187,6 +187,12 @@ namespace oceanbase
                const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int get_casted_row(const common::ObNewRow &new_row, const ObLoadDatumRow *&datum_row);
       int get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
+      void reuse() { 
+        // 244
+        // LOG_INFO("MMMMM reuse", K(ob_datum_row_num_));
+        ob_datum_row_num_ = 0;
+        cast_allocator_.reuse();
+      }
     private:
       int init_column_schemas_and_idxs(
           const share::schema::ObTableSchema *table_schema,
@@ -198,7 +204,7 @@ namespace oceanbase
                                             const ObObj &obj,
                                             blocksstable::ObStorageDatum &datum);
     private:
-      static const int CACHE_DATUM_NUM = 250;
+      static const int CACHE_DATUM_NUM = 300;
       common::ObArray<const share::schema::ObColumnSchemaV2 *> column_schemas_;
       common::ObArray<int64_t> column_idxs_; // Mapping of store columns to source data columns
       int64_t column_count_;
@@ -258,6 +264,8 @@ namespace oceanbase
       int append_datum_row(int idx, const blocksstable::ObDatumRow &datum_row);
       int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
       int close_macro_blocks();
+      OB_INLINE bool has_wrote_block(int idx) { return macro_block_writers_[idx].has_wrote_block(); }
+      OB_INLINE int build_micro_block(int idx) { return macro_block_writers_[idx].build_micro_block(); }
       int close();
     private:
       int init_sstable_index_builder(const share::schema::ObTableSchema *table_schema);

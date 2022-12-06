@@ -102,10 +102,17 @@ public:
   int append_index_micro_block(ObMicroBlockDesc &micro_block_desc);
   int append_micro_block(const ObMicroBlock &micro_block);
   int append_row(const ObDatumRow &row);
+  int build_micro_block();
   int check_data_macro_block_need_merge(const ObMacroBlockDesc &macro_desc, bool &need_merge);
   int close();
   int flush_current_macro_block();
-  bool has_wrote_block();
+  inline bool has_wrote_block() {
+    if (has_wrote_block_) {
+      has_wrote_block_ = false;
+      return true;
+    }
+    return false;
+  }
   void dump_block_and_writer_buffer();
   inline ObMacroBlocksWriteCtx &get_macro_block_write_ctx() { return block_write_ctx_; }
   inline int64_t get_last_macro_seq() const { return current_macro_seq_; } /* save our seq num */
@@ -118,7 +125,7 @@ public:
 private:
   int append_row(const ObDatumRow &row, const int64_t split_size);
   int check_order(const ObDatumRow &row);
-  int build_micro_block();
+  // int build_micro_block();
   int build_micro_block_desc(
       const ObMicroBlock &micro_block,
       ObMicroBlockDesc &micro_block_desc,

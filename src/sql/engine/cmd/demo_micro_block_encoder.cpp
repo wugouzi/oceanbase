@@ -908,6 +908,7 @@ int ObDemoMicroBlockEncoder::process_out_row_columns(const ObDatumRow &row)
 int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t &store_size)
 {
   int ret = OB_SUCCESS;
+  static int64_t sss = 0;
   // performance critical, do not double check parameters in private method
   const int64_t datums_len = sizeof(ObDatum) * src.get_column_count();
   bool is_large_row = false;
@@ -920,57 +921,54 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
   // MEMSET(datum_arr_buf, 0, actual_datums_len);
   
   
-  if (first_row_) {
-    // first_row_ = false;
-    if (datum_rows_.count() > 0
-        && (length_ + datums_len >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
-      ret = OB_BUF_NOT_ENOUGH;
-    } else if (0 == datum_rows_.count() && length_ + datums_len >= estimate_size_limit_) {
-      is_large_row = true;
-    } else {
-      char *datum_arr_buf = row_buf_holder_.get_buf() + length_;
-      MEMSET(datum_arr_buf, 0, datums_len);
-      datum_arr = reinterpret_cast<ObDatum *>(datum_arr_buf);
-      length_ += datums_len;
+  if (datum_rows_.count() > 0
+      && (length_ + datums_len >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
+    ret = OB_BUF_NOT_ENOUGH;
+  } else if (0 == datum_rows_.count() && length_ + datums_len >= estimate_size_limit_) {
+    is_large_row = true;
+  } else {
+    char *datum_arr_buf = row_buf_holder_.get_buf() + length_;
+    MEMSET(datum_arr_buf, 0, datums_len);
+    datum_arr = reinterpret_cast<ObDatum *>(datum_arr_buf);
+    length_ += datums_len;
 
-      store_size = 0;
-      for (int64_t col_idx = 0;
-          OB_SUCC(ret) && col_idx < src.get_column_count() && !is_large_row;
-          ++col_idx) {
-        if (OB_FAIL(copy_cell(
-            ctx_.col_descs_->at(col_idx),
-            src.storage_datums_[col_idx],
-            datum_arr[col_idx],
-            store_size,
-            is_large_row))) {
-          if (OB_UNLIKELY(OB_BUF_NOT_ENOUGH != ret)) {
-            LOG_WARN("fail to copy cell", K(ret), K(col_idx), K(src), K(store_size), K(is_large_row));
-          }
+    store_size = 0;
+    for (int64_t col_idx = 0;
+        OB_SUCC(ret) && col_idx < src.get_column_count() && !is_large_row;
+        ++col_idx) {
+      
+      /*
+      if (OB_FAIL(copy_cell(
+          ctx_.col_descs_->at(col_idx),
+          src.storage_datums_[col_idx],
+          datum_arr[col_idx],
+          store_size,
+          is_large_row))) {
+        if (OB_UNLIKELY(OB_BUF_NOT_ENOUGH != ret)) {
+          LOG_WARN("fail to copy cell", K(ret), K(col_idx), K(src), K(store_size), K(is_large_row));
         }
-      }
+      }*/
+      
+      datum_arr[col_idx] = src.storage_datums_[col_idx];
     }
-
-    if (OB_FAIL(ret)) {
-    } else if (is_large_row && OB_FAIL(process_large_row(src, datum_arr, store_size))) {
-      LOG_WARN("fail to process large row", K(ret));
-    } else if (OB_FAIL(try_to_append_row(store_size))) {
-      if (OB_UNLIKELY(OB_BUF_NOT_ENOUGH != ret)) {
-        LOG_WARN("fail to try append row", K(ret));
-      }
-    } else {
-      ObConstDatumRow datum_row(datum_arr, src.get_column_count());
-      if (OB_FAIL(datum_rows_.push_back(datum_row))) {
-        LOG_WARN("append row to array failed", K(ret), K(src));
-      }
+  }
+  store_size += 180;
+  length_ += 180;
+  // sss = max(store_size, sss);
+  // LOG_INFO("MMMMM copy_and_append", K(sss));
+  
+  if (OB_FAIL(ret)) {
+  } else if (is_large_row && OB_FAIL(process_large_row(src, datum_arr, store_size))) {
+    LOG_WARN("fail to process large row", K(ret));
+  } else if (OB_FAIL(try_to_append_row(store_size))) {
+    if (OB_UNLIKELY(OB_BUF_NOT_ENOUGH != ret)) {
+      LOG_WARN("fail to try append row", K(ret));
     }
   } else {
-    LOG_INFO("MMMMM micro append row 1");
-    datum_arr = src.storage_datums_;
     ObConstDatumRow datum_row(datum_arr, src.get_column_count());
-    length_ += datums_len;
     if (OB_FAIL(datum_rows_.push_back(datum_row))) {
       LOG_WARN("append row to array failed", K(ret), K(src));
-    }  
+    }
   }
   
   return ret;
@@ -1011,10 +1009,13 @@ int ObDemoMicroBlockEncoder::copy_cell(
   } else if (datum_rows_.count() == 0 && estimate_size_ + store_size >= estimate_size_limit_) {
     is_large_row = true;
   } else {
+    // dest.ptr_ = src.ptr_;
+    
     if (is_int_sc) {
       MEMSET(const_cast<char *>(dest.ptr_), 0, datum_size);
     }
     MEMCPY(const_cast<char *>(dest.ptr_), src.ptr_, dest.len_);
+    
     length_ += datum_size;
   }
   return ret;
@@ -1026,6 +1027,7 @@ int ObDemoMicroBlockEncoder::process_large_row(
     int64_t &store_size)
 {
   int ret = OB_SUCCESS;
+  LOG_INFO("MMMMM large row");
   // copy_size is the size in memory, including the ObDatum struct and extra space for data.
   // store_size represents for the serialized data size on disk,
   const int64_t datums_len = sizeof(ObDatum) * src.get_column_count();

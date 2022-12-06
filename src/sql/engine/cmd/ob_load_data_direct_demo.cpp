@@ -1215,10 +1215,6 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
     LOG_WARN("ObLoadRowCaster not init", KR(ret));
   } else {*/
     // LOG_INFO("MMMMM cast", K(column_idxs_));
-    if (ob_datum_row_num_ >= CACHE_DATUM_NUM) {
-      cast_allocator_.reuse();
-      ob_datum_row_num_ = 0;
-    }
     // cast_allocator_.reuse();
     blocksstable::ObDatumRow &ob_datum_row = ob_datum_rows_[ob_datum_row_num_];
     for (int64_t i = 0; OB_SUCC(ret) && i < column_count_; ++i) {
@@ -1229,13 +1225,14 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
         ret = OB_ERR_UNEXPECTED;
         LOG_WARN("unexpected column idx", KR(ret), K(column_idx), K(new_row.count_));
       } else {*/
-        const ObColumnSchemaV2 *column_schema = column_schemas_.at(i);
-        const ObObj &src_obj = new_row.cells_[column_idx];
+        // const ObColumnSchemaV2 *column_schema = column_schemas_.at(i);
+        // const ObObj &src_obj = new_row.cells_[column_idx];
         // LOG_INFO("MMMMM type class", K(src_obj.get_type()), K(src_obj.get_type_class()), K(column_idx));
         int j = i < rowkey_column_num_ ? i : i + extra_rowkey_column_num_;
-        ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
-        if (OB_FAIL(cast_obj_to_type_datum(column_schema, expect_types_[i], src_obj, dest_datum))) {
-          LOG_WARN("fail to cast obj to datum", KR(ret), K(src_obj));
+        // ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
+        if (OB_FAIL(cast_obj_to_type_datum(column_schemas_[i], expect_types_[i], 
+            new_row.cells_[column_idx], ob_datum_row.storage_datums_[j]))) {
+          LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[column_idx]));
         }
       // }
     }
@@ -2275,6 +2272,8 @@ void ObReadSortWriteThread::run(int64_t idx)
         LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
       } else if (OB_FAIL(sstable_writer_.append_datum_row(idx, *ob_datum_row))) {
         LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
+      } if (sstable_writer_.has_wrote_block(idx)) {
+        row_caster.reuse();
       }
       /*
       if (OB_FAIL(row_caster.get_casted_row(*item_list[i].row, datum_row))) {
@@ -2284,11 +2283,14 @@ void ObReadSortWriteThread::run(int64_t idx)
       }
       */
     }
+    if (OB_FAIL(sstable_writer_.build_micro_block(idx))) {
+      LOG_INFO("MMMMM build micro fail", KR(ret));
+    }
     LOG_INFO("MMMMM write done", KR(ret), K(idx));
     // data of new_row is still in mmap
     munmap(file_data, len);
   }
-  LOG_INFO("MMMMM", K(max_size));
+  LOG_INFO("MMMMM", K(max_size), KR(ret));
   rets_[idx] = ret;
 }
 
