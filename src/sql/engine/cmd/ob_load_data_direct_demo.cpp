@@ -2283,7 +2283,7 @@ void ObReadSortWriteThread::run(int64_t idx)
       }
       */
     }
-    if (OB_FAIL(sstable_writer_.build_micro_block(idx))) {
+    if (item_list.size() > 0 && OB_FAIL(sstable_writer_.build_micro_block(idx))) {
       LOG_INFO("MMMMM build micro fail", KR(ret));
     }
     LOG_INFO("MMMMM write done", KR(ret), K(idx));
