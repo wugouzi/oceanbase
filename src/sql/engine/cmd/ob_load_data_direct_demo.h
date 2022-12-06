@@ -268,6 +268,8 @@ namespace oceanbase
       int close_macro_blocks();
       OB_INLINE bool has_wrote_block(int idx) { return macro_block_writers_[idx].has_wrote_block(); }
       OB_INLINE int build_micro_block(int idx) { return macro_block_writers_[idx].build_micro_block(); }
+      OB_INLINE int flush_current_macro_block(int idx) { return macro_block_writers_[idx].flush_current_macro_block(); }
+      OB_INLINE int switch_macro_block(int idx) { return macro_block_writers_[idx].try_switch_macro_block(); }
       int close();
     private:
       int init_sstable_index_builder(const share::schema::ObTableSchema *table_schema);
@@ -410,10 +412,12 @@ namespace oceanbase
     private:
       static const int SPLIT_THREAD_NUM = 2;
       // static const int SPLIT_NUM = 4;
-      static const int SPLIT_NUM = 120;
+      static const int SPLIT_NUM = 240;
       static const int PARSE_THREAD_NUM = 4;
-      static const int WRITER_THREAD_NUM = 6;
+      static const int WRITER_THREAD_NUM = 8;
 
+      // static const int SPLIT_NUM = 4;
+      // static const int WRITER_THREAD_NUM = 1;
       ObLoadSequentialFileReader file_reader_;
       ObLoadSequentialFileReader file_split_readers_[SPLIT_THREAD_NUM];
       ObLoadDataBuffer split_buffers_[SPLIT_THREAD_NUM];

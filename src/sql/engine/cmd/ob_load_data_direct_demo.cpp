@@ -1104,11 +1104,11 @@ ObLoadRowCaster::ObLoadRowCaster()
 
 ObLoadRowCaster::~ObLoadRowCaster()
 {
-  /*
-  for (int i = 0; i < 20; i++) {
+  
+  for (int i = 0; i < 16; i++) {
     LOG_INFO("MMMMM caster", K(i), K(min_len_[i]), K(max_len_[i]));
   }
-  */
+  
 }
 
 int ObLoadRowCaster::init(const ObTableSchema *table_schema,
@@ -1243,9 +1243,9 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
             new_row.cells_[column_idx], ob_datum_row.storage_datums_[j]))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[column_idx]));
         }
-        // ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
-        // min_len_[i] = dest_datum.len_ > min_len_[i] ? min_len_[i] : dest_datum.len_;
-        // max_len_[i] = dest_datum.len_ > max_len_[i] ? dest_datum.len_ : max_len_[i];
+        ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
+        min_len_[i] = dest_datum.len_ > min_len_[i] ? min_len_[i] : dest_datum.len_;
+        max_len_[i] = dest_datum.len_ > max_len_[i] ? dest_datum.len_ : max_len_[i];
       // }
     }
     // if (OB_SUCC(ret)) {
@@ -2272,9 +2272,14 @@ void ObReadSortWriteThread::run(int64_t idx)
   
     LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(max_size), K(cnt));
     // sort
+    std::sort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
+      return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
+    });
+    /*
     quicksort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
       return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
     });
+    */
     LOG_INFO("MMMMM sort done", KR(ret), K(idx));
     if (ret == OB_ITER_END) {
       ret = OB_SUCCESS;
@@ -2295,9 +2300,14 @@ void ObReadSortWriteThread::run(int64_t idx)
       }
       */
     }
-    if (item_list.size() > 0 && OB_FAIL(sstable_writer_.build_micro_block(idx))) {
-      LOG_INFO("MMMMM build micro fail", KR(ret));
+    if (item_list.size() > 0) {
+      if (OB_FAIL(sstable_writer_.build_micro_block(idx))) {
+        LOG_INFO("MMMMM build micro fail");
+      } else if (OB_FAIL(sstable_writer_.switch_macro_block(idx))) {
+        LOG_INFO("MMMMM build macro fail", KR(ret));
+      }
     }
+    
     LOG_INFO("MMMMM write done", KR(ret), K(idx));
     // data of new_row is still in mmap
     munmap(file_data, len);

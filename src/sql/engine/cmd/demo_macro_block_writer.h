@@ -106,6 +106,7 @@ public:
   int check_data_macro_block_need_merge(const ObMacroBlockDesc &macro_desc, bool &need_merge);
   int close();
   int flush_current_macro_block();
+  int try_switch_macro_block();
   inline bool has_wrote_block() {
     if (has_wrote_block_) {
       has_wrote_block_ = false;
@@ -139,7 +140,7 @@ private:
   int check_micro_block_need_merge(const ObMicroBlock &micro_block, bool &need_merge);
   int merge_micro_block(const ObMicroBlock &micro_block);
   int flush_macro_block(ObMacroBlock &macro_block);
-  int try_switch_macro_block();
+  
   int wait_io_finish(ObMacroBlockHandle &macro_handle);
   int alloc_block();
   int check_write_complete(const MacroBlockId &macro_block_id);

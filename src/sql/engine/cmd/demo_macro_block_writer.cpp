@@ -587,7 +587,7 @@ int ObDemoMacroBlockWriter::flush_current_macro_block()
   int ret = OB_SUCCESS;
   ObMacroBlock &current_block = macro_blocks_[current_index_];
   ObMacroBloomFilterCacheWriter &current_bf_writer = bf_cache_writer_[current_index_];
-  LOG_INFO("MMMMM flush current macro block");
+  // LOG_INFO("MMMMM flush current macro block");
   if (OB_SUCC(ret) && current_block.is_dirty()) {
     int32_t row_count = current_block.get_row_count();
     if (OB_FAIL(flush_macro_block(current_block))) {

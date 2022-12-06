@@ -908,7 +908,7 @@ int ObDemoMicroBlockEncoder::process_out_row_columns(const ObDatumRow &row)
 int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t &store_size)
 {
   int ret = OB_SUCCESS;
-  static int64_t sss = 0;
+  // static int64_t sss = 0;
   // performance critical, do not double check parameters in private method
   const int64_t datums_len = sizeof(ObDatum) * src.get_column_count();
   bool is_large_row = false;
@@ -920,24 +920,6 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
   // char *datum_arr_buf = row_buf_holder_.get_buf() + length_;
   // MEMSET(datum_arr_buf, 0, actual_datums_len);
 
-  // 143409:[2022-12-06 19:35:20.413527] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=8)
-  // 143410:[2022-12-06 19:35:20.413529] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=8)
-  // 143411:[2022-12-06 19:35:20.413530] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=1] MMMMM store(store_size - last=8)
-  // 143412:[2022-12-06 19:35:20.413532] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=8)
-  // 143413:[2022-12-06 19:35:20.413534] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=1] MMMMM store(store_size - last=8)
-  // 143414:[2022-12-06 19:35:20.413535] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=1] MMMMM store(store_size - last=8)
-  // 143415:[2022-12-06 19:35:20.413537] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=8)
-  // 143416:[2022-12-06 19:35:20.413539] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=1] MMMMM store(store_size - last=12)
-  // 143417:[2022-12-06 19:35:20.413540] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=1] MMMMM store(store_size - last=8)
-  // 143418:[2022-12-06 19:35:20.413542] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=8)
-  // 143419:[2022-12-06 19:35:20.413543] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=1] MMMMM store(store_size - last=1)
-  // 143420:[2022-12-06 19:35:20.413545] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=1)
-  // 143421:[2022-12-06 19:35:20.413547] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=8)
-  // 143422:[2022-12-06 19:35:20.413548] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=1] MMMMM store(store_size - last=8)
-  // 143423:[2022-12-06 19:35:20.413550] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=8)
-  // 143424:[2022-12-06 19:35:20.413552] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=1] MMMMM store(store_size - last=4)
-  // 143425:[2022-12-06 19:35:20.413553] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=3)
-  // 143426:[2022-12-06 19:35:20.413555] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=40)
 
   if (datum_rows_.count() > 0
       && (length_ + datums_len >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
@@ -976,7 +958,13 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
   // length_ += 180;
   // sss = max(store_size, sss);
   // LOG_INFO("MMMMM copy_and_append", K(sss));
-  
+  // this will cause memory fail, so i need to be careful
+  // int64_t sss = 94 + src.storage_datums_[7].len_ + src.storage_datums_[15].len_ + src.storage_datums_[16].len_ + src.storage_datums_[17].len_;
+  /*
+  if (sss != store_size) {
+    LOG_INFO("MMMMM wrong size", K(sss), K(store_size));
+  }
+  */
   if (OB_FAIL(ret)) {
   } else if (is_large_row && OB_FAIL(process_large_row(src, datum_arr, store_size))) {
     LOG_WARN("fail to process large row", K(ret));
@@ -1030,13 +1018,13 @@ int ObDemoMicroBlockEncoder::copy_cell(
   } else if (datum_rows_.count() == 0 && estimate_size_ + store_size >= estimate_size_limit_) {
     is_large_row = true;
   } else {
-    // dest.ptr_ = src.ptr_;
-    
+    dest.ptr_ = src.ptr_;
+    /*
     if (is_int_sc) {
       MEMSET(const_cast<char *>(dest.ptr_), 0, datum_size);
     }
     MEMCPY(const_cast<char *>(dest.ptr_), src.ptr_, dest.len_);
-    
+    */
     length_ += datum_size;
   }
   return ret;
