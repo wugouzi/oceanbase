@@ -938,8 +938,7 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
   // 143424:[2022-12-06 19:35:20.413552] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=1] MMMMM store(store_size - last=4)
   // 143425:[2022-12-06 19:35:20.413553] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=3)
   // 143426:[2022-12-06 19:35:20.413555] INFO  [SQL.ENG] copy_and_append_row (demo_micro_block_encoder.cpp:952) [21709][][T1][Y0-0000000000000000-0-0] [lt=2] MMMMM store(store_size - last=40)
-  
-  
+
   if (datum_rows_.count() > 0
       && (length_ + datums_len >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
     ret = OB_BUF_NOT_ENOUGH;
@@ -1031,13 +1030,13 @@ int ObDemoMicroBlockEncoder::copy_cell(
   } else if (datum_rows_.count() == 0 && estimate_size_ + store_size >= estimate_size_limit_) {
     is_large_row = true;
   } else {
-    dest.ptr_ = src.ptr_;
-    /*
+    // dest.ptr_ = src.ptr_;
+    
     if (is_int_sc) {
       MEMSET(const_cast<char *>(dest.ptr_), 0, datum_size);
     }
     MEMCPY(const_cast<char *>(dest.ptr_), src.ptr_, dest.len_);
-    */
+    
     length_ += datum_size;
   }
   return ret;

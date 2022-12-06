@@ -1104,6 +1104,11 @@ ObLoadRowCaster::ObLoadRowCaster()
 
 ObLoadRowCaster::~ObLoadRowCaster()
 {
+  /*
+  for (int i = 0; i < 20; i++) {
+    LOG_INFO("MMMMM caster", K(i), K(min_len_[i]), K(max_len_[i]));
+  }
+  */
 }
 
 int ObLoadRowCaster::init(const ObTableSchema *table_schema,
@@ -1154,6 +1159,10 @@ int ObLoadRowCaster::init(const ObTableSchema *table_schema,
     }
     for (int i = 0; i < column_idxs_.count(); i++) {
       column_indexes_[i] = column_idxs_.at(i);
+    }
+    for (int i = 0; i < 20; i++) {
+      min_len_[i] = 1000;
+      max_len_[i] = 0;
     }
   }
   return ret;
@@ -1234,6 +1243,9 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
             new_row.cells_[column_idx], ob_datum_row.storage_datums_[j]))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[column_idx]));
         }
+        // ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
+        // min_len_[i] = dest_datum.len_ > min_len_[i] ? min_len_[i] : dest_datum.len_;
+        // max_len_[i] = dest_datum.len_ > max_len_[i] ? dest_datum.len_ : max_len_[i];
       // }
     }
     // if (OB_SUCC(ret)) {

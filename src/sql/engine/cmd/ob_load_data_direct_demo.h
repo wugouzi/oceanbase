@@ -221,6 +221,8 @@ namespace oceanbase
       ObDemoCastCtx cast_ctx_;
       ObObjType expect_types_[20];
       int column_indexes_[20];
+      int32_t min_len_[20];
+      int32_t max_len_[20];
     };
 
     class ObLoadExternalSort
