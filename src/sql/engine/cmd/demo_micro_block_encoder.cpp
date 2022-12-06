@@ -1018,13 +1018,13 @@ int ObDemoMicroBlockEncoder::copy_cell(
   } else if (datum_rows_.count() == 0 && estimate_size_ + store_size >= estimate_size_limit_) {
     is_large_row = true;
   } else {
-    dest.ptr_ = src.ptr_;
-    /*
+    // dest.ptr_ = src.ptr_;
+    
     if (is_int_sc) {
       MEMSET(const_cast<char *>(dest.ptr_), 0, datum_size);
     }
     MEMCPY(const_cast<char *>(dest.ptr_), src.ptr_, dest.len_);
-    */
+    
     length_ += datum_size;
   }
   return ret;
