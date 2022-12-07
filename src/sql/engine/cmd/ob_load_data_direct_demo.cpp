@@ -1292,7 +1292,7 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
         // LOG_INFO("MMMMM type class", K(src_obj.get_type()), K(src_obj.get_type_class()), K(column_idx));
         int j = i < rowkey_column_num_ ? i : i + extra_rowkey_column_num_;
         // ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
-        LOG_INFO("MMMMM", K(i), K(column_idx), K(j));
+        // LOG_INFO("MMMMM", K(i), K(column_idx), K(j));
         if (OB_FAIL(cast_obj_to_type_datum(column_schemas_[i], expect_types_[i], 
             new_row.cells_[column_idx], ob_datum_row.storage_datums_[j]))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[column_idx]));
@@ -1320,7 +1320,7 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
     ret = OB_NOT_INIT;
     LOG_WARN("ObLoadRowCaster not init", KR(ret));
   } else {
-    LOG_INFO("MMMMM cast", K(column_idxs_));
+    // LOG_INFO("MMMMM cast", K(column_idxs_));
     const int64_t extra_col_cnt = ObMultiVersionRowkeyHelpper::get_extra_rowkey_col_cnt();
     cast_allocator_.reuse();
     for (int64_t i = 0; OB_SUCC(ret) && i < column_idxs_.count(); ++i) {

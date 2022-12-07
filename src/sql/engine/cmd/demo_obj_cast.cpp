@@ -4324,10 +4324,12 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
       SET_RES_INT(out);
     }
   }
+  /*
   if (OB_SUCC(ret)) {
     res_precision = get_precision_for_integer(out.get_int());
   }
   SET_RES_ACCURACY(res_precision, DEFAULT_SCALE_FOR_INTEGER, DEFAULT_LENGTH_FOR_NUMERIC);
+  */
   return ret;
 }
 
@@ -4507,15 +4509,16 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
         }
       }
     }
+    /*
     if (CAST_FAIL(ret)) {
       LOG_WARN("string_number failed", K(ret), K(in), K(expect_type), K(cast_mode));
     } else if (ObUNumberType == expect_type && CAST_FAIL(numeric_negative_check(value))) {
       LOG_WARN("numeric_negative_check failed", K(ret), K(in), K(cast_mode));
-    } else {
+    } else {*/
       out.set_number(expect_type, value);
-    }
+    // }
   // }
-  SET_RES_ACCURACY(res_precision, res_scale, DEFAULT_LENGTH_FOR_NUMERIC);
+  // SET_RES_ACCURACY(res_precision, res_scale, DEFAULT_LENGTH_FOR_NUMERIC);
   return ret;
 }
 
@@ -4596,7 +4599,7 @@ static int string_date(const ObObjType expect_type, ObDemoObjCastParams &params,
   } */else {
     SET_RES_DATE(out);
   }
-  SET_RES_ACCURACY(DEFAULT_PRECISION_FOR_TEMPORAL, DEFAULT_SCALE_FOR_DATE, DEFAULT_LENGTH_FOR_TEMPORAL);
+  // SET_RES_ACCURACY(DEFAULT_PRECISION_FOR_TEMPORAL, DEFAULT_SCALE_FOR_DATE, DEFAULT_LENGTH_FOR_TEMPORAL);
   return ret;
 }
 
@@ -10447,12 +10450,13 @@ int ObDemoObjCaster::simp_to_type(const ObObjType &expect_type,
                      in_obj.get_collation_type() : cast_ctx.dest_collation_;
   const ObObjTypeClass in_tc = in_obj.get_type_class();
   const ObObjTypeClass out_tc = ob_obj_type_class(expect_type);
+  /*
   cast_ctx.warning_ = OB_SUCCESS;
   if (CS_TYPE_INVALID != expect_cs_type) {
     cast_ctx.dest_collation_ = expect_cs_type;
   } else {
     expect_cs_type = cast_ctx.dest_collation_;
-  }
+  }*/
   if (OB_FAIL(OB_Demo_OBJ_CAST[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
     LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
   }
