@@ -1229,37 +1229,37 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
   }
   */
   cast_obj_to_type_datum(column_schemas_[0], expect_types_[0], 
-    new_row.cells_[0], ob_datum_row.storage_datums_[0]);
+    new_row.cells_[0], ob_datum_row.storage_datums_[0], 0);
   cast_obj_to_type_datum(column_schemas_[1], expect_types_[1], 
-    new_row.cells_[3], ob_datum_row.storage_datums_[1]);
+    new_row.cells_[3], ob_datum_row.storage_datums_[1], 1);
   cast_obj_to_type_datum(column_schemas_[2], expect_types_[2], 
-    new_row.cells_[1], ob_datum_row.storage_datums_[4]);
+    new_row.cells_[1], ob_datum_row.storage_datums_[4], 2);
   cast_obj_to_type_datum(column_schemas_[3], expect_types_[3], 
-    new_row.cells_[2], ob_datum_row.storage_datums_[5]);
+    new_row.cells_[2], ob_datum_row.storage_datums_[5], 3);
   cast_obj_to_type_datum(column_schemas_[4], expect_types_[4], 
-    new_row.cells_[4], ob_datum_row.storage_datums_[6]);
+    new_row.cells_[4], ob_datum_row.storage_datums_[6], 4);
   cast_obj_to_type_datum(column_schemas_[5], expect_types_[5], 
-    new_row.cells_[5], ob_datum_row.storage_datums_[7]);
+    new_row.cells_[5], ob_datum_row.storage_datums_[7], 5);
   cast_obj_to_type_datum(column_schemas_[6], expect_types_[6], 
-    new_row.cells_[6], ob_datum_row.storage_datums_[8]);
+    new_row.cells_[6], ob_datum_row.storage_datums_[8], 6);
   cast_obj_to_type_datum(column_schemas_[7], expect_types_[7], 
-    new_row.cells_[7], ob_datum_row.storage_datums_[9]);
+    new_row.cells_[7], ob_datum_row.storage_datums_[9], 7);
   cast_obj_to_type_datum(column_schemas_[8], expect_types_[8], 
-    new_row.cells_[8], ob_datum_row.storage_datums_[10]);
+    new_row.cells_[8], ob_datum_row.storage_datums_[10], 8);
   cast_obj_to_type_datum(column_schemas_[9], expect_types_[9], 
-    new_row.cells_[9], ob_datum_row.storage_datums_[11]);
+    new_row.cells_[9], ob_datum_row.storage_datums_[11], 9);
   cast_obj_to_type_datum(column_schemas_[10], expect_types_[10], 
-    new_row.cells_[10], ob_datum_row.storage_datums_[12]);
+    new_row.cells_[10], ob_datum_row.storage_datums_[12], 10);
   cast_obj_to_type_datum(column_schemas_[11], expect_types_[11], 
-    new_row.cells_[11], ob_datum_row.storage_datums_[13]);
+    new_row.cells_[11], ob_datum_row.storage_datums_[13], 11);
   cast_obj_to_type_datum(column_schemas_[12], expect_types_[12], 
-    new_row.cells_[12], ob_datum_row.storage_datums_[14]);
+    new_row.cells_[12], ob_datum_row.storage_datums_[14], 12);
   cast_obj_to_type_datum(column_schemas_[13], expect_types_[13], 
-    new_row.cells_[13], ob_datum_row.storage_datums_[15]);
+    new_row.cells_[13], ob_datum_row.storage_datums_[15], 13);
   cast_obj_to_type_datum(column_schemas_[14], expect_types_[14], 
-    new_row.cells_[14], ob_datum_row.storage_datums_[16]);
+    new_row.cells_[14], ob_datum_row.storage_datums_[16], 14);
   cast_obj_to_type_datum(column_schemas_[15], expect_types_[15], 
-    new_row.cells_[15], ob_datum_row.storage_datums_[17]);
+    new_row.cells_[15], ob_datum_row.storage_datums_[17], 15);
       
   datum_row = &ob_datum_row;
   ob_datum_row_num_++;
@@ -1294,7 +1294,7 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
         // ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
         // LOG_INFO("MMMMM", K(i), K(column_idx), K(j));
         if (OB_FAIL(cast_obj_to_type_datum(column_schemas_[i], expect_types_[i], 
-            new_row.cells_[column_idx], ob_datum_row.storage_datums_[j]))) {
+            new_row.cells_[column_idx], ob_datum_row.storage_datums_[j], i))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[column_idx]));
         }
         ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
@@ -1349,7 +1349,8 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
 int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
                                             const ObObjType &expect_type,
                                             const ObObj &obj,
-                                            blocksstable::ObStorageDatum &datum)
+                                            blocksstable::ObStorageDatum &datum,
+                                            int idx)
 {
   int ret = OB_SUCCESS;
   // ObDataTypeCastParams cast_params(&tz_info_);
@@ -1371,7 +1372,7 @@ int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schem
       LOG_WARN("fail to do to type", KR(ret), K(zero_obj), K(expect_type));
     }
   } else {*/
-    if (OB_FAIL(ObDemoObjCaster::simp_to_type(expect_type, cast_ctx_, obj, casted_obj_))) {
+    if (OB_FAIL(ObDemoObjCaster::simp_to_type(expect_type, cast_ctx_, obj, casted_obj_, idx))) {
       LOG_WARN("MMMMM fail to do to type", KR(ret), K(obj), K(expect_type));
     }
   // }
@@ -2421,7 +2422,7 @@ int ObLoadDataDirectDemo::pre_processV2()
         break;
       } else if (OB_FAIL(single_file_writers_[group_id].append(buf, len, false))) {
       // } else if (OB_FAIL(file_writers_[group_id].write(buf, len))) {
-        LOG_INFO("MMMMM can't write!");
+        LOG_INFO("MMMMM can't write!", KR(ret));
         break;
       }
       // LOG_INFO("MMMMM write to", K(group_id));

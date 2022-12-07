@@ -10440,23 +10440,45 @@ int ObDemoObjCaster::to_type(const ObDemoExpectType &expect_type, ObDemoCastCtx 
 int ObDemoObjCaster::simp_to_type(const ObObjType &expect_type,
                           ObDemoCastCtx &cast_ctx,
                           const ObObj &in_obj,
-                          ObObj &out_obj)
+                          ObObj &out_obj,
+                          int idx)
 {
   int ret = OB_SUCCESS;
+  if (!inited_[idx]) {
+    in_types_[idx] = in_obj.get_type();
+    bool is_string = ob_is_string_type(in_types_[idx]) || ob_is_lob_locator(in_types_[idx]);
+    expect_cs_types_[idx] = (is_string && CS_TYPE_INVALID == cast_ctx.dest_collation_) ?
+                            in_obj.get_collation_type() : cast_ctx.dest_collation_;
+    in_tcs_[idx] = in_obj.get_type_class();
+    out_tcs_[idx] = ob_obj_type_class(expect_type);
+    cond1_[idx] = ObStringTC == out_tcs_[idx] || ObTextTC == out_tcs_[idx] || ObLobTC == out_tcs_[idx];
+    cond2_[idx] = ObStringTC == in_tcs_[idx] || ObTextTC == in_tcs_[idx] || ObLobTC == out_tcs_[idx];
+    inited_[idx] = true;
+  }
+
+  if (OB_FAIL(OB_Demo_OBJ_CAST[in_tcs_[idx]][out_tcs_[idx]](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
+    LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tcs_[idx]), K(out_tcs_[idx]), K(expect_type), K(cast_ctx.cast_mode_));
+  }
+  if (OB_SUCC(ret)) {
+    if (cond1_[idx]) {
+      if (cond2_[idx]) {
+        out_obj.set_collation_level(in_obj.get_collation_level());
+      } else {
+        out_obj.set_collation_level(CS_LEVEL_COERCIBLE);
+      }
+      out_obj.set_collation_type(expect_cs_types_[idx]);
+    }
+  }
   
+  
+  /*
   ObObjType in_type = in_obj.get_type();
   bool is_string = ob_is_string_type(in_type) || ob_is_lob_locator(in_type);
   ObCollationType expect_cs_type = (is_string && CS_TYPE_INVALID == cast_ctx.dest_collation_) ?
                      in_obj.get_collation_type() : cast_ctx.dest_collation_;
   const ObObjTypeClass in_tc = in_obj.get_type_class();
   const ObObjTypeClass out_tc = ob_obj_type_class(expect_type);
-  /*
-  cast_ctx.warning_ = OB_SUCCESS;
-  if (CS_TYPE_INVALID != expect_cs_type) {
-    cast_ctx.dest_collation_ = expect_cs_type;
-  } else {
-    expect_cs_type = cast_ctx.dest_collation_;
-  }*/
+  
   if (OB_FAIL(OB_Demo_OBJ_CAST[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
     LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
   }
@@ -10475,7 +10497,7 @@ int ObDemoObjCaster::simp_to_type(const ObObjType &expect_type,
                            K(out_obj), K(expect_cs_type), K(common::lbt()));
       }
     }
-  }
+  }*/
   return ret;
 }
 

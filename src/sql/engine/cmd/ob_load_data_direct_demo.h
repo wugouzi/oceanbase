@@ -203,7 +203,8 @@ namespace oceanbase
       OB_INLINE int cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
                                             const ObObjType &expect_type,
                                             const ObObj &obj,
-                                            blocksstable::ObStorageDatum &datum);
+                                            blocksstable::ObStorageDatum &datum,
+                                            int idx);
     private:
       static const int CACHE_DATUM_NUM = 300;
       common::ObArray<const share::schema::ObColumnSchemaV2 *> column_schemas_;
