@@ -10434,6 +10434,46 @@ int ObDemoObjCaster::to_type(const ObDemoExpectType &expect_type, ObDemoCastCtx 
   return ret;
 }
 
+int ObDemoObjCaster::simp_to_type(const ObObjType &expect_type,
+                          ObDemoCastCtx &cast_ctx,
+                          const ObObj &in_obj,
+                          ObObj &out_obj)
+{
+  int ret = OB_SUCCESS;
+  
+  ObObjType in_type = in_obj.get_type();
+  bool is_string = ob_is_string_type(in_type) || ob_is_lob_locator(in_type);
+  ObCollationType expect_cs_type = (is_string && CS_TYPE_INVALID == cast_ctx.dest_collation_) ?
+                     in_obj.get_collation_type() : cast_ctx.dest_collation_;
+  const ObObjTypeClass in_tc = in_obj.get_type_class();
+  const ObObjTypeClass out_tc = ob_obj_type_class(expect_type);
+  cast_ctx.warning_ = OB_SUCCESS;
+  if (CS_TYPE_INVALID != expect_cs_type) {
+    cast_ctx.dest_collation_ = expect_cs_type;
+  } else {
+    expect_cs_type = cast_ctx.dest_collation_;
+  }
+  if (OB_FAIL(OB_Demo_OBJ_CAST[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
+    LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
+  }
+  if (OB_SUCC(ret)) {
+    if (ObStringTC == out_tc || ObTextTC == out_tc || ObLobTC == out_tc) {
+      if (ObStringTC == in_tc || ObTextTC == in_tc || ObLobTC == out_tc) {
+        out_obj.set_collation_level(in_obj.get_collation_level());
+      } else {
+        out_obj.set_collation_level(CS_LEVEL_COERCIBLE);
+      }
+      if (OB_LIKELY(expect_cs_type != CS_TYPE_INVALID)) {
+        out_obj.set_collation_type(expect_cs_type);
+      } else {
+        ret = OB_ERR_UNEXPECTED;
+        LOG_WARN("unexpected collation type", K(ret), K(in_obj),
+                           K(out_obj), K(expect_cs_type), K(common::lbt()));
+      }
+    }
+  }
+  return ret;
+}
 
 int ObDemoObjCaster::to_type(const ObObjType expect_type,
                          ObDemoCastCtx &cast_ctx,
@@ -10445,6 +10485,7 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
   
   ObObjType in_type = in_obj.get_type();
   bool is_string = ob_is_string_type(in_type) || ob_is_lob_locator(in_type);
+
   /*
   if (OB_UNLIKELY((expect_type == in_type && (!is_string))
       || ObNullType == in_type)) {
@@ -10457,7 +10498,7 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
     // fast path for char/varchar string_string cast.
     out_obj = in_obj;
     const_cast<ObObjMeta &>(out_obj.get_meta()).set_type_simple(expect_type);
-  } else {*/
+  } else {
     if (lib::is_oracle_mode() && in_obj.is_character_type()) {
       //防御措施：转成oracle的string类型，
       //字符集是由两个NLS变量决定的，这两个值通过ObCastCtx传入
@@ -10467,7 +10508,7 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
       if (CS_TYPE_INVALID != dest_collation) {
         cast_ctx.dest_collation_ = dest_collation;
       }
-    }
+    }*/
     ret = to_type(expect_type,
                   (is_string && CS_TYPE_INVALID == cast_ctx.dest_collation_) ?
                      in_obj.get_collation_type() : cast_ctx.dest_collation_,
@@ -10584,22 +10625,22 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
   if (OB_UNLIKELY(ob_is_invalid_obj_tc(in_tc) || ob_is_invalid_obj_tc(out_tc))) {
     ret = OB_ERR_UNEXPECTED;
     LOG_WARN("unexpected type", K(ret), K(in_obj), K(expect_type));
-  } else */if (lib::is_oracle_mode()) {
+  } else if (lib::is_oracle_mode()) {
     LOG_INFO("MMMMM oracle");
-    /*if (CM_IS_EXPLICIT_CAST(cast_ctx.cast_mode_)) {
+    if (CM_IS_EXPLICIT_CAST(cast_ctx.cast_mode_)) {
       if (OB_FAIL(DEMO_OBJ_CAST_ORACLE_EXPLICIT[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
         LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
       }
-    } else {*/
+    } else {
       if (OB_FAIL(DEMO_OBJ_CAST_ORACLE_IMPLICIT[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
         LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
       }
     //}
-  } else {
+  } else {*/
     if (OB_FAIL(OB_Demo_OBJ_CAST[in_tc][out_tc](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {
       LOG_WARN("failed to cast obj", K(ret), K(in_obj), K(in_tc), K(out_tc), K(expect_type), K(cast_ctx.cast_mode_));
     }
-  }
+  // }
   if (OB_SUCC(ret)) {
     if (ObStringTC == out_tc || ObTextTC == out_tc || ObLobTC == out_tc) {
       if (ObStringTC == in_tc || ObTextTC == in_tc || ObLobTC == out_tc) {
@@ -10617,8 +10658,8 @@ int ObDemoObjCaster::to_type(const ObObjType expect_type,
     }
   }
 
-  LOG_DEBUG("succ to to_type", K(ret), "in_type", in_obj.get_type(), K(in_obj),
-            K(expect_type), K(out_obj), K(lbt()));
+  // LOG_DEBUG("succ to to_type", K(ret), "in_type", in_obj.get_type(), K(in_obj),
+  //          K(expect_type), K(out_obj), K(lbt()));
   return ret;
 }
 

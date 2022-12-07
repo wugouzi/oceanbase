@@ -334,6 +334,10 @@ public:
   //不支持向enum/set转换的版本
   static int to_type(const ObObjType expect_type, ObDemoCastCtx &cast_ctx,
                      const ObObj &in_obj, ObObj &buf_obj, const ObObj *&out_obj);
+  static int simp_to_type(const ObObjType &expect_type,
+                          ObDemoCastCtx &cast_ctx,
+                          const ObObj &in_obj,
+                          ObObj &out_obj);
   static int to_datetime(const ObObjType expect_type, ObDemoCastCtx &cast_ctx,
                          const ObObj &in_obj, ObObj &buf_obj, const ObObj *&res_obj);
   static int bool_to_json(const ObObjType expect_type, ObDemoCastCtx &cast_ctx,

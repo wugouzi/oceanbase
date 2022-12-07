@@ -187,6 +187,7 @@ namespace oceanbase
                const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int get_casted_row(const common::ObNewRow &new_row, const ObLoadDatumRow *&datum_row);
       int get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
+      int unfold_get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
       void reuse() { 
         // 244
         // LOG_INFO("MMMMM reuse", K(ob_datum_row_num_));
@@ -199,7 +200,7 @@ namespace oceanbase
           const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int cast_obj_to_datum(const share::schema::ObColumnSchemaV2 *column_schema,
                             const common::ObObj &obj, blocksstable::ObStorageDatum &datum);
-      int cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
+      OB_INLINE int cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
                                             const ObObjType &expect_type,
                                             const ObObj &obj,
                                             blocksstable::ObStorageDatum &datum);
@@ -223,6 +224,7 @@ namespace oceanbase
       int column_indexes_[20];
       int32_t min_len_[20];
       int32_t max_len_[20];
+      ObObj casted_obj_;
     };
 
     class ObLoadExternalSort
@@ -412,10 +414,10 @@ namespace oceanbase
     private:
       static const int SPLIT_THREAD_NUM = 2;
       // static const int SPLIT_NUM = 4;
-      static const int SPLIT_NUM = 240;
       static const int PARSE_THREAD_NUM = 4;
+      
+      static const int SPLIT_NUM = 240;
       static const int WRITER_THREAD_NUM = 8;
-
       // static const int SPLIT_NUM = 4;
       // static const int WRITER_THREAD_NUM = 1;
       ObLoadSequentialFileReader file_reader_;

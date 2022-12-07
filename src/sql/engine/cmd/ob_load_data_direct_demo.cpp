@@ -1105,9 +1105,11 @@ ObLoadRowCaster::ObLoadRowCaster()
 ObLoadRowCaster::~ObLoadRowCaster()
 {
   
+  /*
   for (int i = 0; i < 16; i++) {
     LOG_INFO("MMMMM caster", K(i), K(min_len_[i]), K(max_len_[i]));
   }
+  */
   
 }
 
@@ -1214,6 +1216,57 @@ int ObLoadRowCaster::init_column_schemas_and_idxs(
   return ret;
 }
 
+// 0, 3, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row)
+{
+  int ret = OB_SUCCESS;
+  blocksstable::ObDatumRow &ob_datum_row = ob_datum_rows_[ob_datum_row_num_];
+
+  /*
+  if (OB_FAIL(cast_obj_to_type_datum(column_schemas_[0], expect_types_[0], 
+              new_row.cells_[0], ob_datum_row.storage_datums_[0]))) {
+    LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[0]));
+  }
+  */
+  cast_obj_to_type_datum(column_schemas_[0], expect_types_[0], 
+    new_row.cells_[0], ob_datum_row.storage_datums_[0]);
+  cast_obj_to_type_datum(column_schemas_[1], expect_types_[1], 
+    new_row.cells_[3], ob_datum_row.storage_datums_[1]);
+  cast_obj_to_type_datum(column_schemas_[2], expect_types_[2], 
+    new_row.cells_[1], ob_datum_row.storage_datums_[4]);
+  cast_obj_to_type_datum(column_schemas_[3], expect_types_[3], 
+    new_row.cells_[2], ob_datum_row.storage_datums_[5]);
+  cast_obj_to_type_datum(column_schemas_[4], expect_types_[4], 
+    new_row.cells_[4], ob_datum_row.storage_datums_[6]);
+  cast_obj_to_type_datum(column_schemas_[5], expect_types_[5], 
+    new_row.cells_[5], ob_datum_row.storage_datums_[7]);
+  cast_obj_to_type_datum(column_schemas_[6], expect_types_[6], 
+    new_row.cells_[6], ob_datum_row.storage_datums_[8]);
+  cast_obj_to_type_datum(column_schemas_[7], expect_types_[7], 
+    new_row.cells_[7], ob_datum_row.storage_datums_[9]);
+  cast_obj_to_type_datum(column_schemas_[8], expect_types_[8], 
+    new_row.cells_[8], ob_datum_row.storage_datums_[10]);
+  cast_obj_to_type_datum(column_schemas_[9], expect_types_[9], 
+    new_row.cells_[9], ob_datum_row.storage_datums_[11]);
+  cast_obj_to_type_datum(column_schemas_[10], expect_types_[10], 
+    new_row.cells_[10], ob_datum_row.storage_datums_[12]);
+  cast_obj_to_type_datum(column_schemas_[11], expect_types_[11], 
+    new_row.cells_[11], ob_datum_row.storage_datums_[13]);
+  cast_obj_to_type_datum(column_schemas_[12], expect_types_[12], 
+    new_row.cells_[12], ob_datum_row.storage_datums_[14]);
+  cast_obj_to_type_datum(column_schemas_[13], expect_types_[13], 
+    new_row.cells_[13], ob_datum_row.storage_datums_[15]);
+  cast_obj_to_type_datum(column_schemas_[14], expect_types_[14], 
+    new_row.cells_[14], ob_datum_row.storage_datums_[16]);
+  cast_obj_to_type_datum(column_schemas_[15], expect_types_[15], 
+    new_row.cells_[15], ob_datum_row.storage_datums_[17]);
+      
+  datum_row = &ob_datum_row;
+  ob_datum_row_num_++;
+  return ret;
+}
+
+
 int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row)
 {
   int ret = OB_SUCCESS;
@@ -1239,6 +1292,7 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
         // LOG_INFO("MMMMM type class", K(src_obj.get_type()), K(src_obj.get_type_class()), K(column_idx));
         int j = i < rowkey_column_num_ ? i : i + extra_rowkey_column_num_;
         // ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
+        LOG_INFO("MMMMM", K(i), K(column_idx), K(j));
         if (OB_FAIL(cast_obj_to_type_datum(column_schemas_[i], expect_types_[i], 
             new_row.cells_[column_idx], ob_datum_row.storage_datums_[j]))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[column_idx]));
@@ -1301,7 +1355,7 @@ int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schem
   // ObDataTypeCastParams cast_params(&tz_info_);
   // ObCastCtx cast_ctx(&cast_allocator_, &cast_params, CM_NONE, collation_type_);
   // const ObObjType expect_type = column_schema->get_meta_type().get_type();
-  ObObj casted_obj;
+  // ObObj casted_obj;
   /*
   if (obj.is_null()) {
     casted_obj.set_null();
@@ -1317,13 +1371,13 @@ int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schem
       LOG_WARN("fail to do to type", KR(ret), K(zero_obj), K(expect_type));
     }
   } else {*/
-    if (OB_FAIL(ObDemoObjCaster::to_type(expect_type, cast_ctx_, obj, casted_obj))) {
-      LOG_WARN("fail to do to type", KR(ret), K(obj), K(expect_type));
+    if (OB_FAIL(ObDemoObjCaster::simp_to_type(expect_type, cast_ctx_, obj, casted_obj_))) {
+      LOG_WARN("MMMMM fail to do to type", KR(ret), K(obj), K(expect_type));
     }
   // }
   if (OB_SUCC(ret)) {
-    if (OB_FAIL(datum.from_obj_enhance(casted_obj))) {
-      LOG_WARN("fail to from obj enhance", KR(ret), K(casted_obj));
+    if (OB_FAIL(datum.from_obj_enhance(casted_obj_))) {
+      LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     }
   }
   return ret;
@@ -2285,7 +2339,7 @@ void ObReadSortWriteThread::run(int64_t idx)
       ret = OB_SUCCESS;
     }
     for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
-      if (OB_FAIL(row_caster.get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
+      if (OB_FAIL(row_caster.unfold_get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
         LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
       } else if (OB_FAIL(sstable_writer_.append_datum_row(idx, *ob_datum_row))) {
         LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
@@ -2357,21 +2411,21 @@ int ObLoadDataDirectDemo::pre_processV2()
     len = ptr - buf_begin;
     buffer_.produce(len);
     lseek(fd, -(bytes_read - len), SEEK_CUR);
-    while (OB_SUCC(ret)) {
+    while (true) {
       if (OB_FAIL(fast_get_row_data(buffer_, buf, len, group_id, SPLIT_NUM))) {
         if (OB_UNLIKELY(OB_ITER_END != ret)) {
           LOG_WARN("MMMMM fail to get next row", KR(ret));
         } else {
           ret = OB_SUCCESS;
-          break;
         }
+        break;
       } else if (OB_FAIL(single_file_writers_[group_id].append(buf, len, false))) {
       // } else if (OB_FAIL(file_writers_[group_id].write(buf, len))) {
         LOG_INFO("MMMMM can't write!");
+        break;
       }
       // LOG_INFO("MMMMM write to", K(group_id));
     } 
-    
   }
   for (int i = 0; i < SPLIT_NUM; i++) {
     single_file_writers_[i].close();
