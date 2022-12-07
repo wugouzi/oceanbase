@@ -5,12 +5,14 @@
 #include "lib/thread/ob_async_task_queue.h"
 #include "lib/thread/ob_work_queue.h"
 #include "lib/thread/threads.h"
+#include "demo_obj_cast.h"
 #include "sql/engine/cmd/ob_load_data_impl.h"
 #include "sql/engine/cmd/ob_load_data_parser.h"
 #include "storage/blocksstable/ob_index_block_builder.h"
 // #include "storage/ob_parallel_external_sort.h"
 #include "sql/engine/cmd/demo_sort.h"
 #include "storage/tx_storage/ob_ls_handle.h"
+#include "demo_macro_block_writer.h"
 #include "stdio.h"
 #include <future>
 #include <mutex>
@@ -184,21 +186,45 @@ namespace oceanbase
       int init(const share::schema::ObTableSchema *table_schema,
                const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int get_casted_row(const common::ObNewRow &new_row, const ObLoadDatumRow *&datum_row);
+      int get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
+      int unfold_get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
+      void reuse() { 
+        // 244
+        // LOG_INFO("MMMMM reuse", K(ob_datum_row_num_));
+        ob_datum_row_num_ = 0;
+        cast_allocator_.reuse();
+      }
     private:
       int init_column_schemas_and_idxs(
           const share::schema::ObTableSchema *table_schema,
           const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int cast_obj_to_datum(const share::schema::ObColumnSchemaV2 *column_schema,
                             const common::ObObj &obj, blocksstable::ObStorageDatum &datum);
+      OB_INLINE int cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
+                                            const ObObjType &expect_type,
+                                            const ObObj &obj,
+                                            blocksstable::ObStorageDatum &datum);
     private:
+      static const int CACHE_DATUM_NUM = 300;
       common::ObArray<const share::schema::ObColumnSchemaV2 *> column_schemas_;
       common::ObArray<int64_t> column_idxs_; // Mapping of store columns to source data columns
       int64_t column_count_;
       common::ObCollationType collation_type_;
       ObLoadDatumRow datum_row_;
+      blocksstable::ObDatumRow ob_datum_row_;
+      blocksstable::ObDatumRow ob_datum_rows_[CACHE_DATUM_NUM];
+      int ob_datum_row_num_ = 0;
       common::ObArenaAllocator cast_allocator_;
       common::ObTimeZoneInfo tz_info_;
       bool is_inited_;
+      int64_t extra_rowkey_column_num_;
+      int64_t rowkey_column_num_;
+      ObDemoCastCtx cast_ctx_;
+      ObObjType expect_types_[20];
+      int column_indexes_[20];
+      int32_t min_len_[20];
+      int32_t max_len_[20];
+      ObObj casted_obj_;
     };
 
     class ObLoadExternalSort
@@ -239,8 +265,13 @@ namespace oceanbase
       int init(const share::schema::ObTableSchema *table_schema);
       int append_row(const ObLoadDatumRow &datum_row);
       int append_row(int idx, const ObLoadDatumRow &datum_row);
+      int append_datum_row(int idx, const blocksstable::ObDatumRow &datum_row);
       int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
       int close_macro_blocks();
+      OB_INLINE bool has_wrote_block(int idx) { return macro_block_writers_[idx].has_wrote_block(); }
+      OB_INLINE int build_micro_block(int idx) { return macro_block_writers_[idx].build_micro_block(); }
+      OB_INLINE int flush_current_macro_block(int idx) { return macro_block_writers_[idx].flush_current_macro_block(); }
+      OB_INLINE int switch_macro_block(int idx) { return macro_block_writers_[idx].try_switch_macro_block(); }
       int close();
     private:
       int init_sstable_index_builder(const share::schema::ObTableSchema *table_schema);
@@ -257,10 +288,10 @@ namespace oceanbase
       storage::ObITable::TableKey table_key_;
       blocksstable::ObSSTableIndexBuilder sstable_index_builder_;
       blocksstable::ObDataStoreDesc data_store_desc_;
-      blocksstable::ObMacroBlockWriter macro_block_writer_;
+      blocksstable::ObDemoMacroBlockWriter macro_block_writer_;
       blocksstable::ObDatumRow datum_row_;
       blocksstable::ObDatumRow datum_rows_[200];
-      blocksstable::ObMacroBlockWriter macro_block_writers_[200];
+      blocksstable::ObDemoMacroBlockWriter macro_block_writers_[200];
       bool is_closed_;
       bool is_inited_;
     };
@@ -359,74 +390,6 @@ namespace oceanbase
       
     };
 
-    class ObWriterThread : public lib::Threads 
-    {
-    public:
-      ObWriterThread(ObLoadExternalSort *external_sorts, int start_idx,
-        ObLoadSSTableWriter &sstable_writer,
-        const ObTableSchema *table_schema, int *rets, int thread_num
-        )
-        : external_sorts_(external_sorts), start_idx_(start_idx),
-          sstable_writer_(sstable_writer),
-          table_schema_(table_schema),
-          rets_(rets), thread_num_(thread_num) 
-        {}
-      void run(int64_t idx) final;
-    private:
-      ObLoadExternalSort *external_sorts_;
-      int start_idx_;
-      ObLoadSSTableWriter &sstable_writer_;
-      const ObTableSchema *table_schema_;
-      int *rets_;
-      int thread_num_;
-      std::mutex mutex_;
-    };
-
-    // better to initialize external sorts inside thread, but anyway
-    class ObTrivialSortThread : public lib::Threads 
-    {
-    public: 
-      ObTrivialSortThread(ObLoadExternalSort *external_sorts, int start_idx,
-        ObLoadCSVPaser *csv_parsers,
-        ObLoadRowCaster *row_casters, int key_cnt, int thread_num, const ObString &filepath,
-        Key *keys, const ObTableSchema *table_schema) : 
-        external_sorts_(external_sorts), start_idx_(start_idx),
-        csv_parsers_(csv_parsers), row_casters_(row_casters),
-        key_cnt_(key_cnt), thread_num_(thread_num), filepath_(filepath),
-        keys_(keys), table_schema_(table_schema)
-        {}
-      void run(int64_t idx) final;
-    private:
-      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
-      static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
-      ObLoadExternalSort *external_sorts_;
-      int start_idx_;
-      ObLoadCSVPaser *csv_parsers_;
-      ObLoadRowCaster *row_casters_;
-      // int *key_cnts_;
-      int key_cnt_;
-      int thread_num_;
-      const ObString &filepath_;
-      // Key **keylists_;
-      Key *keys_;
-      const ObTableSchema *table_schema_;
-    };
-
-    // class ObBufferThread : public lib::Threads
-    // {
-    // public:
-    //   ObBufferThread() {}
-    //   void run(int64_t) final;
-    // private:
-    //   ObLoadDataBuffer &buffer_;
-    //   ObLoadSequentialFileReader
-      
-
-    // };
-
-    
-    
-
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
       // TODO: fine tuning
@@ -446,16 +409,17 @@ namespace oceanbase
       // int do_load_buffer(ObLoadSequentialFileReader &file_reader);
       int pre_process();
       int pre_processV2();
-      int pre_process_with_thread();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
       static const int SPLIT_THREAD_NUM = 2;
-      static const int SPLIT_NUM = 120;
-      // static const int SPLIT_NUM = 120;
+      // static const int SPLIT_NUM = 4;
       static const int PARSE_THREAD_NUM = 4;
-      static const int WRITER_THREAD_NUM = 6;
-
+      
+      static const int SPLIT_NUM = 240;
+      static const int WRITER_THREAD_NUM = 8;
+      // static const int SPLIT_NUM = 4;
+      // static const int WRITER_THREAD_NUM = 1;
       ObLoadSequentialFileReader file_reader_;
       ObLoadSequentialFileReader file_split_readers_[SPLIT_THREAD_NUM];
       ObLoadDataBuffer split_buffers_[SPLIT_THREAD_NUM];

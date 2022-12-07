@@ -28,4 +28,5 @@ alter system set system_memory='1G';
 alter resource unit sys_unit_config memory_size='12G';
 load data infile "/root/archieve/1m.csv" into table lineitem_bulk fields terminated by "|";
 select count(*) from lineitem_bulk;
+SELECT * from lineitem_bulk limit 1;
 

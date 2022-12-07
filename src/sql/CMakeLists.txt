@@ -177,6 +177,9 @@ ob_set_subtarget(ob_sql engine_cmd
   engine/cmd/ob_kill_executor.cpp
   engine/cmd/ob_kill_session_arg.cpp
   engine/cmd/ob_load_data_direct_demo.cpp
+  engine/cmd/demo_micro_block_encoder.cpp
+  engine/cmd/demo_macro_block_writer.cpp
+  engine/cmd/demo_obj_cast.cpp
   engine/cmd/ob_load_data_executor.cpp
   engine/cmd/ob_load_data_impl.cpp
   engine/cmd/ob_load_data_parser.cpp
