@@ -348,6 +348,14 @@ public:
                           const ObObj &in_obj,
                           ObObj &out_obj,
                           int idx);
+  static int simp_string_number(ObDemoObjCastParams &params,
+                         const ObObj &in, ObObj &out);
+  static int simp_string_date(ObDemoObjCastParams &params,
+                       const ObObj &in, ObObj &out);
+  static int simp_string_string(const ObObjType expect_type, ObDemoObjCastParams &params,
+                         const ObObj &in, ObObj &out);
+  static int simp_string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
+                      ObObj &in, ObObj &out);
   
   static int to_datetime(const ObObjType expect_type, ObDemoCastCtx &cast_ctx,
                          const ObObj &in_obj, ObObj &buf_obj, const ObObj *&res_obj);

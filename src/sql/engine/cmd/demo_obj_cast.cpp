@@ -241,16 +241,21 @@ static int convert_string_collation(const ObString &in,
                                     ObDemoObjCastParams &params)
 {
   int ret = OB_SUCCESS;
+  
+  static int iii = 0;
   if (!ObCharset::is_valid_collation(in_collation)
       || !ObCharset::is_valid_collation(out_collation)
       || ObCharset::charset_type_by_coll(in_collation) == CHARSET_BINARY
       || ObCharset::charset_type_by_coll(out_collation) == CHARSET_BINARY
       || (ObCharset::charset_type_by_coll(in_collation)
           == ObCharset::charset_type_by_coll(out_collation))) {
+    iii |= 1;
     out = in;
   } else if (in.empty()) {
+    iii |= 2;
     out.reset();
   } else {
+    iii |= 4;
     char *buf = NULL;
     const int32_t CharConvertFactorNum = 4; //最多使用4字节存储一个字符
     int32_t buf_len = in.length() * CharConvertFactorNum;
@@ -267,9 +272,11 @@ static int convert_string_collation(const ObString &in,
                                                   result_len))) {
       LOG_WARN("charset convert failed", K(ret));
     } else {
+      iii |= 8;
       out.assign_ptr(buf, result_len);
     }
   }
+  LOG_INFO("MMMMM", K(iii));
   LOG_DEBUG("convert_string_collation",
             K(in.length()), K(in_collation), K(out.length()), K(out_collation));
   return ret;
@@ -4296,9 +4303,9 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
                       const ObObj &in, ObObj &out, const ObDemoCastMode cast_mode)
 {
   int ret = OB_SUCCESS;
-  ObString utf8_string;
+  // ObString utf8_string;
 
-  ObPrecision res_precision = -1;
+  // ObPrecision res_precision = -1;
   
   /*
   if (OB_UNLIKELY((ObStringTC != in.get_type_class()
@@ -4311,10 +4318,12 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
     ret = OB_NOT_SUPPORTED;
     LOG_ERROR("invalid use of blob type", K(ret), K(in), K(expect_type));
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "Cast to blob type");
-  } else */if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
+  } else if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
       LOG_WARN("convert_string_collation", K(ret));
-  } else {
-    const ObString &str = utf8_string;
+  } else {*/
+    // const ObString &str = utf8_string;
+    // convert_string_collation is always the first case
+    const ObString &str = in.get_string();
     int64_t value = 0;
     const bool is_str_int_cast = true;
     if (CAST_FAIL(demo_common_string_integer(
@@ -4323,7 +4332,7 @@ static int string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
     } */else {
       SET_RES_INT(out);
     }
-  }
+  // }
   /*
   if (OB_SUCC(ret)) {
     res_precision = get_precision_for_integer(out.get_int());
@@ -4456,7 +4465,7 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
   int ret = OB_SUCCESS;
   ObPrecision res_precision = PRECISION_UNKNOWN_YET;
   ObScale res_scale = NUMBER_SCALE_UNKNOWN_YET;
-  ObString utf8_string;
+  // ObString utf8_string;
 
   
   /*
@@ -4480,10 +4489,11 @@ static int string_number(const ObObjType expect_type, ObDemoObjCastParams &param
     } else if (OB_UNLIKELY(0 == in.get_string().length())) {
       value.set_zero();
       ret = OB_ERR_TRUNCATED_WRONG_VALUE_FOR_FIELD;
-    } else if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
+    }/* else if (OB_FAIL(convert_string_collation(in.get_string(), in.get_collation_type(), utf8_string, ObCharset::get_system_collation(), params))) {
       LOG_WARN("convert_string_collation", K(ret));
-    } else {
-      const ObString &str = utf8_string;
+    }*/ else {
+      //const ObString &str = utf8_string;
+      const ObString &str = in.get_string();
       ret = value.from_sci_opt(str.ptr(), str.length(), params, &res_precision, &res_scale);
       // bug: 4263211. 兼容mysql string转number超过最值域范围的行为
       // select cast('1e500' as decimal);  -> max_val
@@ -10437,6 +10447,103 @@ int ObDemoObjCaster::to_type(const ObDemoExpectType &expect_type, ObDemoCastCtx 
   return ret;
 }
 
+int ObDemoObjCaster::simp_string_number(ObDemoObjCastParams &params,
+                         const ObObj &in, ObObj &out)
+{
+  int ret = OB_SUCCESS;
+  ObPrecision res_precision = PRECISION_UNKNOWN_YET;
+  ObScale res_scale = NUMBER_SCALE_UNKNOWN_YET;
+  
+  number::ObNumber value;
+  
+  const ObString &str = in.get_string();
+  ret = value.from_sci_opt(str.ptr(), str.length(), params, &res_precision, &res_scale);
+  // bug: 4263211. 兼容mysql string转number超过最值域范围的行为
+  // select cast('1e500' as decimal);  -> max_val
+  // select cast('-1e500' as decimal); -> min_val
+  if (ret == OB_NUMERIC_OVERFLOW) {
+    int64_t i = 0;
+    while (i < str.length() && isspace(str[i])) {
+      ++i;
+    }
+    bool is_neg = (str[i] == '-');
+    int tmp_ret = OB_SUCCESS;
+    const ObAccuracy &def_acc = ObAccuracy::DDL_DEFAULT_ACCURACY2[0][ObNumberType];
+    const ObPrecision prec = def_acc.get_precision();
+    const ObScale scale = def_acc.get_scale();
+    const ObNumber *bound_num = NULL;
+    if (is_neg) {
+      bound_num = &(ObDemoNumberConstValue::MYSQL_MIN[prec][scale]);
+    } else {
+      bound_num = &(ObDemoNumberConstValue::MYSQL_MAX[prec][scale]);
+    }
+    if (OB_SUCCESS != (tmp_ret = value.from(*bound_num, *params.allocator_v2_))) {
+      LOG_WARN("copy min number failed", K(ret), K(tmp_ret), KPC(bound_num));
+    }
+  } 
+  out.set_number(ObNumberType, value);
+  out.set_collation_level(CS_LEVEL_COERCIBLE);
+  out.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+    
+  return ret;
+}
+
+int ObDemoObjCaster::simp_string_date(ObDemoObjCastParams &params,
+                       const ObObj &in, ObObj &out)
+{
+  int ret = OB_SUCCESS;
+  int32_t value = 0;
+  ObDateSqlMode date_sql_mode;
+  date_sql_mode.allow_invalid_dates_ = false;
+  date_sql_mode.no_zero_date_ = false;
+  ObDemoCastMode cast_mode = 0;
+  
+  if (CAST_FAIL(ObTimeConverter::str_to_date(in.get_string(), value, date_sql_mode))) {
+  } else {
+    SET_RES_DATE(out);
+    out.set_collation_level(CS_LEVEL_COERCIBLE);
+    out.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+  
+  return ret;
+}
+
+int ObDemoObjCaster::simp_string_string(const ObObjType expect_type, ObDemoObjCastParams &params,
+                         const ObObj &in, ObObj &out)
+{
+  int ret = OB_SUCCESS;
+
+  if (OB_FAIL(demo_check_convert_string(expect_type, params, in, out))) {
+    LOG_WARN("MMMMM failed to check_and_convert_string", K(ret), K(in), K(expect_type));
+  } else {
+    out.set_collation_level(in.get_collation_level());
+    out.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+
+  return ret;
+}
+
+
+int ObDemoObjCaster::simp_string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
+                      ObObj &in, ObObj &out)
+{
+  int ret = OB_SUCCESS;
+  ObDemoCastMode cast_mode = 0;
+  int64_t value = 0;
+  const ObString &str = in.get_string();
+  const bool is_str_int_cast = true;
+  if (CAST_FAIL(demo_common_string_integer(
+              cast_mode, ObVarcharType, CS_TYPE_UTF8MB4_GENERAL_CI, str, is_str_int_cast, value))) {
+  } else {
+    SET_RES_INT(out);
+    out.set_collation_level(CS_LEVEL_COERCIBLE);
+    out.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+  return ret;
+}
+
+
+
 int ObDemoObjCaster::simp_to_type(const ObObjType &expect_type,
                           ObDemoCastCtx &cast_ctx,
                           const ObObj &in_obj,
@@ -10454,6 +10561,7 @@ int ObDemoObjCaster::simp_to_type(const ObObjType &expect_type,
     cond1_[idx] = ObStringTC == out_tcs_[idx] || ObTextTC == out_tcs_[idx] || ObLobTC == out_tcs_[idx];
     cond2_[idx] = ObStringTC == in_tcs_[idx] || ObTextTC == in_tcs_[idx] || ObLobTC == out_tcs_[idx];
     inited_[idx] = true;
+    LOG_INFO("MMMMM type", K(in_types_[idx]), K(expect_cs_types_[idx]), K(in_tcs_[idx]), K(out_tcs_[idx]), K(cond1_[idx]), K(cond2_[idx]), K(idx), K(expect_type), K(cast_ctx.cast_mode_));
   }
 
   if (OB_FAIL(OB_Demo_OBJ_CAST[in_tcs_[idx]][out_tcs_[idx]](expect_type, cast_ctx, in_obj, out_obj, cast_ctx.cast_mode_))) {

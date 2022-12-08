@@ -200,8 +200,7 @@ namespace oceanbase
           const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int cast_obj_to_datum(const share::schema::ObColumnSchemaV2 *column_schema,
                             const common::ObObj &obj, blocksstable::ObStorageDatum &datum);
-      OB_INLINE int cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
-                                            const ObObjType &expect_type,
+      OB_INLINE int cast_obj_to_type_datum(const ObObjType &expect_type,
                                             const ObObj &obj,
                                             blocksstable::ObStorageDatum &datum,
                                             int idx);
@@ -226,6 +225,10 @@ namespace oceanbase
       int32_t min_len_[20];
       int32_t max_len_[20];
       ObObj casted_obj_;
+      int64_t time1;
+      int64_t time2;
+      int64_t time3;
+      int64_t time4;
     };
 
     class ObLoadExternalSort

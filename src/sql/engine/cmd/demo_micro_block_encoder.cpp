@@ -922,7 +922,7 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
 
 
   if (datum_rows_.count() > 0
-      && (length_ + datums_len >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
+      && (length_ + datums_len + 180 >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
     ret = OB_BUF_NOT_ENOUGH;
   } else if (0 == datum_rows_.count() && length_ + datums_len >= estimate_size_limit_) {
     is_large_row = true;
@@ -1019,6 +1019,7 @@ int ObDemoMicroBlockEncoder::copy_cell(
     is_large_row = true;
   } else {
     // dest.ptr_ = src.ptr_;
+    
     
     if (is_int_sc) {
       MEMSET(const_cast<char *>(dest.ptr_), 0, datum_size);

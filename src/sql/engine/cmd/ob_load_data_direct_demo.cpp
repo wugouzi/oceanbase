@@ -1110,7 +1110,7 @@ ObLoadRowCaster::~ObLoadRowCaster()
     LOG_INFO("MMMMM caster", K(i), K(min_len_[i]), K(max_len_[i]));
   }
   */
-  
+  // LOG_INFO("MMMMM cast time", K(time1), K(time2), K(time3), K(time4));
 }
 
 int ObLoadRowCaster::init(const ObTableSchema *table_schema,
@@ -1228,39 +1228,193 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
     LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[0]));
   }
   */
-  cast_obj_to_type_datum(column_schemas_[0], expect_types_[0], 
+  int64_t t1 = common::ObTimeUtility::current_time();
+
+  // time test
+  // 0 0 int
+  if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObIntType, cast_ctx_, new_row.cells_[0], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[0]), K(ObIntType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[0].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 3 1 int32
+  if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObInt32Type, cast_ctx_, new_row.cells_[3], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[3]), K(ObInt32Type));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[1].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 1 4 int
+  if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObIntType, cast_ctx_, new_row.cells_[1], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[1]), K(ObIntType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[4].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 2 5 int32
+  if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObInt32Type, cast_ctx_, new_row.cells_[2], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[2]), K(ObInt32Type));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[5].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 4 6 number
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, new_row.cells_[4], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[4]), K(ObNumberType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[6].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 5 7 number
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, new_row.cells_[5], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[5]), K(ObNumberType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[7].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 6 8 number
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, new_row.cells_[6], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[6]), K(ObNumberType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[8].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 7 9 number
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, new_row.cells_[7], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[7]), K(ObNumberType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[9].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 8 10 string
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, new_row.cells_[8], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[8]), K(ObCharType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[10].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 9 11 string
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, new_row.cells_[9], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[9]), K(ObCharType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[11].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 10 12 date
+  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, new_row.cells_[10], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[10]), K(ObDateType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[12].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 11 13 date
+  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, new_row.cells_[11], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[11]), K(ObDateType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[13].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 12 14 date
+  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, new_row.cells_[12], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[12]), K(ObDateType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[14].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 13 15 string
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, new_row.cells_[13], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[13]), K(ObCharType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[15].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 14 16 string
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, new_row.cells_[14], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[14]), K(ObCharType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[16].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 15 17 string
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObVarcharType, cast_ctx_, new_row.cells_[15], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[15]), K(ObVarcharType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[17].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  
+  
+  /*
+  cast_obj_to_type_datum(expect_types_[0],
     new_row.cells_[0], ob_datum_row.storage_datums_[0], 0);
-  cast_obj_to_type_datum(column_schemas_[1], expect_types_[1], 
+  cast_obj_to_type_datum(expect_types_[1], 
     new_row.cells_[3], ob_datum_row.storage_datums_[1], 1);
-  cast_obj_to_type_datum(column_schemas_[2], expect_types_[2], 
+  cast_obj_to_type_datum(expect_types_[2], 
     new_row.cells_[1], ob_datum_row.storage_datums_[4], 2);
-  cast_obj_to_type_datum(column_schemas_[3], expect_types_[3], 
+  cast_obj_to_type_datum(expect_types_[3], 
     new_row.cells_[2], ob_datum_row.storage_datums_[5], 3);
-  cast_obj_to_type_datum(column_schemas_[4], expect_types_[4], 
+  __builtin_prefetch(&expect_types_[0]);
+  // __builtin_prefetch(&expect_types_[0]);
+  // __builtin_prefetch(&expect_types_[0]);
+  
+  cast_obj_to_type_datum(expect_types_[4], 
     new_row.cells_[4], ob_datum_row.storage_datums_[6], 4);
-  cast_obj_to_type_datum(column_schemas_[5], expect_types_[5], 
+  cast_obj_to_type_datum(expect_types_[5], 
     new_row.cells_[5], ob_datum_row.storage_datums_[7], 5);
-  cast_obj_to_type_datum(column_schemas_[6], expect_types_[6], 
+  cast_obj_to_type_datum(expect_types_[6], 
     new_row.cells_[6], ob_datum_row.storage_datums_[8], 6);
-  cast_obj_to_type_datum(column_schemas_[7], expect_types_[7], 
+  cast_obj_to_type_datum(expect_types_[7], 
     new_row.cells_[7], ob_datum_row.storage_datums_[9], 7);
-  cast_obj_to_type_datum(column_schemas_[8], expect_types_[8], 
+  cast_obj_to_type_datum(expect_types_[8], 
     new_row.cells_[8], ob_datum_row.storage_datums_[10], 8);
-  cast_obj_to_type_datum(column_schemas_[9], expect_types_[9], 
+  cast_obj_to_type_datum(expect_types_[9], 
     new_row.cells_[9], ob_datum_row.storage_datums_[11], 9);
-  cast_obj_to_type_datum(column_schemas_[10], expect_types_[10], 
+  cast_obj_to_type_datum(expect_types_[10], 
     new_row.cells_[10], ob_datum_row.storage_datums_[12], 10);
-  cast_obj_to_type_datum(column_schemas_[11], expect_types_[11], 
+  cast_obj_to_type_datum(expect_types_[11], 
     new_row.cells_[11], ob_datum_row.storage_datums_[13], 11);
-  cast_obj_to_type_datum(column_schemas_[12], expect_types_[12], 
+  cast_obj_to_type_datum(expect_types_[12], 
     new_row.cells_[12], ob_datum_row.storage_datums_[14], 12);
-  cast_obj_to_type_datum(column_schemas_[13], expect_types_[13], 
+  cast_obj_to_type_datum(expect_types_[13], 
     new_row.cells_[13], ob_datum_row.storage_datums_[15], 13);
-  cast_obj_to_type_datum(column_schemas_[14], expect_types_[14], 
+  cast_obj_to_type_datum(expect_types_[14], 
     new_row.cells_[14], ob_datum_row.storage_datums_[16], 14);
-  cast_obj_to_type_datum(column_schemas_[15], expect_types_[15], 
+  cast_obj_to_type_datum(expect_types_[15], 
     new_row.cells_[15], ob_datum_row.storage_datums_[17], 15);
-      
+  */
   datum_row = &ob_datum_row;
   ob_datum_row_num_++;
   return ret;
@@ -1293,7 +1447,7 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
         int j = i < rowkey_column_num_ ? i : i + extra_rowkey_column_num_;
         // ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
         // LOG_INFO("MMMMM", K(i), K(column_idx), K(j));
-        if (OB_FAIL(cast_obj_to_type_datum(column_schemas_[i], expect_types_[i], 
+        if (OB_FAIL(cast_obj_to_type_datum(expect_types_[i], 
             new_row.cells_[column_idx], ob_datum_row.storage_datums_[j], i))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[column_idx]));
         }
@@ -1346,8 +1500,7 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
 }
 
 // only use type 3 and 4
-int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
-                                            const ObObjType &expect_type,
+int ObLoadRowCaster::cast_obj_to_type_datum(const ObObjType &expect_type,
                                             const ObObj &obj,
                                             blocksstable::ObStorageDatum &datum,
                                             int idx)
@@ -2378,7 +2531,7 @@ int ObLoadDataDirectDemo::pre_processV2()
   std::string tmp(filepath_.ptr(), filepath_.length());
   for (int i = 0; i < SPLIT_NUM; i++) {
     std::string tmpp = tmp + "." + std::to_string(i);
-    LOG_INFO("MMMMM", K(tmpp.c_str()));
+    // LOG_INFO("MMMMM", K(tmpp.c_str()));
     filepaths_.push_back(tmpp);
     ObString file_path(tmpp.size(), tmpp.c_str());
     // file_writers_[i].open(file_path, SPLIT_BUF_SIZE);
@@ -2491,10 +2644,13 @@ int ObLoadDataDirectDemo::pre_process()
 int ObLoadDataDirectDemo::do_load()
 {
   int ret = OB_SUCCESS;
+  int64_t start = common::ObTimeUtility::current_time();
   if (OB_FAIL(pre_processV2())) {
     LOG_INFO("MMMMM pre process fail", KR(ret));
     return ret;
   }
+  int64_t pre = common::ObTimeUtility::current_time() - start;
+  start = common::ObTimeUtility::current_time();
   LOG_INFO("MMMMM pre done", KR(ret));
   char *bufs[WRITER_THREAD_NUM];
   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
@@ -2513,6 +2669,8 @@ int ObLoadDataDirectDemo::do_load()
     ret = rets[i] == OB_SUCCESS ? ret : rets[i];
   }
   LOG_INFO("MMMMM thread done", KR(ret));
+  int64_t thread = common::ObTimeUtility::current_time() - start;
+  start = common::ObTimeUtility::current_time();
   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
     free(bufs[i]);
   }
@@ -2527,8 +2685,9 @@ int ObLoadDataDirectDemo::do_load()
     }
     LOG_INFO("MMMMM close done", KR(ret));
   }
-
-  
+  int64_t close = common::ObTimeUtility::current_time() - start;
+  double total = pre + thread + close;
+  LOG_INFO("MMMMM demo time", K(pre/total), K(thread/total), K(close/total));
   return ret;
 }
 
