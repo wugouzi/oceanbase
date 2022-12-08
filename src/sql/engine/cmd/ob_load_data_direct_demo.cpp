@@ -1135,7 +1135,7 @@ int ObLoadRowCaster::init(const ObTableSchema *table_schema,
   } else if (OB_FAIL(ob_datum_row_.init(column_count_ + extra_rowkey_column_num_))) {
     LOG_INFO("MMMMM extra fail", KR(ret));
   }else {
-    LOG_INFO("MMMMM caster", K(extra_rowkey_column_num_), K(rowkey_column_num_), K(column_count_));
+    // LOG_INFO("MMMMM caster", K(extra_rowkey_column_num_), K(rowkey_column_num_), K(column_count_));
     ob_datum_row_.row_flag_.set_flag(ObDmlFlag::DF_INSERT);
     ob_datum_row_.mvcc_row_flag_.set_last_multi_version_row(true);
     ob_datum_row_.storage_datums_[rowkey_column_num_].set_int(-1); // fill trans_version
@@ -2165,6 +2165,12 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   if (OB_FAIL(sstable_writer_.init(table_schema))) {
     LOG_WARN("fail to init sstable writer", KR(ret));
   }
+
+  /*
+  for (int i = 0; i < WRITER_THREAD_NUM * IN_MEMORY_FILE_NUM; ++i) {
+    in_memory_files_[i] = (char*)malloc(IN_MEMORY_FILE_SIZE);
+    in_memory_files_len_[i] = 0;
+  }*/
   // init datum_row_buffers_
   // datum_row_buffers_.resize(DEMO_BUF_NUM);
   table_schema_ = table_schema;
@@ -2420,13 +2426,91 @@ void ObParseDataThread::run(int64_t idx)
   rets_[idx] = ret;
 }
 
+int ObReadSortWriteThread::handle_file(int64_t idx, char *file_data, int64_t len)
+{
+  ObNewRow *new_row = nullptr;
+  const ObLoadDatumRow *datum_row = nullptr;
+  const blocksstable::ObDatumRow *ob_datum_row = nullptr;
+  ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
+  ObLoadRowCaster &row_caster = row_casters_[idx];
+  ObLoadDataBuffer &buffer = buffers_[idx];
+  ObLoadDatumRowCompare &compare = external_sorts_[idx].compare();
+  char *&buf = bufs_[idx];
+
+  int64_t pos = 0;
+  int cnt = 0;
+
+  char *file_ptr = file_data;
+  char *file_end = file_data + len;
+  // LOG_INFO("MMMMM mmap file", K(file_paths_[i].c_str()), K(len));
+  int ret = OB_SUCCESS;
+
+  common::ObVector<KeyRow> item_list;
+
+  while (OB_SUCC(ret)) {
+    KeyRow new_item;
+    new_row = new (buf + pos) ObNewRow;
+    new_item.row = new_row;
+    pos += sizeof(ObNewRow);
+    new_row->count_ = column_count_;
+    new_row->cells_ = (ObObj*)new (buf + pos) ObObj[column_count_];
+    pos += additional_size_;
+    if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, *new_row, new_item))) {
+      if (OB_UNLIKELY(OB_ITER_END != ret)) {
+        LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
+      } else {
+        ret = OB_SUCCESS;
+        break;
+      }
+    } else {
+      if (OB_FAIL(item_list.push_back(new_item))) {
+        LOG_INFO("MMMMM fail to push back new item", K(ret));
+      } else {
+        cnt++;
+      }
+    }
+  }
+
+  LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(cnt));
+  // sort
+  std::sort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
+    return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
+  });
+  /*
+  quicksort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
+    return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
+  });
+  */
+  LOG_INFO("MMMMM sort done", KR(ret), K(idx));
+  if (ret == OB_ITER_END) {
+    ret = OB_SUCCESS;
+  }
+  for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
+    if (OB_FAIL(row_caster.unfold_get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
+      LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
+    } else if (OB_FAIL(sstable_writer_.append_datum_row(idx, *ob_datum_row))) {
+      LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
+    } if (sstable_writer_.has_wrote_block(idx)) {
+      row_caster.reuse();
+    }
+  }
+  if (item_list.size() > 0) {
+    if (OB_FAIL(sstable_writer_.build_micro_block(idx))) {
+      LOG_INFO("MMMMM build micro fail");
+    } else if (OB_FAIL(sstable_writer_.switch_macro_block(idx))) {
+      LOG_INFO("MMMMM build macro fail", KR(ret));
+    }
+  }
+  return ret;
+}
+
 // we don't use allocator:D
 // thread_num_ | split_num_
 void ObReadSortWriteThread::run(int64_t idx) 
 {
-  LOG_INFO("MMMMM readsortwrite start", K(idx));
+  // LOG_INFO("MMMMM readsortwrite start", K(idx));
   
-  int n = split_num_ / thread_num_;
+  
 
   ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
@@ -2441,84 +2525,33 @@ void ObReadSortWriteThread::run(int64_t idx)
 
   sstable_writer_.init_macro_block_writer(table_schema_, idx);
   int64_t max_size = sizeof(ObNewRow) + additional_size_;
-
+  /*
+  int n = (split_num_ - in_memory_file_num_) / thread_num_;
+  for (int i = idx * in_memory_file_num_; i < (idx + 1) * in_memory_file_num_; i++) {
+    LOG_INFO("MMMMM in memory", K(i));
+    if (OB_FAIL(handle_file(idx, in_memory_files_[i], in_memory_files_len_[i]))) {
+      LOG_INFO("MMMMM write fail", KR(ret), K(idx));
+    } else {
+      LOG_INFO("MMMMM write done", KR(ret), K(idx));
+    }
+    free(in_memory_files_[i]);
+  }*/
+  int n = (split_num_) / thread_num_;
   for (int i = idx * n; i < (idx + 1) * n && OB_SUCC(ret); i++) {
-    int64_t pos = 0;
-    int cnt = 0;
-
     int fd = open(file_paths_[i].c_str(), O_RDONLY);
-    int64_t len = lseek(fd,0,SEEK_END);  
+    int64_t  len = lseek(fd,0,SEEK_END);  
     char *file_data = (char *) mmap(NULL, len, PROT_READ, MAP_PRIVATE,fd, 0);
-    char *file_ptr = file_data;
-    char *file_end = file_data + len;
-    LOG_INFO("MMMMM mmap file", K(file_paths_[i].c_str()), K(len));
     close(fd);
 
-    common::ObVector<KeyRow> item_list;
-
-    while (OB_SUCC(ret)) {
-      KeyRow new_item;
-      new_row = new (buf + pos) ObNewRow;
-      new_item.row = new_row;
-      pos += sizeof(ObNewRow);
-      new_row->count_ = column_count_;
-      new_row->cells_ = (ObObj*)new (buf + pos) ObObj[column_count_];
-      pos += additional_size_;
-      if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, *new_row, new_item))) {
-        if (OB_UNLIKELY(OB_ITER_END != ret)) {
-          LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
-        } else {
-          ret = OB_SUCCESS;
-          break;
-        }
-      } else {
-        if (OB_FAIL(item_list.push_back(new_item))) {
-          LOG_INFO("MMMMM fail to push back new item", K(ret));
-        }
-      }
-    }
-  
-    LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(max_size), K(cnt));
-    // sort
-    std::sort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
-      return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
-    });
-    /*
-    quicksort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
-      return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
-    });
-    */
-    LOG_INFO("MMMMM sort done", KR(ret), K(idx));
-    if (ret == OB_ITER_END) {
-      ret = OB_SUCCESS;
-    }
-    for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
-      if (OB_FAIL(row_caster.unfold_get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
-        LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
-      } else if (OB_FAIL(sstable_writer_.append_datum_row(idx, *ob_datum_row))) {
-        LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
-      } if (sstable_writer_.has_wrote_block(idx)) {
-        row_caster.reuse();
-      }
-      /*
-      if (OB_FAIL(row_caster.get_casted_row(*item_list[i].row, datum_row))) {
-        LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
-      } else if (OB_FAIL(sstable_writer_.append_row(idx, *datum_row))) {
-        LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
-      }
-      */
-    }
-    if (item_list.size() > 0) {
-      if (OB_FAIL(sstable_writer_.build_micro_block(idx))) {
-        LOG_INFO("MMMMM build micro fail");
-      } else if (OB_FAIL(sstable_writer_.switch_macro_block(idx))) {
-        LOG_INFO("MMMMM build macro fail", KR(ret));
-      }
+    if (OB_FAIL(handle_file(idx, file_data, len))) {
+      LOG_INFO("MMMMM write fail", KR(ret), K(idx));
+    } else {
+      LOG_INFO("MMMMM write done", KR(ret), K(idx));
     }
     
-    LOG_INFO("MMMMM write done", KR(ret), K(idx));
     // data of new_row is still in mmap
     munmap(file_data, len);
+    LOG_INFO("MMMMM readsortwrite", K(i));
   }
   LOG_INFO("MMMMM", K(max_size), KR(ret));
   rets_[idx] = ret;
@@ -2660,7 +2693,8 @@ int ObLoadDataDirectDemo::do_load()
   LOG_INFO("MMMMM allocate memory done");
   int rets[WRITER_THREAD_NUM];
   ObReadSortWriteThread threads(SPLIT_NUM, WRITER_THREAD_NUM, filepaths_,
-    csv_parsers_, row_casters_, buffers_, sstable_writer_, table_schema_, external_sorts_, bufs, THREAD_BUF_SIZE, rets);
+    csv_parsers_, row_casters_, buffers_, sstable_writer_, table_schema_, external_sorts_, bufs, THREAD_BUF_SIZE, rets,
+    in_memory_files_, in_memory_files_len_, IN_MEMORY_FILE_NUM);
   threads.set_thread_count(WRITER_THREAD_NUM);
   threads.set_run_wrapper(MTL_CTX());
   threads.start();
@@ -2677,12 +2711,14 @@ int ObLoadDataDirectDemo::do_load()
   if (OB_SUCC(ret)) {
     if (OB_FAIL(sstable_writer_.close())) {
       LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
-    }
-    for (auto &s : filepaths_) {
-      if (remove(s.c_str()) != 0) {
-        LOG_INFO("MMMMM remove fail", K(s.c_str()));
+    } else {
+      for (auto &s : filepaths_) {
+        if (remove(s.c_str()) != 0) {
+          LOG_INFO("MMMMM remove fail", K(s.c_str()));
+        }
       }
     }
+    
     LOG_INFO("MMMMM close done", KR(ret));
   }
   int64_t close = common::ObTimeUtility::current_time() - start;

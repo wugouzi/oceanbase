@@ -342,18 +342,26 @@ namespace oceanbase
         ObLoadSSTableWriter &sstable_writer, const ObTableSchema *table_schema,
         ObLoadExternalSort *external_sorts, char **bufs,
         int64_t thread_buf_size,
-        int *rets)
+        int *rets,
+        char **in_memory_files,
+        int *in_memory_files_len,
+        int in_memory_file_num
+        )
       : split_num_(split_num), thread_num_(thread_num),
         file_paths_(file_paths), csv_parsers_(csv_parsers),
         row_casters_(row_casters), buffers_(buffers),
         sstable_writer_(sstable_writer), table_schema_(table_schema),
         external_sorts_(external_sorts), bufs_(bufs),
         thread_buf_size_(thread_buf_size),
-        rets_(rets)
+        rets_(rets), in_memory_files_(in_memory_files),
+        in_memory_files_len_(in_memory_files_len),
+        in_memory_file_num_(in_memory_file_num)
+        
       {
         additional_size_ = column_count_ * sizeof(ObObj);
       }
       void run(int64_t idx) final;
+      int handle_file(int64_t idx, char *file_data, int64_t len);
     private:
       int split_num_;
       int thread_num_;
@@ -369,6 +377,9 @@ namespace oceanbase
       int *rets_;
       int column_count_ = 16;
       int64_t additional_size_;
+      char **in_memory_files_;
+      int *in_memory_files_len_;
+      int in_memory_file_num_;
     };
 
     class ObSplitFileThread : public lib::Threads 
@@ -419,6 +430,8 @@ namespace oceanbase
       static const int SPLIT_THREAD_NUM = 2;
       // static const int SPLIT_NUM = 4;
       static const int PARSE_THREAD_NUM = 4;
+      static const int IN_MEMORY_FILE_NUM = 1;
+      static const int64_t IN_MEMORY_FILE_SIZE = (1LL << 30) * 0.2; //200M
       
       static const int SPLIT_NUM = 240;
       static const int WRITER_THREAD_NUM = 8;
@@ -445,6 +458,8 @@ namespace oceanbase
       ObLoadSequentialFileAppender file_writers_[SPLIT_NUM];
       common::ObFileAppender single_file_writers_[SPLIT_NUM];
       std::vector<std::string> filepaths_;
+      char *in_memory_files_[WRITER_THREAD_NUM * IN_MEMORY_FILE_NUM];
+      int in_memory_files_len_[WRITER_THREAD_NUM * IN_MEMORY_FILE_NUM];
     };
 
   } // namespace sql

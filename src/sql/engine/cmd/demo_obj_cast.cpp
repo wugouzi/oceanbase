@@ -10500,7 +10500,8 @@ int ObDemoObjCaster::simp_string_date(ObDemoObjCastParams &params,
   
   if (CAST_FAIL(ObTimeConverter::str_to_date(in.get_string(), value, date_sql_mode))) {
   } else {
-    SET_RES_DATE(out);
+    // SET_RES_DATE(out);
+    out.set_date(value);
     out.set_collation_level(CS_LEVEL_COERCIBLE);
     out.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
   }
@@ -10535,7 +10536,8 @@ int ObDemoObjCaster::simp_string_int(const ObObjType expect_type, ObDemoObjCastP
   if (CAST_FAIL(demo_common_string_integer(
               cast_mode, ObVarcharType, CS_TYPE_UTF8MB4_GENERAL_CI, str, is_str_int_cast, value))) {
   } else {
-    SET_RES_INT(out);
+    out.set_int(expect_type, value);
+    // SET_RES_INT(out);
     out.set_collation_level(CS_LEVEL_COERCIBLE);
     out.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
   }

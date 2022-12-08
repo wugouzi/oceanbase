@@ -382,6 +382,8 @@ int ObDemoMicroBlockEncoder::append_row(const ObDatumRow &row)
       // The maximum size of a micro block is estimate_size_limit_, but set 3 times of it in memory
       // due to memory struct need to store some other meta information.
       // When micro block is too small, estimate_size_ could be 0. Each row bceomes a large row.
+      // size 132636
+      // LOG_INFO("MMMMM allocate", K(3 * estimate_size_limit_));
       if (0 != estimate_size_limit_ && OB_FAIL(row_buf_holder_.try_alloc(3 * estimate_size_limit_))) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
         LOG_WARN("fail to try allocate memory for buf holder", K(ret), K_(3 * estimate_size_limit));
@@ -1179,9 +1181,21 @@ int ObDemoMicroBlockEncoder::encoder_detection()
       }
     }
     for (int64_t i = 0; OB_SUCC(ret) && i <ctx_.column_cnt_; ++i) {
+      /*
+      ObIColumnEncoder *e = nullptr;
+      if (OB_FAIL(try_encoder<ObRawEncoder>(e, i))) {
+        LOG_INFO("MMMMM raw encoder failed to try column out row encoder", K(ret));
+      } else if (OB_FAIL(encoders_.push_back(e))) {
+        LOG_WARN("failed to append encoder", K(ret), KP(e));
+        free_encoder(e);
+        e = nullptr;
+      } else {
+        continue;
+      }*/
       if (col_ctxs_.at(i).is_out_row_column_) {
         // Use raw encoding for out row locator
         ObIColumnEncoder *e = nullptr;
+        // LOG_INFO("MMMMM choose raw encoder", K(i));
         if (OB_FAIL(try_encoder<ObRawEncoder>(e, i))) {
           LOG_WARN("failed to try column out row encoder", K(ret));
         } else if (OB_FAIL(encoders_.push_back(e))) {
@@ -1192,6 +1206,7 @@ int ObDemoMicroBlockEncoder::encoder_detection()
       } else if (OB_FAIL(fast_encoder_detect(i, col_ctxs_.at(i)))) {
         LOG_WARN("fast encoder detect failed", K(ret), K(i));
       } else {
+        // LOG_INFO("MMMMM choose encoder", K(i));
         if (encoders_.count() <= i) {
           if (col_ctxs_.at(i).only_raw_encoding_) {
             ret = OB_ERR_UNEXPECTED;
@@ -1215,6 +1230,7 @@ int ObDemoMicroBlockEncoder::fast_encoder_detect(
 {
   int ret = OB_SUCCESS;
   ObIColumnEncoder *e = NULL;
+  // LOG_INFO("MMMMM fast detection");
   if (IS_NOT_INIT) {
     ret = OB_NOT_INIT;
     LOG_WARN("not init", K(ret));
@@ -1224,7 +1240,7 @@ int ObDemoMicroBlockEncoder::fast_encoder_detect(
   } else if (nullptr != ctx_.column_encodings_
       && ctx_.column_encodings_[column_idx] > 0
       && ctx_.column_encodings_[column_idx] < ObColumnHeader::Type::MAX_TYPE) {
-    LOG_INFO("specified encoding", K(column_idx), K(ctx_.column_encodings_[column_idx]));
+    LOG_INFO("MMMMM specified encoding", K(column_idx), K(ctx_.column_encodings_[column_idx]));
     if (OB_FAIL(try_encoder(e, column_idx,
         static_cast<ObColumnHeader::Type>(ctx_.column_encodings_[column_idx]), 0, -1))) {
       LOG_WARN("try encoding failed", K(ret), K(column_idx),
@@ -1235,6 +1251,7 @@ int ObDemoMicroBlockEncoder::fast_encoder_detect(
           K(ctx_.column_encodings_[column_idx]));
     }
   } else if (cc.only_raw_encoding_) {
+    LOG_INFO("MMMMM raw");
     if (OB_FAIL(force_raw_encoding(column_idx, true, e))) {
       LOG_WARN("force raw encoding failed", K(ret), K(column_idx));
     } else if (OB_ISNULL(e)) {
@@ -1242,11 +1259,16 @@ int ObDemoMicroBlockEncoder::fast_encoder_detect(
       LOG_WARN("raw encoder is NULL", K(ret), K(column_idx));
     }
   } else if (cc.ht_->distinct_cnt() <= 1) {
+    // LOG_INFO("MMMMM constant", K(column_idx));
     if (OB_FAIL(try_encoder<ObConstEncoder>(e, column_idx))) {
+      LOG_INFO("MMMMM constant fail", K(column_idx));
       LOG_WARN("try encoder failed");
     }
   }
   if (OB_SUCC(ret) && NULL != e) {
+    // LOG_DEBUG("MMMMM used encoder (fast)", K(column_idx),
+    //   "column_header", e->get_column_header(),
+    //   "data_desc", e->get_desc());
     LOG_DEBUG("used encoder (fast)", K(column_idx),
         "column_header", e->get_column_header(),
         "data_desc", e->get_desc());
@@ -1375,6 +1397,7 @@ int ObDemoMicroBlockEncoder::try_previous_encoder(ObIColumnEncoder *&choose,
               choose = e;
               if (!need_calc || choose->calc_size() <= acceptable_size) {
                 try_more = false;
+                // LOG_INFO("MMMMM encoder choose previous", K(column_index));
                 LOG_DEBUG("choose encoding by previous micro block encoding", K(column_index),
                     "previous encoding array", ctx_.previous_encodings_.at(column_index));
               }
@@ -1517,6 +1540,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
     ObIColumnEncoder *choose = e;
     int64_t acceptable_size = choose->calc_size() / 4;
     if (OB_FAIL(try_encoder<ObDictEncoder>(e, column_idx))) {
+      LOG_INFO("MMMMM try dict encoder fail", K(column_idx));
       LOG_WARN("try dict encoder failed", K(ret), K(column_idx));
     } else if (NULL != e) {
       if (e->calc_size() < choose->calc_size()) {
@@ -1545,6 +1569,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
           free_encoder(choose);
           choose = e;
           if (choose->calc_size() <= acceptable_size) {
+            // LOG_INFO("MMMMM encoder choose column equal", K(column_idx));
             try_more = false;
           }
         } else {
@@ -1567,6 +1592,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
             free_encoder(choose);
             choose = e;
             if (choose->calc_size() <= acceptable_size) {
+              // LOG_INFO("MMMMM encoder choose column substring", K(column_idx));
               try_more = false;
             }
           } else {
@@ -1609,6 +1635,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
 
     if (OB_SUCC(ret) && try_more && choose->calc_size() <= acceptable_size) {
       try_more = false;
+      // LOG_INFO("MMMMM encoder choose const", K(column_idx));
     }
 
     if (OB_SUCC(ret) && try_more) {
@@ -1623,6 +1650,9 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
             free_encoder(choose);
             choose = e;
             try_more = size <= acceptable_size;
+            if (!try_more) {
+              // LOG_INFO("MMMMM encoder choose int diff", K(column_idx));
+            }
           } else {
             free_encoder(e);
             e = NULL;
@@ -1693,6 +1723,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
     }
 
     if (OB_SUCC(ret)) {
+      // LOG_INFO("MMMMM choose encoder", K(choose->get_type()), K(column_idx));
       LOG_DEBUG("used encoder", K(column_idx),
           "column_header", choose->get_column_header(),
           "data_desc", choose->get_desc());
