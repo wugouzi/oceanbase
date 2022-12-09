@@ -137,7 +137,7 @@ int ObEncodingHashTableBuilder::build(const ObColDatums &col_datums, const ObCol
             K(ret), K(row_id), K(datum), K(*datum.extend_obj_));
       } else {
         // int64_t pos = hash(datum, hash_func, need_binary_hash) & mask;
-        int64_t pos = row_id;
+        int64_t pos = row_id & mask;
         NodeList *list = buckets_[pos];
         while (OB_SUCC(ret) && nullptr != list) {
           bool is_equal = false;

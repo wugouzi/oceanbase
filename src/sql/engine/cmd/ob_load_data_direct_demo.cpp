@@ -2174,6 +2174,8 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   // init datum_row_buffers_
   // datum_row_buffers_.resize(DEMO_BUF_NUM);
   table_schema_ = table_schema;
+
+  file_pos_.resize(SPLIT_NUM);
   return ret;
 }
 
@@ -2385,6 +2387,28 @@ int do_load_buffer(ObLoadDataBuffer &buffer, ObLoadSequentialFileReader &file_re
   return ret;
 }
 
+// task is a buffer pointer
+void ObCompressWritePool::handle(void *_task)
+{
+  CompWriteTask *task = static_cast<CompWriteTask*>(_task);
+  int idx = task->group_id;
+  ObLoadDataBuffer *buffer = task->buffer;
+  int ret = OB_SUCCESS;
+  if (buffer->get_data_size() > 0) {
+    std::lock_guard<std::mutex> guard(mtxs_[idx]);
+    int64_t data_size;
+    if (OB_FAIL(compressor_->compress(buffer->begin(), buffer->get_data_size(), comp_bufs_[idx], COMP_BUF_SIZE, data_size))) {
+      LOG_INFO("MMMMM compres fail", K(data_size), K(idx), K(buffer->get_data_size()), KR(ret));
+    }
+    file_pos_[idx].push_back(data_size);
+    file_writers_[idx].append(comp_bufs_[idx], data_size, false);
+  }
+  buffer->reuse();
+  buffer_queue_.push(buffer);
+  free(task);
+  // LOG_INFO("MMMMM handle done");
+}
+
 void ObParseDataThread::run(int64_t idx)
 {
   int ret = OB_SUCCESS;
@@ -2424,6 +2448,96 @@ void ObParseDataThread::run(int64_t idx)
   LOG_INFO("MMMMM external sort append lines", K(cnt), KR(ret), K(idx));
 
   rets_[idx] = ret;
+}
+
+int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *file_data, int64_t len)
+{
+  // LOG_INFO("MMMMM mmap file", K(file_paths_[i].c_str()), K(len));
+  int ret = OB_SUCCESS;
+  ObNewRow *new_row = nullptr;
+  const ObLoadDatumRow *datum_row = nullptr;
+  const blocksstable::ObDatumRow *ob_datum_row = nullptr;
+  ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
+  ObLoadRowCaster &row_caster = row_casters_[idx];
+  ObLoadDataBuffer &buffer = buffers_[idx];
+  ObLoadDatumRowCompare &compare = external_sorts_[idx].compare();
+  char *&buf = bufs_[idx];
+
+  int64_t pos = 0;
+  int cnt = 0;
+  int64_t ori_pos = 0;
+  for (auto &len : file_pos_[group_id]) {
+    int64_t data_size;
+    if (OB_FAIL(compressor_->decompress(file_data + ori_pos, len, buf + pos, THREAD_BUF_SIZE, data_size))) {
+      LOG_INFO("MMMMM decompress fail", KR(ret), K(group_id), K(len));
+      return ret;
+    }
+    ori_pos += len;
+    pos += data_size;
+    // LOG_INFO("MMMMM decrypt", K(len), K(group_id), K(data_size), K(ori_pos), K(pos));
+  }
+
+  char *file_ptr = buf;
+  char *file_end = buf + pos;
+  
+  common::ObVector<KeyRow> item_list;
+
+  while (OB_SUCC(ret)) {
+    KeyRow new_item;
+    new_row = new (buf + pos) ObNewRow;
+    new_item.row = new_row;
+    pos += sizeof(ObNewRow);
+    new_row->count_ = column_count_;
+    new_row->cells_ = (ObObj*)new (buf + pos) ObObj[column_count_];
+    pos += additional_size_;
+    if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, *new_row, new_item))) {
+      if (OB_UNLIKELY(OB_ITER_END != ret)) {
+        LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
+      } else {
+        ret = OB_SUCCESS;
+        break;
+      }
+    } else {
+      if (OB_FAIL(item_list.push_back(new_item))) {
+        LOG_INFO("MMMMM fail to push back new item", K(ret));
+      } else {
+        cnt++;
+      }
+    }
+  }
+
+  LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(cnt));
+  // sort
+  std::sort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
+    return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
+  });
+  /*
+  quicksort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
+    return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
+  });
+  */
+  LOG_INFO("MMMMM sort done", KR(ret), K(idx));
+  if (ret == OB_ITER_END) {
+    ret = OB_SUCCESS;
+  }
+  for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
+    if (OB_FAIL(row_caster.unfold_get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
+      LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
+    } else if (OB_FAIL(sstable_writer_.append_datum_row(idx, *ob_datum_row))) {
+      LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
+    } if (sstable_writer_.has_wrote_block(idx)) {
+      row_caster.reuse();
+    }
+  }
+  if (item_list.size() > 0) {
+    if (OB_FAIL(sstable_writer_.build_micro_block(idx))) {
+      LOG_INFO("MMMMM build micro fail");
+    } else if (OB_FAIL(sstable_writer_.switch_macro_block(idx))) {
+      LOG_INFO("MMMMM build macro fail", KR(ret));
+    }
+  }
+  return ret;
+  
 }
 
 int ObReadSortWriteThread::handle_file(int64_t idx, char *file_data, int64_t len)
@@ -2543,7 +2657,7 @@ void ObReadSortWriteThread::run(int64_t idx)
     char *file_data = (char *) mmap(NULL, len, PROT_READ, MAP_PRIVATE,fd, 0);
     close(fd);
 
-    if (OB_FAIL(handle_file(idx, file_data, len))) {
+    if (OB_FAIL(handle_file_decrypt(idx, i, file_data, len))) {
       LOG_INFO("MMMMM write fail", KR(ret), K(idx));
     } else {
       LOG_INFO("MMMMM write done", KR(ret), K(idx));
@@ -2555,6 +2669,103 @@ void ObReadSortWriteThread::run(int64_t idx)
   }
   LOG_INFO("MMMMM", K(max_size), KR(ret));
   rets_[idx] = ret;
+}
+
+int ObLoadDataDirectDemo::pre_processV3()
+{
+  int ret = OB_SUCCESS;
+  std::string tmp(filepath_.ptr(), filepath_.length());
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    std::string tmpp = tmp + "." + std::to_string(i);
+    // LOG_INFO("MMMMM", K(tmpp.c_str()));
+    filepaths_.push_back(tmpp);
+    ObString file_path(tmpp.size(), tmpp.c_str());
+    // file_writers_[i].open(file_path, SPLIT_BUF_SIZE);
+    single_file_writers_[i].open(file_path, true, true);
+  }
+
+  ObLoadDataBuffer buffers[1000];
+  ObLoadDataBuffer *file_buffers[SPLIT_NUM];
+  common::ObLightyQueue buffer_queue;
+  buffer_queue.init(1000 * 1024, ObModIds::OB_SQL_LOAD_DATA, MTL_ID());
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    buffers[i].create(READ_BUF_SIZE);
+    file_buffers[i] = &buffers[i];
+  }
+  for (int i = SPLIT_NUM; i < 1000; i++) {
+    buffers[i].create(READ_BUF_SIZE);
+    buffer_queue.push(&buffers[i]);
+  }
+  LOG_INFO("MMMMM malloc done");
+  ObCompressWritePool pools(buffer_queue, single_file_writers_, file_pos_);
+  if (OB_FAIL(pools.init(32, SPLIT_NUM * 10, "compress pool", MTL_ID()))) {
+    LOG_INFO("MMMMM init pool fails");
+    return ret;
+  }
+  pools.start();
+  
+  int fd = open(tmp.c_str(), O_RDONLY);
+  /* Advise the kernel of our access pattern.  */
+  posix_fadvise(fd, 0, 0, 1);  // FDADVICE_SEQUENTIAL
+  int64_t bytes_read;
+  int64_t len;
+  int group_id;
+  int cnt = 0;
+  const char *buf;
+  void *tmp_ptr;
+  while (true) {
+    buffer_.reuse();
+    if (cnt % 100 == 0) {
+      LOG_INFO("MMMMM", K(cnt));
+    }
+    // LOG_INFO("MMMMM", K(cnt));
+    cnt++;
+    char *buf_begin = buffer_.begin();
+    bytes_read = read(fd, buf_begin, READ_BUF_SIZE);
+    if (bytes_read == 0) {
+      break;
+    }
+    char *ptr = buf_begin + bytes_read - 1;
+    while (*ptr != '\n') {
+      ptr--;
+    }
+    ptr++;
+    len = ptr - buf_begin;
+    buffer_.produce(len);
+    lseek(fd, -(bytes_read - len), SEEK_CUR);
+    while (true) {
+      if (OB_FAIL(fast_get_row_data(buffer_, buf, len, group_id, SPLIT_NUM))) {
+        if (OB_UNLIKELY(OB_ITER_END != ret)) {
+          LOG_WARN("MMMMM fail to get next row", KR(ret));
+        } else {
+          ret = OB_SUCCESS;
+        }
+        break;
+      } else {
+        ObLoadDataBuffer *buffer = file_buffers[group_id];
+        if (len >= buffer->get_remain_size()) {
+          CompWriteTask *task = new CompWriteTask(buffer, group_id);
+          pools.push(task);
+          buffer_queue.pop(tmp_ptr);
+          buffer = (ObLoadDataBuffer*) tmp_ptr;
+          file_buffers[group_id] = buffer;
+        }
+        MEMCPY(buffer->end(), buf, len);
+        buffer->produce(len);
+      }
+      // 
+    } 
+  }
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    pools.push(new CompWriteTask(file_buffers[i], i));
+  }
+  pools.destroy();
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    single_file_writers_[i].close();
+    // file_writers_[i].close();
+  }
+  
+  return ret;
 }
 
 
@@ -2678,7 +2889,7 @@ int ObLoadDataDirectDemo::do_load()
 {
   int ret = OB_SUCCESS;
   int64_t start = common::ObTimeUtility::current_time();
-  if (OB_FAIL(pre_processV2())) {
+  if (OB_FAIL(pre_processV3())) {
     LOG_INFO("MMMMM pre process fail", KR(ret));
     return ret;
   }
@@ -2694,7 +2905,7 @@ int ObLoadDataDirectDemo::do_load()
   int rets[WRITER_THREAD_NUM];
   ObReadSortWriteThread threads(SPLIT_NUM, WRITER_THREAD_NUM, filepaths_,
     csv_parsers_, row_casters_, buffers_, sstable_writer_, table_schema_, external_sorts_, bufs, THREAD_BUF_SIZE, rets,
-    in_memory_files_, in_memory_files_len_, IN_MEMORY_FILE_NUM);
+    file_pos_);
   threads.set_thread_count(WRITER_THREAD_NUM);
   threads.set_run_wrapper(MTL_CTX());
   threads.start();

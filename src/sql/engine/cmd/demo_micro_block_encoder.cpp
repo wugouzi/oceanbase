@@ -1091,7 +1091,7 @@ int ObDemoMicroBlockEncoder::process_large_row(
   }
   return ret;
 }
-
+// no possibility to use prefix
 int ObDemoMicroBlockEncoder::prescan(const int64_t column_index)
 {
   int ret = OB_SUCCESS;
@@ -1110,8 +1110,10 @@ int ObDemoMicroBlockEncoder::prescan(const int64_t column_index)
     // build hashtable
     ObEncodingHashTable *ht = nullptr;
     ObEncodingHashTableBuilder *builder = nullptr;
-    ObMultiPrefixTree *prefix_tree = nullptr;
+    // ObMultiPrefixTree *prefix_tree = nullptr;
+    uint64_t bucket_num = 256;
     // next power of 2
+    /*
     uint64_t bucket_num = datum_rows_.count() * 2;
     if (0 != (bucket_num & (bucket_num - 1))) {
       while (0 != (bucket_num & (bucket_num - 1))) {
@@ -1119,26 +1121,27 @@ int ObDemoMicroBlockEncoder::prescan(const int64_t column_index)
       }
       bucket_num = bucket_num * 2;
     }
+    */
     const int64_t node_num = datum_rows_.count();
     if (OB_FAIL(hashtable_factory_.create(bucket_num, node_num, ht))) {
       LOG_WARN("create hashtable failed", K(ret), K(bucket_num), K(node_num));
-    } else if (OB_FAIL(multi_prefix_tree_factory_.create(node_num, bucket_num, prefix_tree))) {
+    }/* else if (OB_FAIL(multi_prefix_tree_factory_.create(node_num, bucket_num, prefix_tree))) {
       LOG_WARN("failed to create multi-prefix tree", K(ret), K(bucket_num));
-    } else if (FALSE_IT(builder = static_cast<ObEncodingHashTableBuilder *>(ht))) {
+    } */else if (FALSE_IT(builder = static_cast<ObEncodingHashTableBuilder *>(ht))) {
     } else if (OB_FAIL(builder->build(*col_ctx.col_datums_, col_desc))) {
       LOG_WARN("build hash table failed", K(ret), K(column_index), K(column_type));
     }
 
     if (OB_SUCC(ret)) {
-      col_ctx.prefix_tree_ = prefix_tree;
+      // col_ctx.prefix_tree_ = prefix_tree;
       if (OB_FAIL(build_column_encoding_ctx(ht, store_class, type_store_size, col_ctx))) {
         LOG_WARN("build_column_encoding_ctx failed",
             K(ret), KP(ht), K(store_class), K(type_store_size));
       } else if (OB_FAIL(hashtables_.push_back(ht))) {
         LOG_WARN("failed to push back", K(ret));
-      } else if (OB_FAIL(multi_prefix_trees_.push_back(prefix_tree))) {
+      } /*else if (OB_FAIL(multi_prefix_trees_.push_back(prefix_tree))) {
         LOG_WARN("failed to push back multi-prefix tree", K(ret));
-      }
+      }*/
       LOG_DEBUG("hash table", K(column_index), K(*ht));
     }
 
@@ -1147,10 +1150,10 @@ int ObDemoMicroBlockEncoder::prescan(const int64_t column_index)
       int temp_ret = OB_SUCCESS;
       if (OB_SUCCESS != (temp_ret = hashtable_factory_.recycle(ht))) {
         LOG_WARN("recycle hashtable failed", K(temp_ret));
-      }
+      }/*
       if (OB_SUCCESS != (temp_ret = multi_prefix_tree_factory_.recycle(prefix_tree))) {
         LOG_WARN("failed to recycle multi-prefix tree", K(temp_ret));
-      }
+      }*/
     }
   }
   return ret;
@@ -1682,7 +1685,9 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
       }
     }
 
+    
     bool string_prefix_suitable = false;
+    /*
     if (OB_SUCC(ret) && try_more) {
       if (is_string_encoding_valid(sc)) {
         if (cc.detected_encoders_[ObStringPrefixEncoder::type_]) {
@@ -1701,7 +1706,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
           }
         }
       }
-    }
+    }*/
 
     if (OB_SUCC(ret) && try_more && !string_diff_suitable && !string_prefix_suitable) {
       if (is_string_encoding_valid(sc)) {
