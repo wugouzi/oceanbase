@@ -39,16 +39,16 @@ public:
 
   // maximum row count is restricted to 4 bytes in MicroBlockHeader
   static const int64_t MAX_MICRO_BLOCK_ROW_CNT = UINT32_MAX;
-  // Unlike ObMicroBlockWriter, ObDemoMicroBlockEncoder internally uses ObRowWriter and ObIColumnEncoder
+  // Unlike ObMicroBlockWriter, ObMicroBlockEncoder internally uses ObRowWriter and ObIColumnEncoder
   // to form row and column data. Both ObRowWriter and ObIColumnEncoder check buffer capacity by
   // calling ObBufferWriter::advance_zero. If buffer size is not enough, they return failure.
   // Compared to ObMicroBlockWriter, who calls ObBufferWriter::write to acquire buffer space
-  // automatically, we have to prepared enough buffer space for ObDemoMicroBlockEncoder at beginning.
+  // automatically, we have to prepared enough buffer space for ObMicroBlockEncoder at beginning.
   // So DEFAULT_ROWKEY_BUFFER_SIZE should be equal to macro block size
   //
   // For detail difference about the writing buffer between ObMicroBlockWriter and
-  // ObDemoMicroBlockEncoder, please take a look at method:
-  // int ObDemoMacroBlockWriter::get_current_micro_block_buffer(const char *&buf, int64_t &size)
+  // ObMicroBlockEncoder, please take a look at method:
+  // int ObMacroBlockWriter::get_current_micro_block_buffer(const char *&buf, int64_t &size)
   static const int64_t DEFAULT_DATA_BUFFER_SIZE = common::OB_DEFAULT_MACRO_BLOCK_SIZE;
 
   // For rowkey_buffer_, length, must great than OB_MAX_ROW_KEY_LENGTH
@@ -178,7 +178,7 @@ private:
   common::ObArray<ObColumnEncodingCtx> col_ctxs_;
   int64_t length_;
   bool is_inited_;
-  bool first_row_ = true;
+
   DISALLOW_COPY_AND_ASSIGN(ObDemoMicroBlockEncoder);
 };
 

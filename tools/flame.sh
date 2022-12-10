@@ -6,7 +6,7 @@ then
     exit -1
 fi
 echo "1:"
-perf record -F 99 -g -p $PID -- sleep 16
+perf record -F 99 -g -p $PID -- sleep 70
 echo "2:"
 perf script -i perf.data &> perf.unfold
 echo "3:"

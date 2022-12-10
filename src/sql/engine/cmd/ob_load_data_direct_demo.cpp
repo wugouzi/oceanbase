@@ -1785,14 +1785,17 @@ int ObLoadSSTableWriter::init(const ObTableSchema *table_schema)
     } else if (OB_FAIL(init_sstable_index_builder(table_schema))) {
       LOG_WARN("fail to init sstable index builder", KR(ret));
     } else if (OB_FAIL(init_macro_block_writer(table_schema))) {
-      LOG_WARN("fail to init macro block writer", KR(ret));
-    } else if (OB_FAIL(datum_row_.init(column_count_ + extra_rowkey_column_num_))) {
-      LOG_WARN("fail to init datum row", KR(ret));
+        LOG_WARN("fail to init macro block writer", KR(ret));
     } else {
       table_key_.table_type_ = ObITable::MAJOR_SSTABLE;
       table_key_.tablet_id_ = tablet_id_;
       table_key_.log_ts_range_.start_log_ts_ = 0;
       table_key_.log_ts_range_.end_log_ts_ = ObTimeUtil::current_time_ns();
+      /*
+       
+      else if (OB_FAIL(datum_row_.init(column_count_ + extra_rowkey_column_num_))) {
+        LOG_WARN("fail to init datum row", KR(ret));
+      } 
       datum_row_.row_flag_.set_flag(ObDmlFlag::DF_INSERT);
       datum_row_.mvcc_row_flag_.set_last_multi_version_row(true);
       datum_row_.storage_datums_[rowkey_column_num_].set_int(-1); // fill trans_version
@@ -1806,6 +1809,7 @@ int ObLoadSSTableWriter::init(const ObTableSchema *table_schema)
         datum_rows_[i].storage_datums_[rowkey_column_num_].set_int(-1); // fill trans_version
         datum_rows_[i].storage_datums_[rowkey_column_num_ + 1].set_int(0); // fill sql_no
       }
+      */
       is_inited_ = true;
     }
   }
@@ -1868,6 +1872,7 @@ int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_sche
   return ret;
 }
 
+/*
 int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_schema, int idx)
 {
   int ret = OB_SUCCESS;
@@ -1903,12 +1908,6 @@ int ObLoadSSTableWriter::append_row(int idx, const ObLoadDatumRow &datum_row)
     ret = OB_INVALID_ARGUMENT;
     LOG_WARN("invalid args", KR(ret), K(datum_row), K(column_count_));
   } else {
-    /*
-    MEMCPY(datum_rows_[idx].storage_datums_, datum_row.datums_, rowkey_column_num_ * sizeof(ObStorageDatum *));
-    MEMCPY(datum_rows_[idx].storage_datums_ + rowkey_column_num_ + extra_rowkey_column_num_,
-      datum_row.datums_ + rowkey_column_num_, 
-      (column_count_ - rowkey_column_num_) * sizeof(ObStorageDatum *));
-    */
     for (int64_t i = 0; i < column_count_; ++i) {
       if (i < rowkey_column_num_) {
         datum_rows_[idx].storage_datums_[i] = datum_row.datums_[i];
@@ -1923,7 +1922,26 @@ int ObLoadSSTableWriter::append_row(int idx, const ObLoadDatumRow &datum_row)
   return ret;
 }
 
-/*
+int ObLoadSSTableWriter::close_macro_block(int idx)
+{
+  int ret = OB_SUCCESS;
+  if (OB_FAIL(macro_block_writers_[idx].close())) {
+    LOG_WARN("fail to close macro block writer", KR(ret));  
+  }
+  return ret;
+}
+
+int ObLoadSSTableWriter::close_macro_blocks()
+{
+  int ret = OB_SUCCESS;
+  for (int i = 0; i < 16; i++) {
+    if (OB_FAIL(macro_block_writers_[i].close())) {
+      LOG_WARN("fail to close macro block writer", KR(ret));  
+    }
+  }
+  return ret;
+}
+
 int ObLoadSSTableWriter::append_row(const ObLoadDatumRow &datum_row)
 {
   int ret = OB_SUCCESS;
@@ -2019,25 +2037,7 @@ int ObLoadSSTableWriter::create_sstable()
   return ret;
 }
 
-int ObLoadSSTableWriter::close_macro_block(int idx)
-{
-  int ret = OB_SUCCESS;
-  if (OB_FAIL(macro_block_writers_[idx].close())) {
-    LOG_WARN("fail to close macro block writer", KR(ret));  
-  }
-  return ret;
-}
 
-int ObLoadSSTableWriter::close_macro_blocks()
-{
-  int ret = OB_SUCCESS;
-  for (int i = 0; i < 16; i++) {
-    if (OB_FAIL(macro_block_writers_[i].close())) {
-      LOG_WARN("fail to close macro block writer", KR(ret));  
-    }
-  }
-  return ret;
-}
 
 int ObLoadSSTableWriter::close()
 {
@@ -2471,7 +2471,8 @@ void ObParseDataThread::run(int64_t idx)
   rets_[idx] = ret;
 }
 
-int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *file_data, int64_t len, blocksstable::ObMacroBlockWriter &macro_block_writer)
+int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *file_data, int64_t len, 
+  blocksstable::ObDemoMacroBlockWriter &macro_block_writer)
 {
   LOG_INFO("MMMMM mmap file", K(file_paths_[group_id].c_str()), K(len));
   int ret = OB_SUCCESS;
@@ -2542,42 +2543,20 @@ int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *
     ret = OB_SUCCESS;
   }
   for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
-    /*    
-    if (OB_FAIL(row_caster.get_casted_row(*item_list[i].row, datum_row))) {
-      LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
-    } else if (OB_FAIL(sstable_writer_.append_row(idx, *datum_row))) {
-      LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
-    } */
-    /*
-    else if (sstable_writer_.has_wrote_block(idx)) {
-      row_caster.reuse();
-    }*/
     if (OB_FAIL(row_caster.unfold_get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
       LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
     } else if (OB_FAIL(macro_block_writer.append_row(*ob_datum_row))) {
       LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
     } 
-    /*
-    else if (sstable_writer_.has_wrote_block(idx)) {
-      row_caster.reuse();
-    }
-    */
     
   }
-  /*
-  if (item_list.size() > 0) {
-    if (OB_FAIL(sstable_writer_.build_micro_block(idx))) {
-      LOG_INFO("MMMMM build micro fail");
-    } else if (OB_FAIL(sstable_writer_.switch_macro_block(idx))) {
-      LOG_INFO("MMMMM build macro fail", KR(ret));
-    }
-  }*/
 
   return ret;
   
 }
 
-int ObReadSortWriteThread::handle_file(int64_t idx, char *file_data, int64_t len)
+int ObReadSortWriteThread::handle_file(int64_t idx, char *file_data, int64_t len,
+  blocksstable::ObDemoMacroBlockWriter &macro_block_writer)
 {
   ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
@@ -2637,11 +2616,12 @@ int ObReadSortWriteThread::handle_file(int64_t idx, char *file_data, int64_t len
     ret = OB_SUCCESS;
   }
   for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
+    
     if (OB_FAIL(row_caster.unfold_get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
       LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
-    } else if (OB_FAIL(sstable_writer_.append_datum_row(idx, *ob_datum_row))) {
-      LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
-    } 
+    } else if (OB_FAIL(macro_block_writer.append_row(*ob_datum_row))) {
+      LOG_INFO("MMMMM fail to append", K(ret));
+    }
     /*
     if (sstable_writer_.has_wrote_block(idx)) {
       row_caster.reuse();
@@ -2669,11 +2649,11 @@ void ObReadSortWriteThread::run(int64_t idx)
 
   int ret = OB_SUCCESS;
 
-  blocksstable::ObMacroBlockWriter macro_block_writer;
+  blocksstable::ObDemoMacroBlockWriter macro_block_writer;
   ObMacroDataSeq data_seq;
   data_seq.set_parallel_degree(idx);
   if (OB_FAIL(macro_block_writer.open(data_store_desc_, data_seq))) {
-    LOG_INFO("MMMMM fail to open macro block writer");
+    LOG_INFO("MMMMM fail to open macro block writer", K(ret));
     rets_[idx] = ret;
     return;
   }

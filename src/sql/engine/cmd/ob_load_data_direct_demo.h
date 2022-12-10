@@ -282,12 +282,12 @@ namespace oceanbase
       // int init(const share::schema::ObTableSchema *table_schema);
       int init(const share::schema::ObTableSchema *table_schema);
       // int append_row(const ObLoadDatumRow &datum_row);
-      int append_row(int idx, const ObLoadDatumRow &datum_row);
-      int append_datum_row(int idx, const blocksstable::ObDatumRow &datum_row);
-      int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
-      int close_macro_blocks();
+      // int append_row(int idx, const ObLoadDatumRow &datum_row);
+      // int append_datum_row(int idx, const blocksstable::ObDatumRow &datum_row);
+      // int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
+      // int close_macro_blocks();
       blocksstable::ObDataStoreDesc &desc() { return data_store_desc_; }
-      int close_macro_block(int idx);
+      // int close_macro_block(int idx);
       // OB_INLINE bool has_wrote_block(int idx) { return macro_block_writers_[idx].has_wrote_block(); }
       // OB_INLINE int build_micro_block(int idx) { return macro_block_writers_[idx].build_micro_block(); }
       // OB_INLINE int flush_current_macro_block(int idx) { return macro_block_writers_[idx].flush_current_macro_block(); }
@@ -308,10 +308,10 @@ namespace oceanbase
       storage::ObITable::TableKey table_key_;
       blocksstable::ObSSTableIndexBuilder sstable_index_builder_;
       blocksstable::ObDataStoreDesc data_store_desc_;
-      blocksstable::ObDatumRow datum_row_;
-      blocksstable::ObDatumRow datum_rows_[WRITER_THREAD_NUM];
+      // blocksstable::ObDatumRow datum_row_;
+      // blocksstable::ObDatumRow datum_rows_[WRITER_THREAD_NUM];
       // blocksstable::ObMacroBlockWriter macro_block_writer_;
-      blocksstable::ObMacroBlockWriter macro_block_writers_[WRITER_THREAD_NUM];
+      // blocksstable::ObMacroBlockWriter macro_block_writers_[WRITER_THREAD_NUM];
       bool is_closed_;
       bool is_inited_;
     };
@@ -377,8 +377,10 @@ namespace oceanbase
       }
       void run(int64_t idx) final;
       // void run1() override;
-      int handle_file(int64_t idx, char *file_data, int64_t len);
-      int handle_file_decrypt(int64_t idx, int group_id, char *file_data, int64_t len, blocksstable::ObMacroBlockWriter &macro_block_writer);
+      int handle_file(int64_t idx, char *file_data, int64_t len,
+        blocksstable::ObDemoMacroBlockWriter &macro_block_writer);
+      int handle_file_decrypt(int64_t idx, int group_id, char *file_data, int64_t len, 
+        blocksstable::ObDemoMacroBlockWriter &macro_block_writer);
     private:
       common::ObCompressor *compressor_;  
       int split_num_;
