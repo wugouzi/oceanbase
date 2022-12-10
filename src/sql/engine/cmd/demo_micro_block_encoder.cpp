@@ -408,12 +408,12 @@ int ObDemoMicroBlockEncoder::append_row(const ObDatumRow &row)
       if (OB_UNLIKELY(OB_BUF_NOT_ENOUGH != ret)) {
         LOG_WARN("copy and append row failed", K(ret));
       }
-    } /*else if (header_->has_column_checksum_
+    } else if (header_->has_column_checksum_
         && OB_FAIL(cal_column_checksum(row, header_->column_checksums_))) {
       LOG_WARN("cal column checksum failed", K(ret), K(row));
     } else if (need_cal_row_checksum() && OB_FAIL(calc_and_validate_checksum(row))) {
       LOG_WARN("fail to calc and validate row checksum", K(ret), K_(ctx));
-    } */else {
+    } else {
       cal_row_stat(row);
       estimate_size_ += store_size;
     }

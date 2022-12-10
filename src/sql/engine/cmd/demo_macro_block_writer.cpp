@@ -95,7 +95,6 @@ int ObDemoMicroBlockBufferHelper::compress_encrypt_micro_block(ObMicroBlockDesc 
   } else if (OB_FAIL(compressor_.compress(block_buffer, block_size, compress_buf, compress_buf_size))) {
     STORAGE_LOG(WARN, "macro block writer fail to compress.",
         K(ret), K(OB_P(block_buffer)), K(block_size));
-  // HACK: remove check for performance
   } else if (MICRO_BLOCK_MERGE_VERIFY_LEVEL::NONE != micro_block_merge_verify_level_
       && OB_FAIL(check_micro_block(compress_buf, compress_buf_size,
            block_buffer, block_size, micro_block_desc))) {
@@ -121,7 +120,6 @@ int ObDemoMicroBlockBufferHelper::check_micro_block(
     const ObMicroBlockDesc &micro_desc)
 {
   int ret = OB_SUCCESS;
-  return ret;
   const char *decomp_buf = nullptr;
   int64_t real_decomp_size = 0;
   if (MICRO_BLOCK_MERGE_VERIFY_LEVEL::ENCODING == micro_block_merge_verify_level_) {

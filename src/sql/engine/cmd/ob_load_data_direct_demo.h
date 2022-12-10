@@ -32,10 +32,10 @@ namespace oceanbase
     static const int64_t READ_BUF_SIZE = (2LL << 20); // 
     static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
     static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1; // (1G) 1.5G
-    static const int SPLIT_NUM = 240;
-    static const int WRITER_THREAD_NUM = 8;
-    // static const int SPLIT_NUM = 4;
-    // static const int WRITER_THREAD_NUM = 1;
+    // static const int SPLIT_NUM = 240;
+    // static const int WRITER_THREAD_NUM = 8;
+    static const int SPLIT_NUM = 4;
+    static const int WRITER_THREAD_NUM = 2;
 
     typedef struct 
     {

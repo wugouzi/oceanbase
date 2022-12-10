@@ -1859,6 +1859,13 @@ int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_sche
     if (OB_FAIL(macro_block_writer_.open(data_store_desc_, data_seq))) {
       LOG_WARN("fail to init macro block writer", KR(ret), K(data_store_desc_), K(data_seq));
     }
+    for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+      ObMacroDataSeq data_seq;
+      data_seq.set_parallel_degree(i * (1LL << 32));
+      if (OB_FAIL(macro_block_writers_[i].open(data_store_desc_, data_seq))) {
+        LOG_WARN("MMMMM fail to init macro block writer", KR(ret), K(data_store_desc_), K(data_seq));
+      }
+    }
   }
   return ret;
 }
@@ -2036,12 +2043,13 @@ int ObLoadSSTableWriter::close()
   } else {
     ObSSTable *sstable = nullptr;
     for (int i = 0; i < 16; i++) {
+      LOG_INFO("MMMMM close", K(i));
       if (OB_FAIL(macro_block_writers_[i].close())) {
-        LOG_WARN("fail to close macro block writer", KR(ret));  
+        LOG_WARN("MMMMM fail to close macro block writer", KR(ret));  
       }
     }
     if (OB_FAIL(macro_block_writer_.close())) {
-      LOG_WARN("fail to close macro block writer", KR(ret));
+      LOG_WARN("MMMMM fail to close macro block writer", KR(ret));
     } else if (OB_FAIL(create_sstable())) {
       LOG_WARN("fail to create sstable", KR(ret));
     } else {
@@ -2637,7 +2645,7 @@ void ObReadSortWriteThread::run(int64_t idx)
 
   int ret = OB_SUCCESS;
 
-  sstable_writer_.init_macro_block_writer(table_schema_, idx);
+  // sstable_writer_.init_macro_block_writer(table_schema_, idx);
   int64_t max_size = sizeof(ObNewRow) + additional_size_;
   /*
   int n = (split_num_ - in_memory_file_num_) / thread_num_;
