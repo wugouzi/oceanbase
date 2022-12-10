@@ -36,7 +36,7 @@ namespace oceanbase
     static const int SPLIT_NUM = 240;
     static const int WRITER_THREAD_NUM = 8;
     // static const int SPLIT_NUM = 4;
-    // static const int WRITER_THREAD_NUM = 2;
+    // static const int WRITER_THREAD_NUM = 1;
 
     typedef struct 
     {

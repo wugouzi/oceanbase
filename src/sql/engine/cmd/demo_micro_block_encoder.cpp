@@ -1152,8 +1152,60 @@ int ObDemoMicroBlockEncoder::encoder_detection()
         c->extend_value_bit_ = extend_value_bit;
       }
     }
+    
+    /*
     for (int64_t i = 0; OB_SUCC(ret) && i <ctx_.column_cnt_; ++i) {
-      if (col_ctxs_.at(i).is_out_row_column_) {
+      ObIColumnEncoder *e = nullptr;
+      if (i == 2 || i == 3) {
+        if (OB_FAIL(try_encoder<ObConstEncoder>(e, i))) {
+          LOG_WARN("failed to try column out row encoder", K(ret));
+        } else if (OB_FAIL(encoders_.push_back(e))) {
+          LOG_WARN("failed to append encoder", K(ret), KP(e));
+          free_encoder(e);
+          e = nullptr;
+        }
+      } else if (i == 0 || (12 <= i && i <= 14)) {
+        if (OB_FAIL(try_encoder<ObIntegerBaseDiffEncoder>(e, i))) {
+          LOG_WARN("failed to try column out row encoder", K(ret));
+        } else if (OB_FAIL(encoders_.push_back(e))) {
+          LOG_WARN("failed to append encoder", K(ret), KP(e));
+          free_encoder(e);
+          e = nullptr;
+        }
+      } else {
+        if (OB_FAIL(try_encoder<ObRawEncoder>(e, i))) {
+          LOG_WARN("failed to try column out row encoder", K(ret));
+        } else if (OB_FAIL(encoders_.push_back(e))) {
+          LOG_WARN("failed to append encoder", K(ret), KP(e));
+          free_encoder(e);
+          e = nullptr;
+        }
+      }
+    }
+    */
+    
+    for (int64_t i = 0; OB_SUCC(ret) && i <ctx_.column_cnt_; ++i) {
+      ObIColumnEncoder *e = nullptr;
+      if (OB_FAIL(try_encoder<ObRawEncoder>(e, i))) {
+        LOG_WARN("failed to try column out row encoder", K(ret));
+      } else if (OB_FAIL(encoders_.push_back(e))) {
+        LOG_WARN("failed to append encoder", K(ret), KP(e));
+        free_encoder(e);
+        e = nullptr;
+      } else {
+        continue;
+      }
+      /*
+      if (i == 2 || i == 3) {
+        ObIColumnEncoder *e = nullptr;
+        if (OB_FAIL(try_encoder<ObConstEncoder>(e, i))) {
+          LOG_WARN("failed to try column out row encoder", K(ret));
+        } else if (OB_FAIL(encoders_.push_back(e))) {
+          LOG_WARN("failed to append encoder", K(ret), KP(e));
+          free_encoder(e);
+          e = nullptr;
+        }
+      } else */if (col_ctxs_.at(i).is_out_row_column_) {
         // Use raw encoding for out row locator
         ObIColumnEncoder *e = nullptr;
         if (OB_FAIL(try_encoder<ObRawEncoder>(e, i))) {
@@ -1215,7 +1267,7 @@ int ObDemoMicroBlockEncoder::fast_encoder_detect(
       ret = OB_ERR_UNEXPECTED;
       LOG_WARN("raw encoder is NULL", K(ret), K(column_idx));
     }
-  } else if (cc.ht_->distinct_cnt() <= 1) {
+  } else if (column_idx == 2 || column_idx == 3 || cc.ht_->distinct_cnt() <= 1) {
     if (OB_FAIL(try_encoder<ObConstEncoder>(e, column_idx))) {
       LOG_WARN("try encoder failed");
     }
@@ -1668,6 +1720,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
     }
 
     if (OB_SUCC(ret)) {
+      // LOG_INFO("MMMMM used encoder", K(column_idx), "column_header", choose->get_column_header(), "data_desc", choose->get_desc());
       LOG_DEBUG("used encoder", K(column_idx),
           "column_header", choose->get_column_header(),
           "data_desc", choose->get_desc());

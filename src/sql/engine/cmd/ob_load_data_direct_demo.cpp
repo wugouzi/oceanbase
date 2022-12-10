@@ -591,27 +591,106 @@ int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, 
   int &key1 = key.key1;
   int &key2 = key.key2;
   key1 = 0, key2 = 0;
+  /*
+    int value = 0;
+  while (*iter != '|') {
+    value = value * 10 + *iter - '0';
+    ++iter;
+  }
+  {
+    ObObj &obj = row.cells_[0];
+    obj.set_int(ObIntType, value);
+    obj.set_collation_level(CS_LEVEL_COERCIBLE);
+    obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+  key1 = value;
+
+  value = 0;
+  ++iter;
+  while (*iter != '|') {
+    value = value * 10 + *iter - '0';
+    ++iter;
+  }
+  {
+    ObObj &obj = row.cells_[1];
+    obj.set_int(ObIntType, value);
+    obj.set_collation_level(CS_LEVEL_COERCIBLE);
+    obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+
+  value = 0;
+  ++iter;
+  while (*iter != '|') {
+    value = value * 10 + *iter - '0';
+    ++iter;
+  }
+  {
+    ObObj &obj = row.cells_[2];
+    obj.set_int(ObInt32Type, value);
+    obj.set_collation_level(CS_LEVEL_COERCIBLE);
+    obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+
+  value = 0;
+  ++iter;
+  while (*iter != '|') {
+    value = value * 10 + *iter - '0';
+    ++iter;
+  }
+  {
+    ObObj &obj = row.cells_[3];
+    obj.set_int(ObInt32Type, value);
+    obj.set_collation_level(CS_LEVEL_COERCIBLE);
+    obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+  key2 = value;
+
+  */
+  int value = 0;
   while (iter < end && *iter != '\n') {
     if (first) {
       ptr = iter;
       first = false;
     }
     if (*iter == '|') {
-      // LOG_INFO("MMMMM set type", K(field_cnt), K(ObVarcharType));
       ObObj &obj = row.cells_[field_cnt];
-      obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
-      int len = std::distance(ptr, iter);
-      // printf("MMMMM len %d, %-*s\n", len, len, ptr);
-      obj.set_collation_type(collation_type_);
+      if (field_cnt <= 3) {
+        obj.set_collation_level(CS_LEVEL_COERCIBLE);
+        obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+        switch (field_cnt) {
+          case 0:
+            key1 = value;
+          case 1:
+            obj.set_int(ObIntType, value);
+            break;
+          case 3: 
+            key2 = value;
+          case 2: 
+            obj.set_int(ObInt32Type, value);
+            break;
+        } 
+      } else {
+        obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
+        int len = std::distance(ptr, iter);
+        // printf("MMMMM len %d, %-*s\n", len, len, ptr);
+        obj.set_collation_type(collation_type_);
+      }
+      // LOG_INFO("MMMMM set type", K(field_cnt), K(ObVarcharType));
+      value = 0;
       field_cnt++;
       first = true;
     }
+    if (field_cnt <= 3 && *iter != '|') {
+      value = value * 10 + (*iter - '0');
+    }
+    /*
     if (field_cnt == 0) {
       key1 = key1 * 10 + (*iter - '0');
     }
     if (field_cnt == 3 && isdigit(*iter)) {
       key2 = key2 * 10 + (*iter - '0');
     }
+    */
     iter++;
   }
   if (field_cnt != field_num_ || iter == end) {
@@ -1232,42 +1311,42 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
     LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[0]));
   }
   */
-  int64_t t1 = common::ObTimeUtility::current_time();
+  // int64_t t1 = common::ObTimeUtility::current_time();
 
   // time test
   // 0 0 int
-  if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObIntType, cast_ctx_, new_row.cells_[0], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[0]), K(ObIntType));
-    return ret;
-  }
-  if (OB_FAIL(ob_datum_row.storage_datums_[0].from_obj_enhance(casted_obj_))) {
+  // if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObIntType, cast_ctx_, new_row.cells_[0], casted_obj_))) {
+  //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[0]), K(ObIntType));
+  //   return ret;
+  // }
+  if (OB_FAIL(ob_datum_row.storage_datums_[0].from_obj_enhance(new_row.cells_[0]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
   // 3 1 int32
-  if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObInt32Type, cast_ctx_, new_row.cells_[3], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[3]), K(ObInt32Type));
-    return ret;
-  }
-  if (OB_FAIL(ob_datum_row.storage_datums_[1].from_obj_enhance(casted_obj_))) {
+  // if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObInt32Type, cast_ctx_, new_row.cells_[3], casted_obj_))) {
+  //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[3]), K(ObInt32Type));
+  //   return ret;
+  // }
+  if (OB_FAIL(ob_datum_row.storage_datums_[1].from_obj_enhance(new_row.cells_[3]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
   // 1 4 int
-  if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObIntType, cast_ctx_, new_row.cells_[1], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[1]), K(ObIntType));
-    return ret;
-  }
-  if (OB_FAIL(ob_datum_row.storage_datums_[4].from_obj_enhance(casted_obj_))) {
+  // if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObIntType, cast_ctx_, new_row.cells_[1], casted_obj_))) {
+  //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[1]), K(ObIntType));
+  //   return ret;
+  // }
+  if (OB_FAIL(ob_datum_row.storage_datums_[4].from_obj_enhance(new_row.cells_[1]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
   // 2 5 int32
-  if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObInt32Type, cast_ctx_, new_row.cells_[2], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[2]), K(ObInt32Type));
-    return ret;
-  }
-  if (OB_FAIL(ob_datum_row.storage_datums_[5].from_obj_enhance(casted_obj_))) {
+  // if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObInt32Type, cast_ctx_, new_row.cells_[2], casted_obj_))) {
+  //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[2]), K(ObInt32Type));
+  //   return ret;
+  // }
+  if (OB_FAIL(ob_datum_row.storage_datums_[5].from_obj_enhance(new_row.cells_[2]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }

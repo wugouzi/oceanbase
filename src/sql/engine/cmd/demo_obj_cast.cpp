@@ -10532,15 +10532,19 @@ int ObDemoObjCaster::simp_string_int(const ObObjType expect_type, ObDemoObjCastP
   ObDemoCastMode cast_mode = 0;
   int64_t value = 0;
   const ObString &str = in.get_string();
-  const bool is_str_int_cast = true;
+  for (int i = 0; i < str.length(); i++) {
+    value = 10 * value + str[i] - '0';
+  }
+  // LOG_INFO("MMMMM str", K(str), K(value), K(str.length()));
+  /*
   if (CAST_FAIL(demo_common_string_integer(
-              cast_mode, ObVarcharType, CS_TYPE_UTF8MB4_GENERAL_CI, str, is_str_int_cast, value))) {
-  } else {
+              0, ObVarcharType, CS_TYPE_UTF8MB4_GENERAL_CI, in.get_string(), true, value))) {
+  } else {*/
     out.set_int(expect_type, value);
     // SET_RES_INT(out);
     out.set_collation_level(CS_LEVEL_COERCIBLE);
     out.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
-  }
+  // }
   return ret;
 }
 
