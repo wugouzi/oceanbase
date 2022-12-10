@@ -26,7 +26,7 @@ SET GLOBAL secure_file_priv = "";
 set global ob_query_timeout=60000000;
 alter system set system_memory='1G';
 alter resource unit sys_unit_config memory_size='12G';
-load data infile "/root/archieve/demo.csv" into table lineitem_bulk fields terminated by "|";
+load data infile "/root/archieve/10m.csv" into table lineitem_bulk fields terminated by "|";
 select count(*) from lineitem_bulk;
 SELECT * from lineitem_bulk limit 1;
-
+-- show create table lineitem_bulk;
