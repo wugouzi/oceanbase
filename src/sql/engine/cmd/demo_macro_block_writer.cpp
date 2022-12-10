@@ -144,6 +144,8 @@ int ObDemoMicroBlockBufferHelper::check_micro_block(
       STORAGE_LOG(WARN, "failed to serialize header", K(ret), K(micro_desc));
     } else {
       // extra copy when decomp wrongly
+      
+      // LOG_INFO("MMMMM emta checksum");
       MEMCPY(block_buf + pos, decomp_buf, uncompressed_size);
       if (OB_FAIL(check_micro_block_checksum(block_buf, buf_size, micro_desc.block_checksum_))) {
         STORAGE_LOG(WARN, "failed to check_micro_block_checksum", K(ret), K(micro_desc));
@@ -160,6 +162,7 @@ int ObDemoMicroBlockBufferHelper::check_micro_block_checksum(
 {
   int ret = OB_SUCCESS;
   ObIMicroBlockReader *micro_reader = NULL;
+  // LOG_INFO("MMMMM begin checksum");
   if (OB_FAIL(prepare_micro_block_reader(buf, size, micro_reader))) {
     STORAGE_LOG(WARN, "failed to preapre micro block reader", K(ret), K(buf), K(size));
   } else if (OB_ISNULL(micro_reader)) {
@@ -172,8 +175,10 @@ int ObDemoMicroBlockBufferHelper::check_micro_block_checksum(
         STORAGE_LOG(WARN, "get_row failed", K(ret), K(it), K(*data_store_desc_));
       } else {
         new_checksum = ObIMicroBlockWriter::cal_row_checksum(check_datum_row_, new_checksum);
+        // LOG_INFO("MMMMM compute checksum", K(it));
       }
     }
+    return ret;
     if (OB_SUCC(ret)) {
       if (checksum != new_checksum) {
         print_micro_block_row(micro_reader);
@@ -182,6 +187,7 @@ int ObDemoMicroBlockBufferHelper::check_micro_block_checksum(
             K(checksum), K(ret), KPC(data_store_desc_));
       }
     }
+    // LOG_INFO("MMMMM checksum done");
   }
   return ret;
 }

@@ -143,6 +143,7 @@ int ObMicroBlockBufferHelper::check_micro_block(
       STORAGE_LOG(WARN, "failed to serialize header", K(ret), K(micro_desc));
     } else {
       // extra copy when decomp wrongly
+      // return ret;
       MEMCPY(block_buf + pos, decomp_buf, uncompressed_size);
       if (OB_FAIL(check_micro_block_checksum(block_buf, buf_size, micro_desc.block_checksum_))) {
         STORAGE_LOG(WARN, "failed to check_micro_block_checksum", K(ret), K(micro_desc));
