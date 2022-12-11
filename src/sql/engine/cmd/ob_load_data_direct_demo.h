@@ -30,7 +30,7 @@ namespace oceanbase
     static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
     static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
     static const int64_t BUF_SIZE = (2LL << 25); // 
-    static const int64_t READ_BUF_SIZE = (2LL << 20); // 
+    static const int64_t READ_BUF_SIZE = (2LL << 19); // 
     static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
     static const int64_t THREAD_BUF_SIZE = (1L << 30) * 0.9; // (1G) 1.5G
     static const int SPLIT_NUM = 240;

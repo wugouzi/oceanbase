@@ -2589,7 +2589,7 @@ int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *
     new_item.row = new_row;
     pos += sizeof(ObNewRow);
     new_row->count_ = column_count_;
-    new_row->cells_ = (ObObj*)new (buf + pos) ObObj[column_count_];
+    new_row->cells_ = (ObObj*)(buf + pos);
     pos += additional_size_;
     if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, *new_row, new_item))) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
@@ -2626,8 +2626,7 @@ int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *
       LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
     } else if (OB_FAIL(macro_block_writer.append_row(*ob_datum_row))) {
       LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
-    } 
-    
+    }
   }
 
   return ret;
@@ -2787,7 +2786,7 @@ int ObLoadDataDirectDemo::pre_processV3()
     single_file_writers_[i].open(file_path, true, true);
   }
 
-  ObLoadDataBuffer buffers[1000];
+  ObLoadDataBuffer buffers[1300];
   ObLoadDataBuffer *file_buffers[SPLIT_NUM];
   common::ObLightyQueue buffer_queue;
   buffer_queue.init(1000 * 1024, ObModIds::OB_SQL_LOAD_DATA, MTL_ID());
@@ -2795,7 +2794,7 @@ int ObLoadDataDirectDemo::pre_processV3()
     buffers[i].create(READ_BUF_SIZE);
     file_buffers[i] = &buffers[i];
   }
-  for (int i = SPLIT_NUM; i < 1000; i++) {
+  for (int i = SPLIT_NUM; i < 1300; i++) {
     buffers[i].create(READ_BUF_SIZE);
     buffer_queue.push(&buffers[i]);
   }

@@ -907,6 +907,76 @@ int ObDemoMicroBlockEncoder::process_out_row_columns(const ObDatumRow &row)
   return ret;
 }
 
+int ObDemoMicroBlockEncoder::copy_and_append_obj_row(const ObNewRow &row, int64_t &store_size)
+{
+  int ret = OB_SUCCESS;
+  const int64_t datums_len = sizeof(ObDatum) * 18;
+  bool is_large_row = false;
+  ObDatum *datum_arr = nullptr;
+  if (datum_rows_.count() > 0
+      && (length_ + datums_len + 180 >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
+    ret = OB_BUF_NOT_ENOUGH;
+  } else if (0 == datum_rows_.count() && length_ + datums_len >= estimate_size_limit_) {
+    is_large_row = true;
+  } else {
+    char *datum_arr_buf = row_buf_holder_.get_buf() + length_;
+    MEMSET(datum_arr_buf, 0, datums_len);
+    datum_arr = reinterpret_cast<ObDatum *>(datum_arr_buf);
+    length_ += datums_len;
+
+    store_size = 0;
+
+    size_t intlen = sizeof(uint64_t);
+    int64_t tmp = -1;
+
+    datum_arr[0].ptr_ = row_buf_holder_.get_buf() + length_;
+    // MEMSET(datum_arr[0].ptr_, 0, intlen);
+    datum_arr[0].from_obj(row.cells_[0]);
+
+    datum_arr[1].ptr_ = datum_arr[0].ptr_ + intlen;
+    // MEMSET(datum_arr[1].ptr_, 0, intlen);
+    datum_arr[1].from_obj(row.cells_[3]);
+    
+    datum_arr[2].ptr_ = datum_arr[1].ptr_ + intlen;
+    // MEMSET(datum_arr[2].ptr_, 0, intlen);
+    MEMCPY((void*)datum_arr[2].ptr_, (void*)&tmp, intlen);
+
+    tmp = 0;
+    datum_arr[3].ptr_ = datum_arr[2].ptr_ + intlen;
+    datum_arr[3].pack_ = intlen;
+    MEMCPY((void*)datum_arr[2].ptr_, (void*)&tmp, intlen);
+    datum_arr[4].ptr_ = datum_arr[3].ptr_ + intlen;
+    datum_arr[4].from_obj(row.cells_[1]);
+    datum_arr[5].ptr_ = datum_arr[4].ptr_ + intlen;
+    datum_arr[5].from_obj(row.cells_[2]);
+    store_size = intlen * 6;
+    length_ += store_size;
+    for (int i = 6; i < 18; i++) {
+      datum_arr[i].ptr_ = row_buf_holder_.get_buf() + length_;
+      if (12 <= i && i <= 14) {
+        store_size += intlen;
+        length_ += intlen;      
+      } else {
+        store_size += datum_arr[i].len_;
+        length_ += datum_arr[i].len_;
+      }
+      datum_arr[i].from_obj(row.cells_[i-2]);
+    }
+    if (OB_FAIL(try_to_append_row(store_size))) {
+      if (OB_UNLIKELY(OB_BUF_NOT_ENOUGH != ret)) {
+        LOG_WARN("fail to try append row", K(ret));
+      }
+    } else {
+      ObConstDatumRow datum_row(datum_arr, 18);
+      if (OB_FAIL(datum_rows_.push_back(datum_row))) {
+        LOG_WARN("append row to array failed", K(ret));
+      }
+    }
+    
+  }
+  return ret;
+}
+
 int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t &store_size)
 {
   int ret = OB_SUCCESS;
@@ -959,6 +1029,40 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
   return ret;
 }
 
+int ObDemoMicroBlockEncoder::copy_cell_idx(
+    int idx,
+    const ObStorageDatum &src,
+    ObDatum &dest,
+    int64_t &store_size,
+    bool &is_large_row)
+{
+  // For IntSC and UIntSC, normalize to 8 byte
+  int ret = OB_SUCCESS;
+  // ObObjTypeStoreClass store_class = get_store_class_map()[col_desc.col_type_.get_type_class()];
+  const bool is_int_sc = idx <= 3 || (12 <= idx && idx <= 14);
+  int64_t datum_size = 0;
+  dest.ptr_ = row_buf_holder_.get_buf() + length_;
+  dest.pack_ = src.pack_;
+
+  datum_size = is_int_sc ? sizeof(uint64_t) : dest.len_;
+  if (FALSE_IT(store_size += datum_size)) {
+  } else if (datum_rows_.count() > 0 && estimate_size_ + store_size >= estimate_size_limit_) {
+    ret = OB_BUF_NOT_ENOUGH;
+    // for large row whose size larger than a micro block default size,
+    // we still use micro block to store it, but its size is unknown, need special treat
+  } else if (datum_rows_.count() == 0 && estimate_size_ + store_size >= estimate_size_limit_) {
+    is_large_row = true;
+  } else {
+    if (is_int_sc) {
+      MEMSET(const_cast<char *>(dest.ptr_), 0, datum_size);
+    }
+    MEMCPY(const_cast<char *>(dest.ptr_), src.ptr_, dest.len_);
+    length_ += datum_size;
+  }
+  return ret;
+}
+
+
 int ObDemoMicroBlockEncoder::copy_cell(
     const ObColDesc &col_desc,
     const ObStorageDatum &src,
@@ -973,6 +1077,7 @@ int ObDemoMicroBlockEncoder::copy_cell(
   int64_t datum_size = 0;
   dest.ptr_ = row_buf_holder_.get_buf() + length_;
   dest.pack_ = src.pack_;
+  /*
   if (src.is_null()) {
     dest.set_null();
     datum_size = sizeof(uint64_t);
@@ -983,10 +1088,9 @@ int ObDemoMicroBlockEncoder::copy_cell(
     LOG_WARN("unsupported store extend datum type", K(ret), K(src));
   } else {
     datum_size = is_int_sc ? sizeof(uint64_t) : dest.len_;
-  }
-
-  if (OB_FAIL(ret)) {
-  } else if (FALSE_IT(store_size += datum_size)) {
+  }*/
+  datum_size = is_int_sc ? sizeof(uint64_t) : dest.len_;
+  if (FALSE_IT(store_size += datum_size)) {
   } else if (datum_rows_.count() > 0 && estimate_size_ + store_size >= estimate_size_limit_) {
     ret = OB_BUF_NOT_ENOUGH;
     // for large row whose size larger than a micro block default size,
@@ -1013,6 +1117,7 @@ int ObDemoMicroBlockEncoder::process_large_row(
   // store_size represents for the serialized data size on disk,
   const int64_t datums_len = sizeof(ObDatum) * src.get_column_count();
   int64_t copy_size = datums_len;
+  LOG_INFO("MMMMM large row");
   for (int64_t col_idx = 0; col_idx < src.get_column_count(); ++col_idx) {
     const ObColDesc &col_desc = ctx_.col_descs_->at(col_idx);
     ObObjTypeStoreClass store_class = get_store_class_map()[col_desc.col_type_.get_type_class()];
