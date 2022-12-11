@@ -671,7 +671,7 @@ int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, 
         } 
       } else {
         obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
-        int len = std::distance(ptr, iter);
+        // int len = std::distance(ptr, iter);
         // printf("MMMMM len %d, %-*s\n", len, len, ptr);
         obj.set_collation_type(collation_type_);
       }

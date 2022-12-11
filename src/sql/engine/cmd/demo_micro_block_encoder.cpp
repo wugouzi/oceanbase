@@ -1208,6 +1208,7 @@ int ObDemoMicroBlockEncoder::prescan(const int64_t column_index)
 
     if (OB_SUCC(ret)) {
       // col_ctx.prefix_tree_ = prefix_tree;
+      
       if (OB_FAIL(build_column_encoding_ctx(ht, store_class, type_store_size, col_ctx))) {
         LOG_WARN("build_column_encoding_ctx failed",
             K(ret), KP(ht), K(store_class), K(type_store_size));
