@@ -50,7 +50,9 @@ namespace oceanbase
     {
       int key1 = 0;
       int key2 = 0;
-      ObNewRow *row = nullptr;
+      ObObj *objs;
+      // ObNewRow *row = nullptr;
+      // ObObj **objs;
     } KeyRow;
 
   
@@ -129,7 +131,7 @@ namespace oceanbase
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row_with_key(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, KeyRow &key);
       int fast_get_next_row_with_key(char *&begin, char *end, const common::ObNewRow *&row, KeyRow &key);
-      int fast_get_next_row_with_key_and_row(char *&begin, char *end, const common::ObNewRow &row, KeyRow &key);
+      int fast_get_next_row_with_key_and_row(char *&begin, char *end, ObObj *objs, KeyRow &key);
       int fast_get_next_row(const char *begin, const char *end, const common::ObNewRow *&row);
       // int parse_next_row(const common::ObNewRow *&row);
     private:
@@ -201,7 +203,7 @@ namespace oceanbase
                const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int get_casted_row(const common::ObNewRow &new_row, const ObLoadDatumRow *&datum_row);
       int get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
-      int unfold_get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
+      int unfold_get_casted_datum_row(ObObj *objs, const blocksstable::ObDatumRow *&datum_row);
       void reuse() { 
         // 244
         // LOG_INFO("MMMMM reuse", K(ob_datum_row_num_));

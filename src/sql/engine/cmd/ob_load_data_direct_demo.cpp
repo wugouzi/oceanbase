@@ -573,7 +573,7 @@ int ObLoadCSVPaser::fast_get_next_row(const char *begin, const char *end, const 
   return OB_SUCCESS;
 }
 
-int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, const common::ObNewRow &row, KeyRow &key) 
+int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, ObObj *objs, KeyRow &key) 
 {
   if (begin == end) {
     return OB_ITER_END;
@@ -598,7 +598,7 @@ int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, 
     ++iter;
   }
   {
-    ObObj &obj = row.cells_[0];
+    ObObj &obj = objs[0];
     obj.set_int(ObIntType, value);
     obj.set_collation_level(CS_LEVEL_COERCIBLE);
     obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
@@ -612,7 +612,7 @@ int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, 
     ++iter;
   }
   {
-    ObObj &obj = row.cells_[1];
+    ObObj &obj = objs[1];
     obj.set_int(ObIntType, value);
     obj.set_collation_level(CS_LEVEL_COERCIBLE);
     obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
@@ -625,7 +625,7 @@ int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, 
     ++iter;
   }
   {
-    ObObj &obj = row.cells_[2];
+    ObObj &obj = objs[2];
     obj.set_int(ObInt32Type, value);
     obj.set_collation_level(CS_LEVEL_COERCIBLE);
     obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
@@ -638,7 +638,7 @@ int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, 
     ++iter;
   }
   {
-    ObObj &obj = row.cells_[3];
+    ObObj &obj = objs[3];
     obj.set_int(ObInt32Type, value);
     obj.set_collation_level(CS_LEVEL_COERCIBLE);
     obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
@@ -653,7 +653,7 @@ int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, 
       first = false;
     }
     if (*iter == '|') {
-      ObObj &obj = row.cells_[field_cnt];
+      ObObj &obj = objs[field_cnt];
       obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
       obj.set_collation_type(collation_type_);
       field_cnt++;
@@ -1306,7 +1306,7 @@ int ObLoadRowCaster::init_column_schemas_and_idxs(
 }
 
 // 0, 3, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row)
+int ObLoadRowCaster::unfold_get_casted_datum_row(ObObj *objs, const blocksstable::ObDatumRow *&datum_row)
 {
   int ret = OB_SUCCESS;
   if (ob_datum_row_num_ >= CACHE_DATUM_NUM) {
@@ -1329,7 +1329,7 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
   //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[0]), K(ObIntType));
   //   return ret;
   // }
-  if (OB_FAIL(ob_datum_row.storage_datums_[0].from_obj_enhance(new_row.cells_[0]))) {
+  if (OB_FAIL(ob_datum_row.storage_datums_[0].from_obj_enhance(objs[0]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
@@ -1338,7 +1338,7 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
   //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[3]), K(ObInt32Type));
   //   return ret;
   // }
-  if (OB_FAIL(ob_datum_row.storage_datums_[1].from_obj_enhance(new_row.cells_[3]))) {
+  if (OB_FAIL(ob_datum_row.storage_datums_[1].from_obj_enhance(objs[3]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
@@ -1347,7 +1347,7 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
   //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[1]), K(ObIntType));
   //   return ret;
   // }
-  if (OB_FAIL(ob_datum_row.storage_datums_[4].from_obj_enhance(new_row.cells_[1]))) {
+  if (OB_FAIL(ob_datum_row.storage_datums_[4].from_obj_enhance(objs[1]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
@@ -1356,13 +1356,13 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
   //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[2]), K(ObInt32Type));
   //   return ret;
   // }
-  if (OB_FAIL(ob_datum_row.storage_datums_[5].from_obj_enhance(new_row.cells_[2]))) {
+  if (OB_FAIL(ob_datum_row.storage_datums_[5].from_obj_enhance(objs[2]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
   // 4 6 number
-  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, new_row.cells_[4], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[4]), K(ObNumberType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, objs[4], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs), K(ObNumberType));
     return ret;
   }
   if (OB_FAIL(ob_datum_row.storage_datums_[6].from_obj_enhance(casted_obj_))) {
@@ -1370,8 +1370,8 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
     return ret;
   }
   // 5 7 number
-  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, new_row.cells_[5], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[5]), K(ObNumberType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, objs[5], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[5]), K(ObNumberType));
     return ret;
   }
   if (OB_FAIL(ob_datum_row.storage_datums_[7].from_obj_enhance(casted_obj_))) {
@@ -1379,8 +1379,8 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
     return ret;
   }
   // 6 8 number
-  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, new_row.cells_[6], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[6]), K(ObNumberType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, objs[6], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[6]), K(ObNumberType));
     return ret;
   }
   if (OB_FAIL(ob_datum_row.storage_datums_[8].from_obj_enhance(casted_obj_))) {
@@ -1388,8 +1388,8 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
     return ret;
   }
   // 7 9 number
-  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, new_row.cells_[7], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[7]), K(ObNumberType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, objs[7], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[7]), K(ObNumberType));
     return ret;
   }
   if (OB_FAIL(ob_datum_row.storage_datums_[9].from_obj_enhance(casted_obj_))) {
@@ -1398,27 +1398,27 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
   }
   // 8 10 string
   /*
-  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, new_row.cells_[8], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[8]), K(ObCharType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, objs[8], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[8]), K(ObCharType));
     return ret;
   }*/
-  if (OB_FAIL(ob_datum_row.storage_datums_[10].from_obj_enhance(new_row.cells_[8]))) {
+  if (OB_FAIL(ob_datum_row.storage_datums_[10].from_obj_enhance(objs[8]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
   // 9 11 string
   /*
-  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, new_row.cells_[9], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[9]), K(ObCharType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, objs[9], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[9]), K(ObCharType));
     return ret;
   }*/
-  if (OB_FAIL(ob_datum_row.storage_datums_[11].from_obj_enhance(new_row.cells_[9]))) {
+  if (OB_FAIL(ob_datum_row.storage_datums_[11].from_obj_enhance(objs[9]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
   // 10 12 date
-  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, new_row.cells_[10], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[10]), K(ObDateType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, objs[10], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[10]), K(ObDateType));
     return ret;
   }
   if (OB_FAIL(ob_datum_row.storage_datums_[12].from_obj_enhance(casted_obj_))) {
@@ -1426,8 +1426,8 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
     return ret;
   }
   // 11 13 date
-  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, new_row.cells_[11], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[11]), K(ObDateType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, objs[11], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[11]), K(ObDateType));
     return ret;
   }
   if (OB_FAIL(ob_datum_row.storage_datums_[13].from_obj_enhance(casted_obj_))) {
@@ -1435,8 +1435,8 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
     return ret;
   }
   // 12 14 date
-  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, new_row.cells_[12], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[12]), K(ObDateType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, objs[12], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[12]), K(ObDateType));
     return ret;
   }
   if (OB_FAIL(ob_datum_row.storage_datums_[14].from_obj_enhance(casted_obj_))) {
@@ -1445,31 +1445,31 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
   }
   // 13 15 string
   /*
-  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, new_row.cells_[13], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[13]), K(ObCharType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, objs[13], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[13]), K(ObCharType));
     return ret;
   }*/
-  if (OB_FAIL(ob_datum_row.storage_datums_[15].from_obj_enhance(new_row.cells_[13]))) {
+  if (OB_FAIL(ob_datum_row.storage_datums_[15].from_obj_enhance(objs[13]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
   // 14 16 string
   /*
-  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, new_row.cells_[14], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[14]), K(ObCharType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, objs[14], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[14]), K(ObCharType));
     return ret;
   }*/
-  if (OB_FAIL(ob_datum_row.storage_datums_[16].from_obj_enhance(new_row.cells_[14]))) {
+  if (OB_FAIL(ob_datum_row.storage_datums_[16].from_obj_enhance(objs[14]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
   // 15 17 string
   /*
-  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObVarcharType, cast_ctx_, new_row.cells_[15], casted_obj_))) {
-    LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[15]), K(ObVarcharType));
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObVarcharType, cast_ctx_, objs[15], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[15]), K(ObVarcharType));
     return ret;
   }*/
-  if (OB_FAIL(ob_datum_row.storage_datums_[17].from_obj_enhance(new_row.cells_[15]))) {
+  if (OB_FAIL(ob_datum_row.storage_datums_[17].from_obj_enhance(objs[15]))) {
     LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
     return ret;
   }
@@ -2600,13 +2600,16 @@ int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *
 
   while (OB_SUCC(ret)) {
     KeyRow new_item;
-    new_row = new (buf + pos) ObNewRow;
-    new_item.row = new_row;
-    pos += sizeof(ObNewRow);
-    new_row->count_ = column_count_;
-    new_row->cells_ = (ObObj*)(buf + pos);
+    // new_row = new (buf + pos) ObNewRow;
+    // ObObj **objs = (ObObj **)(buf + pos);
+    // new_row = (ObNewRow*)(buf+pos);
+    // new_item.row = new_row;
+    // pos += sizeof(ObNewRow);
+    // new_row->count_ = column_count_;
+    new_item.objs = (ObObj*)(buf + pos);
+    // new_row->cells_ = (ObObj*)(buf + pos);
     pos += additional_size_;
-    if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, *new_row, new_item))) {
+    if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, new_item.objs, new_item))) {
       if (OB_UNLIKELY(OB_ITER_END != ret)) {
         LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
       } else {
@@ -2637,7 +2640,7 @@ int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *
     ret = OB_SUCCESS;
   }
   for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
-    if (OB_FAIL(row_caster.unfold_get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
+    if (OB_FAIL(row_caster.unfold_get_casted_datum_row(item_list[i].objs, ob_datum_row))) {
       LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
     } else if (OB_FAIL(macro_block_writer.append_row(*ob_datum_row))) {
       LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
@@ -2648,6 +2651,7 @@ int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *
   
 }
 
+/*
 int ObReadSortWriteThread::handle_file(int64_t idx, char *file_data, int64_t len,
   blocksstable::ObDemoMacroBlockWriter &macro_block_writer)
 {
@@ -2699,11 +2703,7 @@ int ObReadSortWriteThread::handle_file(int64_t idx, char *file_data, int64_t len
   std::sort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
     return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
   });
-  /*
-  quicksort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
-    return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
-  });
-  */
+
   LOG_INFO("MMMMM sort done", KR(ret), K(idx));
   if (ret == OB_ITER_END) {
     ret = OB_SUCCESS;
@@ -2715,21 +2715,10 @@ int ObReadSortWriteThread::handle_file(int64_t idx, char *file_data, int64_t len
     } else if (OB_FAIL(macro_block_writer.append_row(*ob_datum_row))) {
       LOG_INFO("MMMMM fail to append", K(ret));
     }
-    /*
-    if (sstable_writer_.has_wrote_block(idx)) {
-      row_caster.reuse();
-    }*/
+    
   }
-  /*
-  if (item_list.size() > 0) {
-    if (OB_FAIL(sstable_writer_.build_micro_block(idx))) {
-      LOG_INFO("MMMMM build micro fail");
-    } else if (OB_FAIL(sstable_writer_.switch_macro_block(idx))) {
-      LOG_INFO("MMMMM build macro fail", KR(ret));
-    }
-  }*/
   return ret;
-}
+}*/
 
 // we don't use allocator:D
 // thread_num_ | split_num_
