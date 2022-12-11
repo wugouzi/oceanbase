@@ -9,6 +9,7 @@
  * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
  * See the Mulan PubL v2 for more details.
  */
+
 #define USING_LOG_PREFIX SQL_ENG
 
 #include "demo_micro_block_encoder.h"
@@ -235,7 +236,6 @@ void ObDemoMicroBlockEncoder::reuse()
   col_ctxs_.reuse();
   string_col_cnt_ = 0;
   length_ = 0;
-  first_row_ = true;
 }
 
 int ObDemoMicroBlockEncoder::calc_and_validate_checksum(const ObDatumRow &row)
@@ -382,6 +382,8 @@ int ObDemoMicroBlockEncoder::append_row(const ObDatumRow &row)
       // The maximum size of a micro block is estimate_size_limit_, but set 3 times of it in memory
       // due to memory struct need to store some other meta information.
       // When micro block is too small, estimate_size_ could be 0. Each row bceomes a large row.
+      // size 132636
+      // LOG_INFO("MMMMM allocate", K(3 * estimate_size_limit_));
       if (0 != estimate_size_limit_ && OB_FAIL(row_buf_holder_.try_alloc(3 * estimate_size_limit_))) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
         LOG_WARN("fail to try allocate memory for buf holder", K(ret), K_(3 * estimate_size_limit));
@@ -406,12 +408,12 @@ int ObDemoMicroBlockEncoder::append_row(const ObDatumRow &row)
       if (OB_UNLIKELY(OB_BUF_NOT_ENOUGH != ret)) {
         LOG_WARN("copy and append row failed", K(ret));
       }
-    } /*else if (header_->has_column_checksum_
+    } else if (header_->has_column_checksum_
         && OB_FAIL(cal_column_checksum(row, header_->column_checksums_))) {
       LOG_WARN("cal column checksum failed", K(ret), K(row));
     } else if (need_cal_row_checksum() && OB_FAIL(calc_and_validate_checksum(row))) {
       LOG_WARN("fail to calc and validate row checksum", K(ret), K_(ctx));
-    } */else {
+    } else {
       cal_row_stat(row);
       estimate_size_ += store_size;
     }
@@ -905,24 +907,14 @@ int ObDemoMicroBlockEncoder::process_out_row_columns(const ObDatumRow &row)
   return ret;
 }
 
-int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t &store_size)
+int ObDemoMicroBlockEncoder::copy_and_append_obj_row(const ObNewRow &row, int64_t &store_size)
 {
   int ret = OB_SUCCESS;
-  // static int64_t sss = 0;
-  // performance critical, do not double check parameters in private method
-  const int64_t datums_len = sizeof(ObDatum) * src.get_column_count();
+  const int64_t datums_len = sizeof(ObDatum) * 18;
   bool is_large_row = false;
   ObDatum *datum_arr = nullptr;
-
-  // src's data is in buf, therefore we only need pointers
-  
-  // int64_t actual_datums_len = sizeof(ObDatum*) * src.get_column_count();
-  // char *datum_arr_buf = row_buf_holder_.get_buf() + length_;
-  // MEMSET(datum_arr_buf, 0, actual_datums_len);
-
-
   if (datum_rows_.count() > 0
-      && (length_ + datums_len >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
+      && (length_ + datums_len + 180 >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
     ret = OB_BUF_NOT_ENOUGH;
   } else if (0 == datum_rows_.count() && length_ + datums_len >= estimate_size_limit_) {
     is_large_row = true;
@@ -933,12 +925,80 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
     length_ += datums_len;
 
     store_size = 0;
-    // int64_t last = 0;
+
+    size_t intlen = sizeof(uint64_t);
+    int64_t tmp = -1;
+
+    datum_arr[0].ptr_ = row_buf_holder_.get_buf() + length_;
+    // MEMSET(datum_arr[0].ptr_, 0, intlen);
+    datum_arr[0].from_obj(row.cells_[0]);
+
+    datum_arr[1].ptr_ = datum_arr[0].ptr_ + intlen;
+    // MEMSET(datum_arr[1].ptr_, 0, intlen);
+    datum_arr[1].from_obj(row.cells_[3]);
+    
+    datum_arr[2].ptr_ = datum_arr[1].ptr_ + intlen;
+    // MEMSET(datum_arr[2].ptr_, 0, intlen);
+    MEMCPY((void*)datum_arr[2].ptr_, (void*)&tmp, intlen);
+
+    tmp = 0;
+    datum_arr[3].ptr_ = datum_arr[2].ptr_ + intlen;
+    datum_arr[3].pack_ = intlen;
+    MEMCPY((void*)datum_arr[2].ptr_, (void*)&tmp, intlen);
+    datum_arr[4].ptr_ = datum_arr[3].ptr_ + intlen;
+    datum_arr[4].from_obj(row.cells_[1]);
+    datum_arr[5].ptr_ = datum_arr[4].ptr_ + intlen;
+    datum_arr[5].from_obj(row.cells_[2]);
+    store_size = intlen * 6;
+    length_ += store_size;
+    for (int i = 6; i < 18; i++) {
+      datum_arr[i].ptr_ = row_buf_holder_.get_buf() + length_;
+      if (12 <= i && i <= 14) {
+        store_size += intlen;
+        length_ += intlen;      
+      } else {
+        store_size += datum_arr[i].len_;
+        length_ += datum_arr[i].len_;
+      }
+      datum_arr[i].from_obj(row.cells_[i-2]);
+    }
+    if (OB_FAIL(try_to_append_row(store_size))) {
+      if (OB_UNLIKELY(OB_BUF_NOT_ENOUGH != ret)) {
+        LOG_WARN("fail to try append row", K(ret));
+      }
+    } else {
+      ObConstDatumRow datum_row(datum_arr, 18);
+      if (OB_FAIL(datum_rows_.push_back(datum_row))) {
+        LOG_WARN("append row to array failed", K(ret));
+      }
+    }
+    
+  }
+  return ret;
+}
+
+int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t &store_size)
+{
+  int ret = OB_SUCCESS;
+  // performance critical, do not double check parameters in private method
+  const int64_t datums_len = sizeof(ObDatum) * src.get_column_count();
+  bool is_large_row = false;
+  ObDatum *datum_arr = nullptr;
+  if (datum_rows_.count() > 0
+      && (length_ + datums_len + 180 >= estimate_size_limit_ || estimate_size_ >= estimate_size_limit_)) {
+    ret = OB_BUF_NOT_ENOUGH;
+  } else if (0 == datum_rows_.count() && length_ + datums_len >= estimate_size_limit_) {
+    is_large_row = true;
+  } else {
+    char *datum_arr_buf = row_buf_holder_.get_buf() + length_;
+    MEMSET(datum_arr_buf, 0, datums_len);
+    datum_arr = reinterpret_cast<ObDatum *>(datum_arr_buf);
+    length_ += datums_len;
+
+    store_size = 0;
     for (int64_t col_idx = 0;
         OB_SUCC(ret) && col_idx < src.get_column_count() && !is_large_row;
         ++col_idx) {
-      
-      
       if (OB_FAIL(copy_cell(
           ctx_.col_descs_->at(col_idx),
           src.storage_datums_[col_idx],
@@ -949,22 +1009,9 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
           LOG_WARN("fail to copy cell", K(ret), K(col_idx), K(src), K(store_size), K(is_large_row));
         }
       }
-      // LOG_INFO("MMMMM store", K(store_size - last));
-      // last = store_size;
-      // datum_arr[col_idx] = src.storage_datums_[col_idx];
     }
   }
-  // store_size += 180;
-  // length_ += 180;
-  // sss = max(store_size, sss);
-  // LOG_INFO("MMMMM copy_and_append", K(sss));
-  // this will cause memory fail, so i need to be careful
-  // int64_t sss = 94 + src.storage_datums_[7].len_ + src.storage_datums_[15].len_ + src.storage_datums_[16].len_ + src.storage_datums_[17].len_;
-  /*
-  if (sss != store_size) {
-    LOG_INFO("MMMMM wrong size", K(sss), K(store_size));
-  }
-  */
+
   if (OB_FAIL(ret)) {
   } else if (is_large_row && OB_FAIL(process_large_row(src, datum_arr, store_size))) {
     LOG_WARN("fail to process large row", K(ret));
@@ -978,9 +1025,43 @@ int ObDemoMicroBlockEncoder::copy_and_append_row(const ObDatumRow &src, int64_t 
       LOG_WARN("append row to array failed", K(ret), K(src));
     }
   }
-  
+
   return ret;
 }
+
+int ObDemoMicroBlockEncoder::copy_cell_idx(
+    int idx,
+    const ObStorageDatum &src,
+    ObDatum &dest,
+    int64_t &store_size,
+    bool &is_large_row)
+{
+  // For IntSC and UIntSC, normalize to 8 byte
+  int ret = OB_SUCCESS;
+  // ObObjTypeStoreClass store_class = get_store_class_map()[col_desc.col_type_.get_type_class()];
+  const bool is_int_sc = idx <= 3 || (12 <= idx && idx <= 14);
+  int64_t datum_size = 0;
+  dest.ptr_ = row_buf_holder_.get_buf() + length_;
+  dest.pack_ = src.pack_;
+
+  datum_size = is_int_sc ? sizeof(uint64_t) : dest.len_;
+  if (FALSE_IT(store_size += datum_size)) {
+  } else if (datum_rows_.count() > 0 && estimate_size_ + store_size >= estimate_size_limit_) {
+    ret = OB_BUF_NOT_ENOUGH;
+    // for large row whose size larger than a micro block default size,
+    // we still use micro block to store it, but its size is unknown, need special treat
+  } else if (datum_rows_.count() == 0 && estimate_size_ + store_size >= estimate_size_limit_) {
+    is_large_row = true;
+  } else {
+    if (is_int_sc) {
+      MEMSET(const_cast<char *>(dest.ptr_), 0, datum_size);
+    }
+    MEMCPY(const_cast<char *>(dest.ptr_), src.ptr_, dest.len_);
+    length_ += datum_size;
+  }
+  return ret;
+}
+
 
 int ObDemoMicroBlockEncoder::copy_cell(
     const ObColDesc &col_desc,
@@ -996,7 +1077,7 @@ int ObDemoMicroBlockEncoder::copy_cell(
   int64_t datum_size = 0;
   dest.ptr_ = row_buf_holder_.get_buf() + length_;
   dest.pack_ = src.pack_;
-  
+  /*
   if (src.is_null()) {
     dest.set_null();
     datum_size = sizeof(uint64_t);
@@ -1007,10 +1088,9 @@ int ObDemoMicroBlockEncoder::copy_cell(
     LOG_WARN("unsupported store extend datum type", K(ret), K(src));
   } else {
     datum_size = is_int_sc ? sizeof(uint64_t) : dest.len_;
-  }
-
-  if (OB_FAIL(ret)) {
-  } else if (FALSE_IT(store_size += datum_size)) {
+  }*/
+  datum_size = is_int_sc ? sizeof(uint64_t) : dest.len_;
+  if (FALSE_IT(store_size += datum_size)) {
   } else if (datum_rows_.count() > 0 && estimate_size_ + store_size >= estimate_size_limit_) {
     ret = OB_BUF_NOT_ENOUGH;
     // for large row whose size larger than a micro block default size,
@@ -1018,13 +1098,10 @@ int ObDemoMicroBlockEncoder::copy_cell(
   } else if (datum_rows_.count() == 0 && estimate_size_ + store_size >= estimate_size_limit_) {
     is_large_row = true;
   } else {
-    // dest.ptr_ = src.ptr_;
-    
     if (is_int_sc) {
       MEMSET(const_cast<char *>(dest.ptr_), 0, datum_size);
     }
     MEMCPY(const_cast<char *>(dest.ptr_), src.ptr_, dest.len_);
-    
     length_ += datum_size;
   }
   return ret;
@@ -1036,11 +1113,11 @@ int ObDemoMicroBlockEncoder::process_large_row(
     int64_t &store_size)
 {
   int ret = OB_SUCCESS;
-  LOG_INFO("MMMMM large row");
   // copy_size is the size in memory, including the ObDatum struct and extra space for data.
   // store_size represents for the serialized data size on disk,
   const int64_t datums_len = sizeof(ObDatum) * src.get_column_count();
   int64_t copy_size = datums_len;
+  LOG_INFO("MMMMM large row");
   for (int64_t col_idx = 0; col_idx < src.get_column_count(); ++col_idx) {
     const ObColDesc &col_desc = ctx_.col_descs_->at(col_idx);
     ObObjTypeStoreClass store_class = get_store_class_map()[col_desc.col_type_.get_type_class()];
@@ -1107,8 +1184,10 @@ int ObDemoMicroBlockEncoder::prescan(const int64_t column_index)
     // build hashtable
     ObEncodingHashTable *ht = nullptr;
     ObEncodingHashTableBuilder *builder = nullptr;
-    ObMultiPrefixTree *prefix_tree = nullptr;
+    // ObMultiPrefixTree *prefix_tree = nullptr;
+    uint64_t bucket_num = 256;
     // next power of 2
+    /*
     uint64_t bucket_num = datum_rows_.count() * 2;
     if (0 != (bucket_num & (bucket_num - 1))) {
       while (0 != (bucket_num & (bucket_num - 1))) {
@@ -1116,26 +1195,28 @@ int ObDemoMicroBlockEncoder::prescan(const int64_t column_index)
       }
       bucket_num = bucket_num * 2;
     }
+    */
     const int64_t node_num = datum_rows_.count();
     if (OB_FAIL(hashtable_factory_.create(bucket_num, node_num, ht))) {
       LOG_WARN("create hashtable failed", K(ret), K(bucket_num), K(node_num));
-    } else if (OB_FAIL(multi_prefix_tree_factory_.create(node_num, bucket_num, prefix_tree))) {
+    }/* else if (OB_FAIL(multi_prefix_tree_factory_.create(node_num, bucket_num, prefix_tree))) {
       LOG_WARN("failed to create multi-prefix tree", K(ret), K(bucket_num));
-    } else if (FALSE_IT(builder = static_cast<ObEncodingHashTableBuilder *>(ht))) {
+    } */else if (FALSE_IT(builder = static_cast<ObEncodingHashTableBuilder *>(ht))) {
     } else if (OB_FAIL(builder->build(*col_ctx.col_datums_, col_desc))) {
       LOG_WARN("build hash table failed", K(ret), K(column_index), K(column_type));
     }
 
     if (OB_SUCC(ret)) {
-      col_ctx.prefix_tree_ = prefix_tree;
+      // col_ctx.prefix_tree_ = prefix_tree;
+      
       if (OB_FAIL(build_column_encoding_ctx(ht, store_class, type_store_size, col_ctx))) {
         LOG_WARN("build_column_encoding_ctx failed",
             K(ret), KP(ht), K(store_class), K(type_store_size));
       } else if (OB_FAIL(hashtables_.push_back(ht))) {
         LOG_WARN("failed to push back", K(ret));
-      } else if (OB_FAIL(multi_prefix_trees_.push_back(prefix_tree))) {
+      } /*else if (OB_FAIL(multi_prefix_trees_.push_back(prefix_tree))) {
         LOG_WARN("failed to push back multi-prefix tree", K(ret));
-      }
+      }*/
       LOG_DEBUG("hash table", K(column_index), K(*ht));
     }
 
@@ -1144,10 +1225,10 @@ int ObDemoMicroBlockEncoder::prescan(const int64_t column_index)
       int temp_ret = OB_SUCCESS;
       if (OB_SUCCESS != (temp_ret = hashtable_factory_.recycle(ht))) {
         LOG_WARN("recycle hashtable failed", K(temp_ret));
-      }
+      }/*
       if (OB_SUCCESS != (temp_ret = multi_prefix_tree_factory_.recycle(prefix_tree))) {
         LOG_WARN("failed to recycle multi-prefix tree", K(temp_ret));
-      }
+      }*/
     }
   }
   return ret;
@@ -1177,8 +1258,60 @@ int ObDemoMicroBlockEncoder::encoder_detection()
         c->extend_value_bit_ = extend_value_bit;
       }
     }
+    
+    /*
     for (int64_t i = 0; OB_SUCC(ret) && i <ctx_.column_cnt_; ++i) {
-      if (col_ctxs_.at(i).is_out_row_column_) {
+      ObIColumnEncoder *e = nullptr;
+      if (i == 2 || i == 3) {
+        if (OB_FAIL(try_encoder<ObConstEncoder>(e, i))) {
+          LOG_WARN("failed to try column out row encoder", K(ret));
+        } else if (OB_FAIL(encoders_.push_back(e))) {
+          LOG_WARN("failed to append encoder", K(ret), KP(e));
+          free_encoder(e);
+          e = nullptr;
+        }
+      } else if (i == 0 || (12 <= i && i <= 14)) {
+        if (OB_FAIL(try_encoder<ObIntegerBaseDiffEncoder>(e, i))) {
+          LOG_WARN("failed to try column out row encoder", K(ret));
+        } else if (OB_FAIL(encoders_.push_back(e))) {
+          LOG_WARN("failed to append encoder", K(ret), KP(e));
+          free_encoder(e);
+          e = nullptr;
+        }
+      } else {
+        if (OB_FAIL(try_encoder<ObRawEncoder>(e, i))) {
+          LOG_WARN("failed to try column out row encoder", K(ret));
+        } else if (OB_FAIL(encoders_.push_back(e))) {
+          LOG_WARN("failed to append encoder", K(ret), KP(e));
+          free_encoder(e);
+          e = nullptr;
+        }
+      }
+    }
+    */
+    
+    for (int64_t i = 0; OB_SUCC(ret) && i <ctx_.column_cnt_; ++i) {
+      ObIColumnEncoder *e = nullptr;
+      if (OB_FAIL(try_encoder<ObRawEncoder>(e, i))) {
+        LOG_WARN("failed to try column out row encoder", K(ret));
+      } else if (OB_FAIL(encoders_.push_back(e))) {
+        LOG_WARN("failed to append encoder", K(ret), KP(e));
+        free_encoder(e);
+        e = nullptr;
+      } else {
+        continue;
+      }
+      /*
+      if (i == 2 || i == 3) {
+        ObIColumnEncoder *e = nullptr;
+        if (OB_FAIL(try_encoder<ObConstEncoder>(e, i))) {
+          LOG_WARN("failed to try column out row encoder", K(ret));
+        } else if (OB_FAIL(encoders_.push_back(e))) {
+          LOG_WARN("failed to append encoder", K(ret), KP(e));
+          free_encoder(e);
+          e = nullptr;
+        }
+      } else */if (col_ctxs_.at(i).is_out_row_column_) {
         // Use raw encoding for out row locator
         ObIColumnEncoder *e = nullptr;
         if (OB_FAIL(try_encoder<ObRawEncoder>(e, i))) {
@@ -1240,7 +1373,7 @@ int ObDemoMicroBlockEncoder::fast_encoder_detect(
       ret = OB_ERR_UNEXPECTED;
       LOG_WARN("raw encoder is NULL", K(ret), K(column_idx));
     }
-  } else if (cc.ht_->distinct_cnt() <= 1) {
+  } else if (column_idx == 2 || column_idx == 3 || cc.ht_->distinct_cnt() <= 1) {
     if (OB_FAIL(try_encoder<ObConstEncoder>(e, column_idx))) {
       LOG_WARN("try encoder failed");
     }
@@ -1652,6 +1785,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
     }
 
     bool string_prefix_suitable = false;
+    /*
     if (OB_SUCC(ret) && try_more) {
       if (is_string_encoding_valid(sc)) {
         if (cc.detected_encoders_[ObStringPrefixEncoder::type_]) {
@@ -1670,7 +1804,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
           }
         }
       }
-    }
+    }*/
 
     if (OB_SUCC(ret) && try_more && !string_diff_suitable && !string_prefix_suitable) {
       if (is_string_encoding_valid(sc)) {
@@ -1692,6 +1826,7 @@ int ObDemoMicroBlockEncoder::choose_encoder(const int64_t column_idx,
     }
 
     if (OB_SUCC(ret)) {
+      // LOG_INFO("MMMMM used encoder", K(column_idx), "column_header", choose->get_column_header(), "data_desc", choose->get_desc());
       LOG_DEBUG("used encoder", K(column_idx),
           "column_header", choose->get_column_header(),
           "data_desc", choose->get_desc());

@@ -5,10 +5,13 @@
 #include "lib/thread/ob_async_task_queue.h"
 #include "lib/thread/ob_work_queue.h"
 #include "lib/thread/threads.h"
+#include "lib/queue/ob_lighty_queue.h"
+#include "lib/thread/ob_simple_thread_pool.h"
 #include "demo_obj_cast.h"
 #include "sql/engine/cmd/ob_load_data_impl.h"
 #include "sql/engine/cmd/ob_load_data_parser.h"
 #include "storage/blocksstable/ob_index_block_builder.h"
+#include "observer/omt/ob_tenant.h"
 // #include "storage/ob_parallel_external_sort.h"
 #include "sql/engine/cmd/demo_sort.h"
 #include "storage/tx_storage/ob_ls_handle.h"
@@ -17,12 +20,23 @@
 #include <future>
 #include <mutex>
 #include <thread>
+#include <vector>
 #include <fstream>
 
 namespace oceanbase
 {
   namespace sql
   {
+    static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
+    static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
+    static const int64_t BUF_SIZE = (2LL << 25); // 
+    static const int64_t READ_BUF_SIZE = (2LL << 19); // 
+    static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
+    static const int64_t THREAD_BUF_SIZE = (1L << 30) * 0.9; // (1G) 1.5G
+    static const int SPLIT_NUM = 240;
+    static const int WRITER_THREAD_NUM = 8;
+    // static const int SPLIT_NUM = 4;
+    // static const int WRITER_THREAD_NUM = 1;
 
     typedef struct 
     {
@@ -36,7 +50,9 @@ namespace oceanbase
     {
       int key1 = 0;
       int key2 = 0;
-      ObNewRow *row = nullptr;
+      ObObj *objs;
+      // ObNewRow *row = nullptr;
+      // ObObj **objs;
     } KeyRow;
 
   
@@ -115,7 +131,7 @@ namespace oceanbase
       int fast_get_next_row(ObLoadDataBuffer &buffer, const common::ObNewRow *&row);
       int fast_get_next_row_with_key(ObLoadDataBuffer &buffer, const common::ObNewRow *&row, KeyRow &key);
       int fast_get_next_row_with_key(char *&begin, char *end, const common::ObNewRow *&row, KeyRow &key);
-      int fast_get_next_row_with_key_and_row(char *&begin, char *end, const common::ObNewRow &row, KeyRow &key);
+      int fast_get_next_row_with_key_and_row(char *&begin, char *end, ObObj *objs, KeyRow &key);
       int fast_get_next_row(const char *begin, const char *end, const common::ObNewRow *&row);
       // int parse_next_row(const common::ObNewRow *&row);
     private:
@@ -187,7 +203,7 @@ namespace oceanbase
                const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int get_casted_row(const common::ObNewRow &new_row, const ObLoadDatumRow *&datum_row);
       int get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
-      int unfold_get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row);
+      int unfold_get_casted_datum_row(ObObj *objs, const blocksstable::ObDatumRow *&datum_row);
       void reuse() { 
         // 244
         // LOG_INFO("MMMMM reuse", K(ob_datum_row_num_));
@@ -200,10 +216,10 @@ namespace oceanbase
           const common::ObIArray<ObLoadDataStmt::FieldOrVarStruct> &field_or_var_list);
       int cast_obj_to_datum(const share::schema::ObColumnSchemaV2 *column_schema,
                             const common::ObObj &obj, blocksstable::ObStorageDatum &datum);
-      OB_INLINE int cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
-                                            const ObObjType &expect_type,
+      OB_INLINE int cast_obj_to_type_datum(const ObObjType &expect_type,
                                             const ObObj &obj,
-                                            blocksstable::ObStorageDatum &datum);
+                                            blocksstable::ObStorageDatum &datum,
+                                            int idx);
     private:
       static const int CACHE_DATUM_NUM = 300;
       common::ObArray<const share::schema::ObColumnSchemaV2 *> column_schemas_;
@@ -225,6 +241,10 @@ namespace oceanbase
       int32_t min_len_[20];
       int32_t max_len_[20];
       ObObj casted_obj_;
+      int64_t time1;
+      int64_t time2;
+      int64_t time3;
+      int64_t time4;
     };
 
     class ObLoadExternalSort
@@ -263,15 +283,17 @@ namespace oceanbase
       ~ObLoadSSTableWriter();
       // int init(const share::schema::ObTableSchema *table_schema);
       int init(const share::schema::ObTableSchema *table_schema);
-      int append_row(const ObLoadDatumRow &datum_row);
-      int append_row(int idx, const ObLoadDatumRow &datum_row);
-      int append_datum_row(int idx, const blocksstable::ObDatumRow &datum_row);
-      int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
-      int close_macro_blocks();
-      OB_INLINE bool has_wrote_block(int idx) { return macro_block_writers_[idx].has_wrote_block(); }
-      OB_INLINE int build_micro_block(int idx) { return macro_block_writers_[idx].build_micro_block(); }
-      OB_INLINE int flush_current_macro_block(int idx) { return macro_block_writers_[idx].flush_current_macro_block(); }
-      OB_INLINE int switch_macro_block(int idx) { return macro_block_writers_[idx].try_switch_macro_block(); }
+      // int append_row(const ObLoadDatumRow &datum_row);
+      // int append_row(int idx, const ObLoadDatumRow &datum_row);
+      // int append_datum_row(int idx, const blocksstable::ObDatumRow &datum_row);
+      // int init_macro_block_writer(const ObTableSchema *table_schema, int idx);
+      // int close_macro_blocks();
+      blocksstable::ObDataStoreDesc &desc() { return data_store_desc_; }
+      // int close_macro_block(int idx);
+      // OB_INLINE bool has_wrote_block(int idx) { return macro_block_writers_[idx].has_wrote_block(); }
+      // OB_INLINE int build_micro_block(int idx) { return macro_block_writers_[idx].build_micro_block(); }
+      // OB_INLINE int flush_current_macro_block(int idx) { return macro_block_writers_[idx].flush_current_macro_block(); }
+      // OB_INLINE int switch_macro_block(int idx) { return macro_block_writers_[idx].try_switch_macro_block(); }
       int close();
     private:
       int init_sstable_index_builder(const share::schema::ObTableSchema *table_schema);
@@ -288,10 +310,10 @@ namespace oceanbase
       storage::ObITable::TableKey table_key_;
       blocksstable::ObSSTableIndexBuilder sstable_index_builder_;
       blocksstable::ObDataStoreDesc data_store_desc_;
-      blocksstable::ObDemoMacroBlockWriter macro_block_writer_;
-      blocksstable::ObDatumRow datum_row_;
-      blocksstable::ObDatumRow datum_rows_[200];
-      blocksstable::ObDemoMacroBlockWriter macro_block_writers_[200];
+      // blocksstable::ObDatumRow datum_row_;
+      // blocksstable::ObDatumRow datum_rows_[WRITER_THREAD_NUM];
+      // blocksstable::ObMacroBlockWriter macro_block_writer_;
+      // blocksstable::ObMacroBlockWriter macro_block_writers_[WRITER_THREAD_NUM];
       bool is_closed_;
       bool is_inited_;
     };
@@ -338,19 +360,31 @@ namespace oceanbase
         ObLoadSSTableWriter &sstable_writer, const ObTableSchema *table_schema,
         ObLoadExternalSort *external_sorts, char **bufs,
         int64_t thread_buf_size,
-        int *rets)
+        int *rets,
+        std::vector<std::vector<int>> &file_pos,
+        blocksstable::ObDataStoreDesc &data_store_desc
+        )
       : split_num_(split_num), thread_num_(thread_num),
         file_paths_(file_paths), csv_parsers_(csv_parsers),
         row_casters_(row_casters), buffers_(buffers),
         sstable_writer_(sstable_writer), table_schema_(table_schema),
         external_sorts_(external_sorts), bufs_(bufs),
         thread_buf_size_(thread_buf_size),
-        rets_(rets)
+        rets_(rets),
+        file_pos_(file_pos),
+        data_store_desc_(data_store_desc)
       {
+        ObCompressorPool::get_instance().get_compressor("zstd_1.3.8", compressor_);
         additional_size_ = column_count_ * sizeof(ObObj);
       }
       void run(int64_t idx) final;
+      // void run1() override;
+      int handle_file(int64_t idx, char *file_data, int64_t len,
+        blocksstable::ObDemoMacroBlockWriter &macro_block_writer);
+      int handle_file_decrypt(int64_t idx, int group_id, char *file_data, int64_t len, 
+        blocksstable::ObDemoMacroBlockWriter &macro_block_writer);
     private:
+      common::ObCompressor *compressor_;  
       int split_num_;
       int thread_num_;
       std::vector<std::string> &file_paths_;
@@ -365,6 +399,58 @@ namespace oceanbase
       int *rets_;
       int column_count_ = 16;
       int64_t additional_size_;
+      std::vector<std::vector<int>> &file_pos_;
+      blocksstable::ObDataStoreDesc &data_store_desc_;
+      // int idx_ = 0;
+      // std::mutex mutex_;
+    };
+
+    // so the reader thread have SPLIT_NUM number of buffers from each file,
+    // and a buffer pool. When a buffer is full, send it the the write thread,
+    // fetch a buffer from buffer pool, and continue
+
+    // This thread accept a buffer from the reader, compress the data,
+    // write it to the buffer, and save its location
+    typedef struct _CompWriteTask{
+      ObLoadDataBuffer* buffer;
+      int group_id;
+      _CompWriteTask(ObLoadDataBuffer* b, int g) : buffer(b), group_id(g) {}
+    } CompWriteTask;
+    class ObCompressWritePool : public common::ObSimpleThreadPool
+    {
+    public:
+      static const int64_t COMP_BUF_SIZE = 3 * READ_BUF_SIZE;
+      ObCompressWritePool(common::ObLightyQueue &buffer_queue,
+        common::ObFileAppender *file_writers,
+        std::vector<std::vector<int>> &file_pos
+        )
+      : buffer_queue_(buffer_queue), file_writers_(file_writers),
+        file_pos_(file_pos)
+      {
+        ObCompressorPool::get_instance().get_compressor("zstd_1.3.8", compressor_);
+        for (int i = 0; i < SPLIT_NUM; i++) {
+          if ((comp_bufs_[i] = (char*)malloc(COMP_BUF_SIZE)) == nullptr) {
+            LOG_INFO("MMMMM malloc fails");
+          }
+          
+        }
+      }
+      ~ObCompressWritePool()
+      {
+        for (int i = 0; i < SPLIT_NUM; i++) {
+          free(comp_bufs_[i]);
+        }
+      }
+    private:
+      void handle(void *task);
+      common::ObCompressor *compressor_;
+      common::ObLightyQueue &buffer_queue_;
+      common::ObFileAppender *file_writers_;
+      std::mutex mtxs_[SPLIT_NUM];
+      // trivial solution, non trivial needs lighty_queue
+      char *comp_bufs_[SPLIT_NUM];
+      std::vector<std::vector<int>> &file_pos_;
+
     };
 
     class ObSplitFileThread : public lib::Threads 
@@ -393,12 +479,7 @@ namespace oceanbase
     class ObLoadDataDirectDemo : public ObLoadDataBase
     {
       // TODO: fine tuning
-      static const int64_t MEM_BUFFER_SIZE = (1LL << 30);  // 1G -> 2G -> 4G
-      static const int64_t FILE_BUFFER_SIZE = (2LL << 20); // 2M
-      static const int64_t BUF_SIZE = (2LL << 25); // 
-      static const int64_t READ_BUF_SIZE = (2LL << 20); // 
-      static const int64_t SPLIT_BUF_SIZE = (2LL << 20); // 
-      static const int64_t THREAD_BUF_SIZE = (1L << 30) * 1; // (1G) 1.5G
+
     public:
       ObLoadDataDirectDemo();
       virtual ~ObLoadDataDirectDemo();
@@ -409,17 +490,17 @@ namespace oceanbase
       // int do_load_buffer(ObLoadSequentialFileReader &file_reader);
       int pre_process();
       int pre_processV2();
+      int pre_processV3();
       // int do_load_buffer(int i);
       // int do_parse_buffer(int i);
     private:
       static const int SPLIT_THREAD_NUM = 2;
       // static const int SPLIT_NUM = 4;
       static const int PARSE_THREAD_NUM = 4;
+      static const int IN_MEMORY_FILE_NUM = 1;
+      static const int64_t IN_MEMORY_FILE_SIZE = (1LL << 30) * 0.2; //200M
+      std::vector<std::vector<int>> file_pos_;
       
-      static const int SPLIT_NUM = 240;
-      static const int WRITER_THREAD_NUM = 8;
-      // static const int SPLIT_NUM = 4;
-      // static const int WRITER_THREAD_NUM = 1;
       ObLoadSequentialFileReader file_reader_;
       ObLoadSequentialFileReader file_split_readers_[SPLIT_THREAD_NUM];
       ObLoadDataBuffer split_buffers_[SPLIT_THREAD_NUM];
@@ -441,6 +522,9 @@ namespace oceanbase
       ObLoadSequentialFileAppender file_writers_[SPLIT_NUM];
       common::ObFileAppender single_file_writers_[SPLIT_NUM];
       std::vector<std::string> filepaths_;
+      char *in_memory_files_[WRITER_THREAD_NUM * IN_MEMORY_FILE_NUM];
+      int in_memory_files_len_[WRITER_THREAD_NUM * IN_MEMORY_FILE_NUM];
+      
     };
 
   } // namespace sql

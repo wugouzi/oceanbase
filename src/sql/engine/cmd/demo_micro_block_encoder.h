@@ -39,16 +39,16 @@ public:
 
   // maximum row count is restricted to 4 bytes in MicroBlockHeader
   static const int64_t MAX_MICRO_BLOCK_ROW_CNT = UINT32_MAX;
-  // Unlike ObMicroBlockWriter, ObDemoMicroBlockEncoder internally uses ObRowWriter and ObIColumnEncoder
+  // Unlike ObMicroBlockWriter, ObMicroBlockEncoder internally uses ObRowWriter and ObIColumnEncoder
   // to form row and column data. Both ObRowWriter and ObIColumnEncoder check buffer capacity by
   // calling ObBufferWriter::advance_zero. If buffer size is not enough, they return failure.
   // Compared to ObMicroBlockWriter, who calls ObBufferWriter::write to acquire buffer space
-  // automatically, we have to prepared enough buffer space for ObDemoMicroBlockEncoder at beginning.
+  // automatically, we have to prepared enough buffer space for ObMicroBlockEncoder at beginning.
   // So DEFAULT_ROWKEY_BUFFER_SIZE should be equal to macro block size
   //
   // For detail difference about the writing buffer between ObMicroBlockWriter and
-  // ObDemoMicroBlockEncoder, please take a look at method:
-  // int ObDemoMacroBlockWriter::get_current_micro_block_buffer(const char *&buf, int64_t &size)
+  // ObMicroBlockEncoder, please take a look at method:
+  // int ObMacroBlockWriter::get_current_micro_block_buffer(const char *&buf, int64_t &size)
   static const int64_t DEFAULT_DATA_BUFFER_SIZE = common::OB_DEFAULT_MACRO_BLOCK_SIZE;
 
   // For rowkey_buffer_, length, must great than OB_MAX_ROW_KEY_LENGTH
@@ -68,6 +68,7 @@ public:
   int init(const ObMicroBlockEncodingCtx &ctx);
   // return OB_BUF_NOT_ENOUGH if exceed micro block size
   virtual int append_row(const ObDatumRow &row);
+  // int append_obj_row(const ObNewRow &row);
   virtual int build_block(char *&buf, int64_t &size);
   // clear status and release memory, reset along with macro block writer
   virtual void reset();
@@ -91,6 +92,13 @@ private:
   // only deep copy the cell part
   int process_out_row_columns(const ObDatumRow &row);
   int copy_and_append_row(const ObDatumRow &src, int64_t &store_size);
+  int copy_and_append_obj_row(const ObNewRow &row, int64_t &store_size);
+  int copy_cell_idx(
+      int idx,
+      const ObStorageDatum &src,
+      ObDatum &dest,
+      int64_t &store_size,
+      bool &is_large_row);
   int copy_cell(
       const ObColDesc &col_desc,
       const ObStorageDatum &src,
@@ -149,7 +157,7 @@ private:
   int store_encoding_meta_and_fix_cols(int64_t &encoding_meta_offset);
   int init_all_col_values(const ObMicroBlockEncodingCtx &ctx);
   void print_micro_block_encoder_status() const;
-
+  ObDatum *get_last_datum() { return last_datum_; }
 private:
   ObMicroBlockEncodingCtx ctx_;
   ObMicroBlockHeader *header_;
@@ -178,7 +186,8 @@ private:
   common::ObArray<ObColumnEncodingCtx> col_ctxs_;
   int64_t length_;
   bool is_inited_;
-  bool first_row_ = true;
+  ObDatum *last_datum_;
+
   DISALLOW_COPY_AND_ASSIGN(ObDemoMicroBlockEncoder);
 };
 

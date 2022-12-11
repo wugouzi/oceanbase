@@ -115,6 +115,7 @@ int ObEncodingHashTableBuilder::build(const ObColDatums &col_datums, const ObCol
     STORAGE_LOG(WARN, "invalid argument", K(ret), K_(node_num),
         "row_count", col_datums.count());
   } else {
+    /*
     ObObjTypeStoreClass store_class = get_store_class_map()[col_desc.col_type_.get_type_class()];
     const bool need_binary_hash =
         (store_class == ObTextSC || store_class == ObJsonSC || store_class == ObLobSC);
@@ -122,11 +123,13 @@ int ObEncodingHashTableBuilder::build(const ObColDatums &col_datums, const ObCol
         col_desc.col_type_.get_type(), col_desc.col_type_.get_collation_type());
     ObHashFunc hash_func;
     hash_func.hash_func_ = basic_funcs->murmur_hash_;
+    */
     const uint64_t mask = (bucket_num_ - 1);
     for (int64_t row_id = 0;
         OB_SUCC(ret) && row_id < col_datums.count() && list_cnt_ < list_num_;
         ++row_id) {
       const ObDatum &datum = col_datums.at(row_id);
+      /*
       if (datum.is_null()) {
         add_to_list(null_nodes_, nodes_[row_id], datum);
       } else if (datum.is_nop()) {
@@ -135,19 +138,21 @@ int ObEncodingHashTableBuilder::build(const ObColDatums &col_datums, const ObCol
         ret = common::OB_NOT_SUPPORTED;
         STORAGE_LOG(WARN, "not supported extend object type",
             K(ret), K(row_id), K(datum), K(*datum.extend_obj_));
-      } else {
-        int64_t pos = hash(datum, hash_func, need_binary_hash) & mask;
+      } else {*/
+        // int64_t pos = hash(datum, hash_func, need_binary_hash) & mask;
+        int64_t pos = row_id & mask;
         NodeList *list = buckets_[pos];
         while (OB_SUCC(ret) && nullptr != list) {
+          /*  
           bool is_equal = false;
           if (OB_FAIL(equal(*list->header_->datum_, datum, is_equal))) {
             LOG_WARN("check datum equality failed", K(ret), K(datum), KPC(list->header_->datum_), K(col_desc));
           } else if (is_equal) {
             add_to_list(*list, nodes_[row_id], datum);
             break;
-          } else {
+          } else {*/
             list = list->next_;
-          }
+          // }
         }
         if (OB_SUCC(ret) && nullptr == list) {
           list = &lists_[list_cnt_];
@@ -157,7 +162,7 @@ int ObEncodingHashTableBuilder::build(const ObColDatums &col_datums, const ObCol
 
           add_to_list(*list, nodes_[row_id], datum);
         }
-      }
+      // }
       if (OB_SUCC(ret)) {
         node_cnt_++;
       }

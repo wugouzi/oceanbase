@@ -88,19 +88,19 @@ int ObDemoMicroBlockBufferHelper::compress_encrypt_micro_block(ObMicroBlockDesc 
   int64_t block_size = micro_block_desc.buf_size_;
   const char *compress_buf = NULL;
   int64_t compress_buf_size = 0;
-  // LOG_INFO("MMMMM compress micro block");
   if (OB_UNLIKELY(!micro_block_desc.is_valid())) {
     ret = OB_INVALID_ARGUMENT;
     STORAGE_LOG(WARN, "invalid micro block desc", K(ret), K(micro_block_desc));
+  } else if (OB_FAIL(direct_check_micro_block(block_buffer, block_size, micro_block_desc))) {
+    LOG_INFO("MMMMM fail to check micro block", K(ret));
   } else if (OB_FAIL(compressor_.compress(block_buffer, block_size, compress_buf, compress_buf_size))) {
     STORAGE_LOG(WARN, "macro block writer fail to compress.",
         K(ret), K(OB_P(block_buffer)), K(block_size));
-  // HACK: remove check for performance
-  } else if (MICRO_BLOCK_MERGE_VERIFY_LEVEL::NONE != micro_block_merge_verify_level_
+  } /*else if (MICRO_BLOCK_MERGE_VERIFY_LEVEL::NONE != micro_block_merge_verify_level_
       && OB_FAIL(check_micro_block(compress_buf, compress_buf_size,
-           block_buffer, block_size, micro_block_desc))) {
-     STORAGE_LOG(WARN, "failed to check micro block", K(ret));
-  } else {
+            block_buffer, block_size, micro_block_desc))) {
+    STORAGE_LOG(WARN, "failed to check micro block", K(ret));
+  } */else {
     ObMicroBlockHeader *header = const_cast<ObMicroBlockHeader *>(micro_block_desc.header_);
     micro_block_desc.buf_ = compress_buf;
     micro_block_desc.buf_size_ = compress_buf_size;
@@ -113,6 +113,36 @@ int ObDemoMicroBlockBufferHelper::compress_encrypt_micro_block(ObMicroBlockDesc 
   return ret;
 }
 
+int ObDemoMicroBlockBufferHelper::direct_check_micro_block(
+    const char *buf,
+    const int64_t size,
+    const ObMicroBlockDesc &micro_desc)
+{
+  int ret = OB_SUCCESS;
+  // LOG_INFO("MMMMM direct checksum");
+  const int64_t buf_size = micro_desc.header_->header_size_ + size;
+  int64_t pos = 0;
+  char *block_buf = nullptr;
+  allocator_.reuse();
+  if (OB_ISNULL(block_buf = static_cast<char *>(allocator_.alloc(buf_size)))) {
+    ret = OB_ALLOCATE_MEMORY_FAILED;
+    STORAGE_LOG(WARN, "failed to alloc mem", K(ret), K(buf_size), K(micro_desc));
+  } else if (OB_FAIL(micro_desc.header_->serialize(block_buf, buf_size, pos))) {
+    STORAGE_LOG(WARN, "failed to serialize header", K(ret), K(micro_desc));
+  } else {
+    // extra copy when decomp wrongly
+    // return ret;
+    
+    MEMCPY(block_buf + pos, buf, size);
+    // LOG_INFO("MMMMM done copy");
+    if (OB_FAIL(check_micro_block_checksum(block_buf, buf_size, micro_desc.block_checksum_))) {
+      STORAGE_LOG(WARN, "failed to check_micro_block_checksum", K(ret), K(micro_desc));
+    }
+  }
+  return ret;
+}
+
+
 int ObDemoMicroBlockBufferHelper::check_micro_block(
     const char *compressed_buf,
     const int64_t compressed_size,
@@ -121,7 +151,6 @@ int ObDemoMicroBlockBufferHelper::check_micro_block(
     const ObMicroBlockDesc &micro_desc)
 {
   int ret = OB_SUCCESS;
-  return ret;
   const char *decomp_buf = nullptr;
   int64_t real_decomp_size = 0;
   if (MICRO_BLOCK_MERGE_VERIFY_LEVEL::ENCODING == micro_block_merge_verify_level_) {
@@ -146,6 +175,7 @@ int ObDemoMicroBlockBufferHelper::check_micro_block(
       STORAGE_LOG(WARN, "failed to serialize header", K(ret), K(micro_desc));
     } else {
       // extra copy when decomp wrongly
+      // return ret;
       MEMCPY(block_buf + pos, decomp_buf, uncompressed_size);
       if (OB_FAIL(check_micro_block_checksum(block_buf, buf_size, micro_desc.block_checksum_))) {
         STORAGE_LOG(WARN, "failed to check_micro_block_checksum", K(ret), K(micro_desc));
@@ -251,7 +281,7 @@ int ObDemoMicroBlockBufferHelper::dump_micro_block_writer_buffer(const char *buf
 }
 
 /**
- * ---------------------------------------------------------ObDemoMacroBlockWriter--------------------------------------------------------------
+ * ---------------------------------------------------------ObMacroBlockWriter--------------------------------------------------------------
  */
 ObDemoMacroBlockWriter::ObDemoMacroBlockWriter()
   :data_store_desc_(nullptr),
@@ -327,6 +357,7 @@ int ObDemoMacroBlockWriter::open(
   reset();
   if (OB_UNLIKELY(!data_store_desc.is_valid() || !start_seq.is_valid())) {
     ret = OB_INVALID_ARGUMENT;
+    LOG_INFO("MMMMM invalid argument", KR(ret));
     STORAGE_LOG(WARN, "invalid macro block writer input argument.", K(ret), K(data_store_desc), K(start_seq));
   } else if (OB_FAIL(macro_blocks_[0].init(data_store_desc, start_seq.get_data_seq()))) {
     STORAGE_LOG(WARN, "Fail to init 0th macro block, ", K(ret));
@@ -390,8 +421,7 @@ int ObDemoMacroBlockWriter::open(
 int ObDemoMacroBlockWriter::append_row(const ObDatumRow &row)
 {
   int ret = OB_SUCCESS;
-  // STORAGE_LOG(DEBUG, "MMMMM append row 2", K(row));
-  // LOG_INFO("MMMMM append row 2");
+  STORAGE_LOG(DEBUG, "append row", K(row));
   if (OB_FAIL(append_row(row, data_store_desc_->micro_block_size_))) {
     STORAGE_LOG(WARN, "Fail to append row", K(ret));
   } else if (nullptr != data_store_desc_->merge_info_) {
@@ -406,11 +436,10 @@ int ObDemoMacroBlockWriter::append_row(const ObDatumRow &row, const int64_t spli
   int ret = OB_SUCCESS;
   const ObDatumRow *row_to_append = &row;
   if (NULL == data_store_desc_) {
-    ret = OB_NOT_INIT;    
-    STORAGE_LOG(WARN, "The ObDemoMacroBlockWriter has not been opened, ", K(ret));
+    ret = OB_NOT_INIT;
+    STORAGE_LOG(WARN, "The ObMacroBlockWriter has not been opened, ", K(ret));
   } else if (split_size < data_store_desc_->micro_block_size_) {
     ret = OB_INVALID_ARGUMENT;
-    // LOG_INFO("MMMMM 1");
     STORAGE_LOG(WARN, "invalid split_size", K(ret), K(split_size));
   } else if (OB_FAIL(check_order(row))) {
     STORAGE_LOG(WARN, "macro block writer fail to check order.", K(row));
@@ -489,7 +518,6 @@ int ObDemoMacroBlockWriter::append_macro_block(const ObMacroBlockDesc &macro_des
   } else if (OB_UNLIKELY(!macro_desc.is_valid_with_macro_meta())
       || OB_ISNULL(builder_)) {
     ret = OB_INVALID_ARGUMENT;
-    // LOG_INFO("MMMMM 2");
     LOG_WARN("Invalid arguments", K(ret), KP(builder_), K(macro_desc));
   } else if (OB_FAIL(builder_->append_macro_block(macro_desc))) {
     LOG_WARN("Fail to append index block rows", K(ret), KP(builder_), K(macro_desc));
@@ -530,7 +558,7 @@ int ObDemoMacroBlockWriter::append_micro_block(const ObMicroBlock &micro_block)
   STORAGE_LOG(DEBUG, "append micro_block", K(micro_block));
   if (NULL == data_store_desc_) {
     ret = OB_NOT_INIT;
-    STORAGE_LOG(WARN, "The ObDemoMacroBlockWriter has not been opened", K(ret));
+    STORAGE_LOG(WARN, "The ObMacroBlockWriter has not been opened", K(ret));
   } else if (!micro_block.is_valid()) {
     ret = OB_INVALID_ARGUMENT;
     STORAGE_LOG(WARN, "invalid micro_block", K(ret));
@@ -582,44 +610,6 @@ int ObDemoMacroBlockWriter::check_data_macro_block_need_merge(const ObMacroBlock
   return ret;
 }
 
-int ObDemoMacroBlockWriter::flush_current_macro_block()
-{
-  int ret = OB_SUCCESS;
-  ObMacroBlock &current_block = macro_blocks_[current_index_];
-  ObMacroBloomFilterCacheWriter &current_bf_writer = bf_cache_writer_[current_index_];
-  // LOG_INFO("MMMMM flush current macro block");
-  if (OB_SUCC(ret) && current_block.is_dirty()) {
-    int32_t row_count = current_block.get_row_count();
-    if (OB_FAIL(flush_macro_block(current_block))) {
-      STORAGE_LOG(WARN, "macro block writer fail to flush macro block.", K(ret),
-          K_(current_index));
-    }
-    if (OB_SUCC(ret) && data_store_desc_->need_prebuild_bloomfilter_) {
-      flush_bf_to_cache(current_bf_writer, row_count);
-    }
-  }
-  if (OB_SUCC(ret)) {
-    // wait last macro block io finish
-    // we also need wait prev macro block to finish due to force_split in build_micro_block
-    ObMacroBlockHandle &curr_handle = macro_handles_[current_index_];
-    ObMacroBlockHandle &prev_handle = macro_handles_[(current_index_ + 1) % 2];
-    if (OB_NOT_NULL(callback_) && OB_FAIL(callback_->wait())) {
-      STORAGE_LOG(WARN, "fail to wait callback flush", K(ret));
-    } else if (OB_FAIL(wait_io_finish(prev_handle))) {
-      STORAGE_LOG(WARN, "Fail to wait io finish, ", K(ret));
-    } else if (OB_FAIL(wait_io_finish(curr_handle))) {
-      STORAGE_LOG(WARN, "Fail to wait io finish, ", K(ret));
-    }
-  }
-
-  if (OB_SUCC(ret) && OB_NOT_NULL(builder_)) {
-    if (OB_FAIL(builder_->close(last_key_, &block_write_ctx_))) {
-      STORAGE_LOG(WARN, "fail to close data index builder", K(ret), K(last_key_));
-    }
-  }
-  return ret;
-}
-
 int ObDemoMacroBlockWriter::close()
 {
   int ret = OB_SUCCESS;
@@ -627,11 +617,10 @@ int ObDemoMacroBlockWriter::close()
     ret = OB_ERR_UNEXPECTED;
     STORAGE_LOG(WARN, "exceptional situation", K(ret), K_(data_store_desc), K_(micro_writer));
   } else if (micro_writer_->get_row_count() > 0 && OB_FAIL(build_micro_block())) {
-    STORAGE_LOG(WARN, "MMMMM macro block writer fail to build current micro block.", K(ret));
+    STORAGE_LOG(WARN, "macro block writer fail to build current micro block.", K(ret));
   } else {
     ObMacroBlock &current_block = macro_blocks_[current_index_];
     ObMacroBloomFilterCacheWriter &current_bf_writer = bf_cache_writer_[current_index_];
-    // LOG_INFO("MMMMM flush macro block");
     if (OB_SUCC(ret) && current_block.is_dirty()) {
       int32_t row_count = current_block.get_row_count();
       if (OB_FAIL(flush_macro_block(current_block))) {
@@ -681,7 +670,6 @@ int ObDemoMacroBlockWriter::check_order(const ObDatumRow &row)
   int64_t cur_sql_sequence = 0;
   if (!row.is_valid() || row.get_column_count() != data_store_desc_->row_column_count_) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_INFO("MMMMM 3");
     STORAGE_LOG(ERROR, "invalid macro block writer input argument.",
         K(row), "row_column_count", data_store_desc_->row_column_count_, K(ret));
   } else {
@@ -798,10 +786,9 @@ int ObDemoMacroBlockWriter::build_micro_block()
   int ret = OB_SUCCESS;
   int64_t block_size = 0;
   ObMicroBlockDesc micro_block_desc;
-  // LOG_INFO("MMMMM build micro block");
   if (micro_writer_->get_row_count() <= 0) {
     ret = OB_INNER_STAT_ERROR;
-    STORAGE_LOG(WARN, "MMMMM micro_block_writer is empty", K(ret));
+    STORAGE_LOG(WARN, "micro_block_writer is empty", K(ret));
   } else if (OB_FAIL(micro_writer_->build_micro_block_desc(micro_block_desc))) {
     STORAGE_LOG(WARN, "failed to build micro block desc", K(ret));
   } else if (FALSE_IT(micro_block_desc.last_rowkey_ = last_key_)) {
@@ -839,7 +826,6 @@ int ObDemoMacroBlockWriter::build_micro_block_desc(
     ObMicroBlockHeader &header_for_rewrite)
 {
   int ret = OB_SUCCESS;
-  // LOG_INFO("MMMMM build micro desc");
   if (OB_UNLIKELY(!micro_block.micro_index_info_->is_valid())) {
     ret = OB_INVALID_ARGUMENT;
     LOG_WARN("invalid arguments", K(ret), K(micro_block));
@@ -955,8 +941,6 @@ int ObDemoMacroBlockWriter::write_micro_block(ObMicroBlockDesc &micro_block_desc
 {
   int ret = OB_SUCCESS;
   int64_t data_offset = 0;
-  has_wrote_block_ = true;
-  // LOG_INFO("MMMMM write micro block");
   if (OB_FAIL(alloc_block())) {
     STORAGE_LOG(WARN, "Fail to pre-alloc block", K(ret));
   } else if (OB_NOT_NULL(builder_)) {

@@ -1932,11 +1932,11 @@ int ObTimeConverter::str_to_ob_time_with_date(
     ObTimeDigits digits[DATETIME_PART_CNT];
     if (OB_FAIL(str_to_digit_with_date(str, digits, ob_time))) {
       LOG_WARN("failed to get digits", K(ret), K(str));
-    } else if (OB_FAIL(validate_datetime(ob_time, is_dayofmonth, date_sql_mode))) {
+    }/* else if (OB_FAIL(validate_datetime(ob_time, is_dayofmonth, date_sql_mode))) {
       // OK, it seems like a valid format, now we need check its value.
       LOG_WARN("datetime is invalid or out of range",
                K(ret), K(str), K(ob_time), K(date_sql_mode), KCSTRING(lbt()));
-    } else {
+    } */else {
       ob_time.parts_[DT_DATE] = ob_time_to_date(ob_time);
     }
     if (NULL != scale) {

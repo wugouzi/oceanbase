@@ -100,6 +100,15 @@ typedef uint64_t ObDemoCastMode;
 #define CM_IS_ERROR_ON_SCALE_OVER(mode)       ((CM_ERROR_ON_SCALE_OVER & (mode)) != 0)
 #define CM_IS_JSON_VALUE(mode)                CM_IS_ERROR_ON_SCALE_OVER(mode)
 
+static const int HANDLE_NUM = 16;
+static int inited_[HANDLE_NUM];
+static ObObjType in_types_[HANDLE_NUM];
+// static bool is_strings_[HANDLE_NUM];
+static ObCollationType expect_cs_types_[HANDLE_NUM];
+static ObObjTypeClass in_tcs_[HANDLE_NUM];
+static ObObjTypeClass out_tcs_[HANDLE_NUM];
+static bool cond1_[HANDLE_NUM];
+static bool cond2_[HANDLE_NUM];  
 struct ObDemoObjCastParams
 {
   // add params when necessary
@@ -333,11 +342,21 @@ public:
   //{{
   //不支持向enum/set转换的版本
   static int to_type(const ObObjType expect_type, ObDemoCastCtx &cast_ctx,
-                     const ObObj &in_obj, ObObj &buf_obj, const ObObj *&out_obj);
+                     const ObObj &in_obj, ObObj &buf_obj, const ObObj *&out_obj);                   
   static int simp_to_type(const ObObjType &expect_type,
                           ObDemoCastCtx &cast_ctx,
                           const ObObj &in_obj,
-                          ObObj &out_obj);
+                          ObObj &out_obj,
+                          int idx);
+  static int simp_string_number(ObDemoObjCastParams &params,
+                         const ObObj &in, ObObj &out);
+  static int simp_string_date(ObDemoObjCastParams &params,
+                       const ObObj &in, ObObj &out);
+  static int simp_string_string(const ObObjType expect_type, ObDemoObjCastParams &params,
+                         const ObObj &in, ObObj &out);
+  static int simp_string_int(const ObObjType expect_type, ObDemoObjCastParams &params,
+                      ObObj &in, ObObj &out);
+  
   static int to_datetime(const ObObjType expect_type, ObDemoCastCtx &cast_ctx,
                          const ObObj &in_obj, ObObj &buf_obj, const ObObj *&res_obj);
   static int bool_to_json(const ObObjType expect_type, ObDemoCastCtx &cast_ctx,
@@ -379,6 +398,8 @@ public:
   static int can_cast_in_oracle_mode(const ObObjType dest_type, const ObCollationType dest_coll_type,
                                      const ObObjType src_type, const ObCollationType src_coll_type);
 private:
+  
+
   inline static int64_t get_idx_of_collate(ObCollationType cs_type)
   {
     int64_t idx = -1;

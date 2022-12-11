@@ -94,11 +94,10 @@ int ObMicroBlockBufferHelper::compress_encrypt_micro_block(ObMicroBlockDesc &mic
   } else if (OB_FAIL(compressor_.compress(block_buffer, block_size, compress_buf, compress_buf_size))) {
     STORAGE_LOG(WARN, "macro block writer fail to compress.",
         K(ret), K(OB_P(block_buffer)), K(block_size));
-  // HACK: remove check for performance
-  // } else if (MICRO_BLOCK_MERGE_VERIFY_LEVEL::NONE != micro_block_merge_verify_level_
-  //     && OB_FAIL(check_micro_block(compress_buf, compress_buf_size,
-  //           block_buffer, block_size, micro_block_desc))) {
-  //   STORAGE_LOG(WARN, "failed to check micro block", K(ret));
+  } else if (MICRO_BLOCK_MERGE_VERIFY_LEVEL::NONE != micro_block_merge_verify_level_
+      && OB_FAIL(check_micro_block(compress_buf, compress_buf_size,
+            block_buffer, block_size, micro_block_desc))) {
+    STORAGE_LOG(WARN, "failed to check micro block", K(ret));
   } else {
     ObMicroBlockHeader *header = const_cast<ObMicroBlockHeader *>(micro_block_desc.header_);
     micro_block_desc.buf_ = compress_buf;
@@ -144,6 +143,7 @@ int ObMicroBlockBufferHelper::check_micro_block(
       STORAGE_LOG(WARN, "failed to serialize header", K(ret), K(micro_desc));
     } else {
       // extra copy when decomp wrongly
+      // return ret;
       MEMCPY(block_buf + pos, decomp_buf, uncompressed_size);
       if (OB_FAIL(check_micro_block_checksum(block_buf, buf_size, micro_desc.block_checksum_))) {
         STORAGE_LOG(WARN, "failed to check_micro_block_checksum", K(ret), K(micro_desc));

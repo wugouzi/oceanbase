@@ -573,7 +573,7 @@ int ObLoadCSVPaser::fast_get_next_row(const char *begin, const char *end, const 
   return OB_SUCCESS;
 }
 
-int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, const common::ObNewRow &row, KeyRow &key) 
+int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, ObObj *objs, KeyRow &key) 
 {
   if (begin == end) {
     return OB_ITER_END;
@@ -591,29 +591,118 @@ int ObLoadCSVPaser::fast_get_next_row_with_key_and_row(char *&begin, char *end, 
   int &key1 = key.key1;
   int &key2 = key.key2;
   key1 = 0, key2 = 0;
+  
+  int value = 0;
+  while (*iter != '|') {
+    value = value * 10 + *iter - '0';
+    ++iter;
+  }
+  {
+    ObObj &obj = objs[0];
+    obj.set_int(ObIntType, value);
+    obj.set_collation_level(CS_LEVEL_COERCIBLE);
+    obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+  key1 = value;
+
+  value = 0;
+  ++iter;
+  while (*iter != '|') {
+    value = value * 10 + *iter - '0';
+    ++iter;
+  }
+  {
+    ObObj &obj = objs[1];
+    obj.set_int(ObIntType, value);
+    obj.set_collation_level(CS_LEVEL_COERCIBLE);
+    obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+
+  value = 0;
+  ++iter;
+  while (*iter != '|') {
+    value = value * 10 + *iter - '0';
+    ++iter;
+  }
+  {
+    ObObj &obj = objs[2];
+    obj.set_int(ObInt32Type, value);
+    obj.set_collation_level(CS_LEVEL_COERCIBLE);
+    obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+
+  value = 0;
+  ++iter;
+  while (*iter != '|') {
+    value = value * 10 + *iter - '0';
+    ++iter;
+  }
+  {
+    ObObj &obj = objs[3];
+    obj.set_int(ObInt32Type, value);
+    obj.set_collation_level(CS_LEVEL_COERCIBLE);
+    obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+  }
+  key2 = value;
+
+  ++iter;
+  field_cnt = 4;
   while (iter < end && *iter != '\n') {
     if (first) {
       ptr = iter;
       first = false;
     }
     if (*iter == '|') {
-      // LOG_INFO("MMMMM set type", K(field_cnt), K(ObVarcharType));
-      ObObj &obj = row.cells_[field_cnt];
+      ObObj &obj = objs[field_cnt];
       obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
-      int len = std::distance(ptr, iter);
-      // printf("MMMMM len %d, %-*s\n", len, len, ptr);
       obj.set_collation_type(collation_type_);
       field_cnt++;
       first = true;
     }
-    if (field_cnt == 0) {
-      key1 = key1 * 10 + (*iter - '0');
-    }
-    if (field_cnt == 3 && isdigit(*iter)) {
-      key2 = key2 * 10 + (*iter - '0');
-    }
     iter++;
   }
+  
+  /*
+  int value = 0;
+  while (iter < end && *iter != '\n') {
+    if (first) {
+      ptr = iter;
+      first = false;
+    }
+    if (*iter == '|') {
+      ObObj &obj = row.cells_[field_cnt];
+      if (field_cnt <= 3) {
+        obj.set_collation_level(CS_LEVEL_COERCIBLE);
+        obj.set_collation_type(CS_TYPE_UTF8MB4_GENERAL_CI);
+        switch (field_cnt) {
+          case 0:
+            key1 = value;
+          case 1:
+            obj.set_int(ObIntType, value);
+            break;
+          case 3: 
+            key2 = value;
+          case 2: 
+            obj.set_int(ObInt32Type, value);
+            break;
+        } 
+      } else {
+        obj.set_string(ObVarcharType, ObString(std::distance(ptr, iter), ptr));
+        // int len = std::distance(ptr, iter);
+        // printf("MMMMM len %d, %-*s\n", len, len, ptr);
+        obj.set_collation_type(collation_type_);
+      }
+      // LOG_INFO("MMMMM set type", K(field_cnt), K(ObVarcharType));
+      value = 0;
+      field_cnt++;
+      first = true;
+    }
+    if (field_cnt <= 3 && *iter != '|') {
+      value = value * 10 + (*iter - '0');
+    }
+    
+    iter++;
+  }*/
   if (field_cnt != field_num_ || iter == end) {
     return OB_ITER_END;
   }
@@ -1110,7 +1199,7 @@ ObLoadRowCaster::~ObLoadRowCaster()
     LOG_INFO("MMMMM caster", K(i), K(min_len_[i]), K(max_len_[i]));
   }
   */
-  
+  // LOG_INFO("MMMMM cast time", K(time1), K(time2), K(time3), K(time4));
 }
 
 int ObLoadRowCaster::init(const ObTableSchema *table_schema,
@@ -1135,7 +1224,7 @@ int ObLoadRowCaster::init(const ObTableSchema *table_schema,
   } else if (OB_FAIL(ob_datum_row_.init(column_count_ + extra_rowkey_column_num_))) {
     LOG_INFO("MMMMM extra fail", KR(ret));
   }else {
-    LOG_INFO("MMMMM caster", K(extra_rowkey_column_num_), K(rowkey_column_num_), K(column_count_));
+    // LOG_INFO("MMMMM caster", K(extra_rowkey_column_num_), K(rowkey_column_num_), K(column_count_));
     ob_datum_row_.row_flag_.set_flag(ObDmlFlag::DF_INSERT);
     ob_datum_row_.mvcc_row_flag_.set_last_multi_version_row(true);
     ob_datum_row_.storage_datums_[rowkey_column_num_].set_int(-1); // fill trans_version
@@ -1217,9 +1306,13 @@ int ObLoadRowCaster::init_column_schemas_and_idxs(
 }
 
 // 0, 3, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const blocksstable::ObDatumRow *&datum_row)
+int ObLoadRowCaster::unfold_get_casted_datum_row(ObObj *objs, const blocksstable::ObDatumRow *&datum_row)
 {
   int ret = OB_SUCCESS;
+  if (ob_datum_row_num_ >= CACHE_DATUM_NUM) {
+    ob_datum_row_num_ = 0;
+    cast_allocator_.reuse();
+  }
   blocksstable::ObDatumRow &ob_datum_row = ob_datum_rows_[ob_datum_row_num_];
 
   /*
@@ -1228,39 +1321,198 @@ int ObLoadRowCaster::unfold_get_casted_datum_row(const ObNewRow &new_row, const 
     LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[0]));
   }
   */
-  cast_obj_to_type_datum(column_schemas_[0], expect_types_[0], 
-    new_row.cells_[0], ob_datum_row.storage_datums_[0]);
-  cast_obj_to_type_datum(column_schemas_[1], expect_types_[1], 
-    new_row.cells_[3], ob_datum_row.storage_datums_[1]);
-  cast_obj_to_type_datum(column_schemas_[2], expect_types_[2], 
-    new_row.cells_[1], ob_datum_row.storage_datums_[4]);
-  cast_obj_to_type_datum(column_schemas_[3], expect_types_[3], 
-    new_row.cells_[2], ob_datum_row.storage_datums_[5]);
-  cast_obj_to_type_datum(column_schemas_[4], expect_types_[4], 
-    new_row.cells_[4], ob_datum_row.storage_datums_[6]);
-  cast_obj_to_type_datum(column_schemas_[5], expect_types_[5], 
-    new_row.cells_[5], ob_datum_row.storage_datums_[7]);
-  cast_obj_to_type_datum(column_schemas_[6], expect_types_[6], 
-    new_row.cells_[6], ob_datum_row.storage_datums_[8]);
-  cast_obj_to_type_datum(column_schemas_[7], expect_types_[7], 
-    new_row.cells_[7], ob_datum_row.storage_datums_[9]);
-  cast_obj_to_type_datum(column_schemas_[8], expect_types_[8], 
-    new_row.cells_[8], ob_datum_row.storage_datums_[10]);
-  cast_obj_to_type_datum(column_schemas_[9], expect_types_[9], 
-    new_row.cells_[9], ob_datum_row.storage_datums_[11]);
-  cast_obj_to_type_datum(column_schemas_[10], expect_types_[10], 
-    new_row.cells_[10], ob_datum_row.storage_datums_[12]);
-  cast_obj_to_type_datum(column_schemas_[11], expect_types_[11], 
-    new_row.cells_[11], ob_datum_row.storage_datums_[13]);
-  cast_obj_to_type_datum(column_schemas_[12], expect_types_[12], 
-    new_row.cells_[12], ob_datum_row.storage_datums_[14]);
-  cast_obj_to_type_datum(column_schemas_[13], expect_types_[13], 
-    new_row.cells_[13], ob_datum_row.storage_datums_[15]);
-  cast_obj_to_type_datum(column_schemas_[14], expect_types_[14], 
-    new_row.cells_[14], ob_datum_row.storage_datums_[16]);
-  cast_obj_to_type_datum(column_schemas_[15], expect_types_[15], 
-    new_row.cells_[15], ob_datum_row.storage_datums_[17]);
-      
+  // int64_t t1 = common::ObTimeUtility::current_time();
+
+  // time test
+  // 0 0 int
+  // if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObIntType, cast_ctx_, new_row.cells_[0], casted_obj_))) {
+  //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[0]), K(ObIntType));
+  //   return ret;
+  // }
+  if (OB_FAIL(ob_datum_row.storage_datums_[0].from_obj_enhance(objs[0]))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 3 1 int32
+  // if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObInt32Type, cast_ctx_, new_row.cells_[3], casted_obj_))) {
+  //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[3]), K(ObInt32Type));
+  //   return ret;
+  // }
+  if (OB_FAIL(ob_datum_row.storage_datums_[1].from_obj_enhance(objs[3]))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 1 4 int
+  // if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObIntType, cast_ctx_, new_row.cells_[1], casted_obj_))) {
+  //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[1]), K(ObIntType));
+  //   return ret;
+  // }
+  if (OB_FAIL(ob_datum_row.storage_datums_[4].from_obj_enhance(objs[1]))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 2 5 int32
+  // if (OB_FAIL(ObDemoObjCaster::simp_string_int(ObInt32Type, cast_ctx_, new_row.cells_[2], casted_obj_))) {
+  //   LOG_WARN("MMMMM fail to do to type", KR(ret), K(new_row.cells_[2]), K(ObInt32Type));
+  //   return ret;
+  // }
+  if (OB_FAIL(ob_datum_row.storage_datums_[5].from_obj_enhance(objs[2]))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 4 6 number
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, objs[4], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs), K(ObNumberType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[6].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 5 7 number
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, objs[5], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[5]), K(ObNumberType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[7].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 6 8 number
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, objs[6], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[6]), K(ObNumberType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[8].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 7 9 number
+  if (OB_FAIL(ObDemoObjCaster::simp_string_number(cast_ctx_, objs[7], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[7]), K(ObNumberType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[9].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 8 10 string
+  /*
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, objs[8], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[8]), K(ObCharType));
+    return ret;
+  }*/
+  if (OB_FAIL(ob_datum_row.storage_datums_[10].from_obj_enhance(objs[8]))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 9 11 string
+  /*
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, objs[9], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[9]), K(ObCharType));
+    return ret;
+  }*/
+  if (OB_FAIL(ob_datum_row.storage_datums_[11].from_obj_enhance(objs[9]))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 10 12 date
+  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, objs[10], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[10]), K(ObDateType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[12].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 11 13 date
+  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, objs[11], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[11]), K(ObDateType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[13].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 12 14 date
+  if (OB_FAIL(ObDemoObjCaster::simp_string_date(cast_ctx_, objs[12], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[12]), K(ObDateType));
+    return ret;
+  }
+  if (OB_FAIL(ob_datum_row.storage_datums_[14].from_obj_enhance(casted_obj_))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 13 15 string
+  /*
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, objs[13], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[13]), K(ObCharType));
+    return ret;
+  }*/
+  if (OB_FAIL(ob_datum_row.storage_datums_[15].from_obj_enhance(objs[13]))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 14 16 string
+  /*
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObCharType, cast_ctx_, objs[14], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[14]), K(ObCharType));
+    return ret;
+  }*/
+  if (OB_FAIL(ob_datum_row.storage_datums_[16].from_obj_enhance(objs[14]))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  // 15 17 string
+  /*
+  if (OB_FAIL(ObDemoObjCaster::simp_string_string(ObVarcharType, cast_ctx_, objs[15], casted_obj_))) {
+    LOG_WARN("MMMMM fail to do to type", KR(ret), K(objs[15]), K(ObVarcharType));
+    return ret;
+  }*/
+  if (OB_FAIL(ob_datum_row.storage_datums_[17].from_obj_enhance(objs[15]))) {
+    LOG_WARN("MMMMM fail to from obj enhance", KR(ret), K(casted_obj_));
+    return ret;
+  }
+  
+  
+  /*
+  cast_obj_to_type_datum(expect_types_[0],
+    new_row.cells_[0], ob_datum_row.storage_datums_[0], 0);
+  cast_obj_to_type_datum(expect_types_[1], 
+    new_row.cells_[3], ob_datum_row.storage_datums_[1], 1);
+  cast_obj_to_type_datum(expect_types_[2], 
+    new_row.cells_[1], ob_datum_row.storage_datums_[4], 2);
+  cast_obj_to_type_datum(expect_types_[3], 
+    new_row.cells_[2], ob_datum_row.storage_datums_[5], 3);
+  __builtin_prefetch(&expect_types_[0]);
+  // __builtin_prefetch(&expect_types_[0]);
+  // __builtin_prefetch(&expect_types_[0]);
+  
+  cast_obj_to_type_datum(expect_types_[4], 
+    new_row.cells_[4], ob_datum_row.storage_datums_[6], 4);
+  cast_obj_to_type_datum(expect_types_[5], 
+    new_row.cells_[5], ob_datum_row.storage_datums_[7], 5);
+  cast_obj_to_type_datum(expect_types_[6], 
+    new_row.cells_[6], ob_datum_row.storage_datums_[8], 6);
+  cast_obj_to_type_datum(expect_types_[7], 
+    new_row.cells_[7], ob_datum_row.storage_datums_[9], 7);
+  cast_obj_to_type_datum(expect_types_[8], 
+    new_row.cells_[8], ob_datum_row.storage_datums_[10], 8);
+  cast_obj_to_type_datum(expect_types_[9], 
+    new_row.cells_[9], ob_datum_row.storage_datums_[11], 9);
+  cast_obj_to_type_datum(expect_types_[10], 
+    new_row.cells_[10], ob_datum_row.storage_datums_[12], 10);
+  cast_obj_to_type_datum(expect_types_[11], 
+    new_row.cells_[11], ob_datum_row.storage_datums_[13], 11);
+  cast_obj_to_type_datum(expect_types_[12], 
+    new_row.cells_[12], ob_datum_row.storage_datums_[14], 12);
+  cast_obj_to_type_datum(expect_types_[13], 
+    new_row.cells_[13], ob_datum_row.storage_datums_[15], 13);
+  cast_obj_to_type_datum(expect_types_[14], 
+    new_row.cells_[14], ob_datum_row.storage_datums_[16], 14);
+  cast_obj_to_type_datum(expect_types_[15], 
+    new_row.cells_[15], ob_datum_row.storage_datums_[17], 15);
+  */
   datum_row = &ob_datum_row;
   ob_datum_row_num_++;
   return ret;
@@ -1292,9 +1544,9 @@ int ObLoadRowCaster::get_casted_datum_row(const ObNewRow &new_row, const blockss
         // LOG_INFO("MMMMM type class", K(src_obj.get_type()), K(src_obj.get_type_class()), K(column_idx));
         int j = i < rowkey_column_num_ ? i : i + extra_rowkey_column_num_;
         // ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
-        LOG_INFO("MMMMM", K(i), K(column_idx), K(j));
-        if (OB_FAIL(cast_obj_to_type_datum(column_schemas_[i], expect_types_[i], 
-            new_row.cells_[column_idx], ob_datum_row.storage_datums_[j]))) {
+        // LOG_INFO("MMMMM", K(i), K(column_idx), K(j));
+        if (OB_FAIL(cast_obj_to_type_datum(expect_types_[i], 
+            new_row.cells_[column_idx], ob_datum_row.storage_datums_[j], i))) {
           LOG_WARN("fail to cast obj to datum", KR(ret), K(new_row.cells_[column_idx]));
         }
         ObStorageDatum &dest_datum = ob_datum_row.storage_datums_[j];
@@ -1320,7 +1572,7 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
     ret = OB_NOT_INIT;
     LOG_WARN("ObLoadRowCaster not init", KR(ret));
   } else {
-    LOG_INFO("MMMMM cast", K(column_idxs_));
+    // LOG_INFO("MMMMM cast", K(column_idxs_));
     const int64_t extra_col_cnt = ObMultiVersionRowkeyHelpper::get_extra_rowkey_col_cnt();
     cast_allocator_.reuse();
     for (int64_t i = 0; OB_SUCC(ret) && i < column_idxs_.count(); ++i) {
@@ -1346,10 +1598,10 @@ int ObLoadRowCaster::get_casted_row(const ObNewRow &new_row, const ObLoadDatumRo
 }
 
 // only use type 3 and 4
-int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schema, 
-                                            const ObObjType &expect_type,
+int ObLoadRowCaster::cast_obj_to_type_datum(const ObObjType &expect_type,
                                             const ObObj &obj,
-                                            blocksstable::ObStorageDatum &datum)
+                                            blocksstable::ObStorageDatum &datum,
+                                            int idx)
 {
   int ret = OB_SUCCESS;
   // ObDataTypeCastParams cast_params(&tz_info_);
@@ -1371,7 +1623,7 @@ int ObLoadRowCaster::cast_obj_to_type_datum(const ObColumnSchemaV2 *column_schem
       LOG_WARN("fail to do to type", KR(ret), K(zero_obj), K(expect_type));
     }
   } else {*/
-    if (OB_FAIL(ObDemoObjCaster::simp_to_type(expect_type, cast_ctx_, obj, casted_obj_))) {
+    if (OB_FAIL(ObDemoObjCaster::simp_to_type(expect_type, cast_ctx_, obj, casted_obj_, idx))) {
       LOG_WARN("MMMMM fail to do to type", KR(ret), K(obj), K(expect_type));
     }
   // }
@@ -1389,8 +1641,8 @@ int ObLoadRowCaster::cast_obj_to_datum(const ObColumnSchemaV2 *column_schema, co
                                        ObStorageDatum &datum)
 {
   int ret = OB_SUCCESS;
-  // ObDataTypeCastParams cast_params(&tz_info_);
-  // ObCastCtx cast_ctx(&cast_allocator_, &cast_params, CM_NONE, collation_type_);
+  ObDataTypeCastParams cast_params(&tz_info_);
+  ObCastCtx cast_ctx(&cast_allocator_, &cast_params, CM_NONE, collation_type_);
   const ObObjType expect_type = column_schema->get_meta_type().get_type();
   ObObj casted_obj;
   if (obj.is_null()) {
@@ -1400,11 +1652,11 @@ int ObLoadRowCaster::cast_obj_to_datum(const ObColumnSchemaV2 *column_schema, co
   } else if (is_mysql_mode() && 0 == obj.get_val_len() && !ob_is_string_tc(expect_type)) {
     ObObj zero_obj;
     zero_obj.set_int(0);
-    if (OB_FAIL(ObDemoObjCaster::to_type(expect_type, cast_ctx_, zero_obj, casted_obj))) {
+    if (OB_FAIL(ObObjCaster::to_type(expect_type, cast_ctx, zero_obj, casted_obj))) {
       LOG_WARN("fail to do to type", KR(ret), K(zero_obj), K(expect_type));
     }
   } else {
-    if (OB_FAIL(ObDemoObjCaster::to_type(expect_type, cast_ctx_, obj, casted_obj))) {
+    if (OB_FAIL(ObObjCaster::to_type(expect_type, cast_ctx, obj, casted_obj))) {
       LOG_WARN("fail to do to type", KR(ret), K(obj), K(expect_type));
     }
   }
@@ -1627,19 +1879,22 @@ int ObLoadSSTableWriter::init(const ObTableSchema *table_schema)
     } else if (OB_FAIL(init_sstable_index_builder(table_schema))) {
       LOG_WARN("fail to init sstable index builder", KR(ret));
     } else if (OB_FAIL(init_macro_block_writer(table_schema))) {
-      LOG_WARN("fail to init macro block writer", KR(ret));
-    } else if (OB_FAIL(datum_row_.init(column_count_ + extra_rowkey_column_num_))) {
-      LOG_WARN("fail to init datum row", KR(ret));
+        LOG_WARN("fail to init macro block writer", KR(ret));
     } else {
       table_key_.table_type_ = ObITable::MAJOR_SSTABLE;
       table_key_.tablet_id_ = tablet_id_;
       table_key_.log_ts_range_.start_log_ts_ = 0;
       table_key_.log_ts_range_.end_log_ts_ = ObTimeUtil::current_time_ns();
+      /*
+       
+      else if (OB_FAIL(datum_row_.init(column_count_ + extra_rowkey_column_num_))) {
+        LOG_WARN("fail to init datum row", KR(ret));
+      } 
       datum_row_.row_flag_.set_flag(ObDmlFlag::DF_INSERT);
       datum_row_.mvcc_row_flag_.set_last_multi_version_row(true);
       datum_row_.storage_datums_[rowkey_column_num_].set_int(-1); // fill trans_version
       datum_row_.storage_datums_[rowkey_column_num_ + 1].set_int(0); // fill sql_no
-      for (int i = 0; i < 16 && OB_SUCC(ret); i++) {
+      for (int i = 0; i < WRITER_THREAD_NUM && OB_SUCC(ret); i++) {
         if (OB_FAIL(datum_rows_[i].init(column_count_ + extra_rowkey_column_num_))) {
           LOG_WARN("MMMMM fail to init datum row", KR(ret));    
         }
@@ -1648,6 +1903,7 @@ int ObLoadSSTableWriter::init(const ObTableSchema *table_schema)
         datum_rows_[i].storage_datums_[rowkey_column_num_].set_int(-1); // fill trans_version
         datum_rows_[i].storage_datums_[rowkey_column_num_ + 1].set_int(0); // fill sql_no
       }
+      */
       is_inited_ = true;
     }
   }
@@ -1700,15 +1956,17 @@ int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_sche
   } else {
     data_store_desc_.sstable_index_builder_ = &sstable_index_builder_;
   }
+  /*
   if (OB_SUCC(ret)) {
     ObMacroDataSeq data_seq;
     if (OB_FAIL(macro_block_writer_.open(data_store_desc_, data_seq))) {
       LOG_WARN("fail to init macro block writer", KR(ret), K(data_store_desc_), K(data_seq));
     }
-  }
+  }*/
   return ret;
 }
 
+/*
 int ObLoadSSTableWriter::init_macro_block_writer(const ObTableSchema *table_schema, int idx)
 {
   int ret = OB_SUCCESS;
@@ -1744,12 +2002,6 @@ int ObLoadSSTableWriter::append_row(int idx, const ObLoadDatumRow &datum_row)
     ret = OB_INVALID_ARGUMENT;
     LOG_WARN("invalid args", KR(ret), K(datum_row), K(column_count_));
   } else {
-    /*
-    MEMCPY(datum_rows_[idx].storage_datums_, datum_row.datums_, rowkey_column_num_ * sizeof(ObStorageDatum *));
-    MEMCPY(datum_rows_[idx].storage_datums_ + rowkey_column_num_ + extra_rowkey_column_num_,
-      datum_row.datums_ + rowkey_column_num_, 
-      (column_count_ - rowkey_column_num_) * sizeof(ObStorageDatum *));
-    */
     for (int64_t i = 0; i < column_count_; ++i) {
       if (i < rowkey_column_num_) {
         datum_rows_[idx].storage_datums_[i] = datum_row.datums_[i];
@@ -1759,6 +2011,26 @@ int ObLoadSSTableWriter::append_row(int idx, const ObLoadDatumRow &datum_row)
     }
     if (OB_FAIL(macro_block_writers_[idx].append_row(datum_rows_[idx]))) {
       LOG_WARN("MMMMM fail to append row", KR(ret));
+    }
+  }
+  return ret;
+}
+
+int ObLoadSSTableWriter::close_macro_block(int idx)
+{
+  int ret = OB_SUCCESS;
+  if (OB_FAIL(macro_block_writers_[idx].close())) {
+    LOG_WARN("fail to close macro block writer", KR(ret));  
+  }
+  return ret;
+}
+
+int ObLoadSSTableWriter::close_macro_blocks()
+{
+  int ret = OB_SUCCESS;
+  for (int i = 0; i < 16; i++) {
+    if (OB_FAIL(macro_block_writers_[i].close())) {
+      LOG_WARN("fail to close macro block writer", KR(ret));  
     }
   }
   return ret;
@@ -1789,7 +2061,7 @@ int ObLoadSSTableWriter::append_row(const ObLoadDatumRow &datum_row)
     }
   }
   return ret;
-}
+}*/
 
 int ObLoadSSTableWriter::create_sstable()
 {
@@ -1859,16 +2131,7 @@ int ObLoadSSTableWriter::create_sstable()
   return ret;
 }
 
-int ObLoadSSTableWriter::close_macro_blocks()
-{
-  int ret = OB_SUCCESS;
-  for (int i = 0; i < 16; i++) {
-    if (OB_FAIL(macro_block_writers_[i].close())) {
-      LOG_WARN("fail to close macro block writer", KR(ret));  
-    }
-  }
-  return ret;
-}
+
 
 int ObLoadSSTableWriter::close()
 {
@@ -1881,14 +2144,18 @@ int ObLoadSSTableWriter::close()
     LOG_WARN("unexpected closed sstable writer", KR(ret));
   } else {
     ObSSTable *sstable = nullptr;
-    for (int i = 0; i < 16; i++) {
+    /*
+    for (int i = 0; i < WRITER_THREAD_NUM; i++) {
+      LOG_INFO("MMMMM close", K(i));
       if (OB_FAIL(macro_block_writers_[i].close())) {
-        LOG_WARN("fail to close macro block writer", KR(ret));  
+        LOG_WARN("MMMMM fail to close macro block writer", KR(ret));  
+        return ret;
       }
-    }
+    }*/
+    /*
     if (OB_FAIL(macro_block_writer_.close())) {
-      LOG_WARN("fail to close macro block writer", KR(ret));
-    } else if (OB_FAIL(create_sstable())) {
+      LOG_WARN("MMMMM fail to close macro block writer", KR(ret));
+    } else */if (OB_FAIL(create_sstable())) {
       LOG_WARN("fail to create sstable", KR(ret));
     } else {
       is_closed_ = true;
@@ -2011,9 +2278,17 @@ int ObLoadDataDirectDemo::inner_init(ObLoadDataStmt &load_stmt)
   if (OB_FAIL(sstable_writer_.init(table_schema))) {
     LOG_WARN("fail to init sstable writer", KR(ret));
   }
+
+  /*
+  for (int i = 0; i < WRITER_THREAD_NUM * IN_MEMORY_FILE_NUM; ++i) {
+    in_memory_files_[i] = (char*)malloc(IN_MEMORY_FILE_SIZE);
+    in_memory_files_len_[i] = 0;
+  }*/
   // init datum_row_buffers_
   // datum_row_buffers_.resize(DEMO_BUF_NUM);
   table_schema_ = table_schema;
+
+  file_pos_.resize(SPLIT_NUM);
   return ret;
 }
 
@@ -2225,6 +2500,30 @@ int do_load_buffer(ObLoadDataBuffer &buffer, ObLoadSequentialFileReader &file_re
   return ret;
 }
 
+// task is a buffer pointer
+void ObCompressWritePool::handle(void *_task)
+{
+  CompWriteTask *task = static_cast<CompWriteTask*>(_task);
+  int idx = task->group_id;
+  ObLoadDataBuffer *buffer = task->buffer;
+  int ret = OB_SUCCESS;
+  if (buffer->get_data_size() > 0) {
+    std::lock_guard<std::mutex> guard(mtxs_[idx]);
+    int64_t data_size;
+    if (OB_FAIL(compressor_->compress(buffer->begin(), buffer->get_data_size(), comp_bufs_[idx], COMP_BUF_SIZE, data_size))) {
+      LOG_INFO("MMMMM compres fail", K(data_size), K(idx), K(buffer->get_data_size()), KR(ret));
+    }
+    file_pos_[idx].push_back(data_size);
+    if (OB_FAIL(file_writers_[idx].append(comp_bufs_[idx], data_size, false))) {
+      LOG_INFO("MMMMM handle write fail");
+    }
+  }
+  buffer->reuse();
+  buffer_queue_.push(buffer);
+  free(task);
+  // LOG_INFO("MMMMM handle done", KR(ret));
+}
+
 void ObParseDataThread::run(int64_t idx)
 {
   int ret = OB_SUCCESS;
@@ -2266,14 +2565,11 @@ void ObParseDataThread::run(int64_t idx)
   rets_[idx] = ret;
 }
 
-// we don't use allocator:D
-// thread_num_ | split_num_
-void ObReadSortWriteThread::run(int64_t idx) 
+int ObReadSortWriteThread::handle_file_decrypt(int64_t idx, int group_id, char *file_data, int64_t len, 
+  blocksstable::ObDemoMacroBlockWriter &macro_block_writer)
 {
-  LOG_INFO("MMMMM readsortwrite start", K(idx));
-  
-  int n = split_num_ / thread_num_;
-
+  LOG_INFO("MMMMM mmap file", K(file_paths_[group_id].c_str()), K(len));
+  int ret = OB_SUCCESS;
   ObNewRow *new_row = nullptr;
   const ObLoadDatumRow *datum_row = nullptr;
   const blocksstable::ObDatumRow *ob_datum_row = nullptr;
@@ -2283,91 +2579,300 @@ void ObReadSortWriteThread::run(int64_t idx)
   ObLoadDatumRowCompare &compare = external_sorts_[idx].compare();
   char *&buf = bufs_[idx];
 
+  int64_t pos = 0;
+  int cnt = 0;
+  int64_t ori_pos = 0;
+  for (auto &de_len : file_pos_[group_id]) {
+    int64_t data_size;
+    if (OB_FAIL(compressor_->decompress(file_data + ori_pos, de_len, buf + pos, THREAD_BUF_SIZE, data_size))) {
+      LOG_INFO("MMMMM decompress fail", KR(ret), K(group_id), K(len), K(ori_pos), K(de_len));
+      return ret;
+    }
+    ori_pos += de_len;
+    pos += data_size;
+    // LOG_INFO("MMMMM decrypt", K(len), K(group_id), K(data_size), K(ori_pos), K(pos));
+  }
+
+  char *file_ptr = buf;
+  char *file_end = buf + pos;
+  
+  common::ObVector<KeyRow> item_list;
+
+  while (OB_SUCC(ret)) {
+    KeyRow new_item;
+    // new_row = new (buf + pos) ObNewRow;
+    // ObObj **objs = (ObObj **)(buf + pos);
+    // new_row = (ObNewRow*)(buf+pos);
+    // new_item.row = new_row;
+    // pos += sizeof(ObNewRow);
+    // new_row->count_ = column_count_;
+    new_item.objs = (ObObj*)(buf + pos);
+    // new_row->cells_ = (ObObj*)(buf + pos);
+    pos += additional_size_;
+    if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, new_item.objs, new_item))) {
+      if (OB_UNLIKELY(OB_ITER_END != ret)) {
+        LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
+      } else {
+        ret = OB_SUCCESS;
+        break;
+      }
+    } else {
+      if (OB_FAIL(item_list.push_back(new_item))) {
+        LOG_INFO("MMMMM fail to push back new item", K(ret));
+      } else {
+        cnt++;
+      }
+    }
+  }
+
+  LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(cnt));
+  // sort
+  std::sort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
+    return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
+  });
+  /*
+  quicksort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
+    return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
+  });
+  */
+  LOG_INFO("MMMMM sort done", KR(ret), K(idx));
+  if (ret == OB_ITER_END) {
+    ret = OB_SUCCESS;
+  }
+  for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
+    if (OB_FAIL(row_caster.unfold_get_casted_datum_row(item_list[i].objs, ob_datum_row))) {
+      LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
+    } else if (OB_FAIL(macro_block_writer.append_row(*ob_datum_row))) {
+      LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
+    }
+  }
+
+  return ret;
+  
+}
+
+/*
+int ObReadSortWriteThread::handle_file(int64_t idx, char *file_data, int64_t len,
+  blocksstable::ObDemoMacroBlockWriter &macro_block_writer)
+{
+  ObNewRow *new_row = nullptr;
+  const ObLoadDatumRow *datum_row = nullptr;
+  const blocksstable::ObDatumRow *ob_datum_row = nullptr;
+  ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
+  ObLoadRowCaster &row_caster = row_casters_[idx];
+  ObLoadDataBuffer &buffer = buffers_[idx];
+  ObLoadDatumRowCompare &compare = external_sorts_[idx].compare();
+  char *&buf = bufs_[idx];
+
+  int64_t pos = 0;
+  int cnt = 0;
+
+  char *file_ptr = file_data;
+  char *file_end = file_data + len;
+  // LOG_INFO("MMMMM mmap file", K(file_paths_[i].c_str()), K(len));
   int ret = OB_SUCCESS;
 
-  sstable_writer_.init_macro_block_writer(table_schema_, idx);
-  int64_t max_size = sizeof(ObNewRow) + additional_size_;
+  common::ObVector<KeyRow> item_list;
 
-  for (int i = idx * n; i < (idx + 1) * n && OB_SUCC(ret); i++) {
-    int64_t pos = 0;
-    int cnt = 0;
-
-    int fd = open(file_paths_[i].c_str(), O_RDONLY);
-    int64_t len = lseek(fd,0,SEEK_END);  
-    char *file_data = (char *) mmap(NULL, len, PROT_READ, MAP_PRIVATE,fd, 0);
-    char *file_ptr = file_data;
-    char *file_end = file_data + len;
-    LOG_INFO("MMMMM mmap file", K(file_paths_[i].c_str()), K(len));
-    close(fd);
-
-    common::ObVector<KeyRow> item_list;
-
-    while (OB_SUCC(ret)) {
-      KeyRow new_item;
-      new_row = new (buf + pos) ObNewRow;
-      new_item.row = new_row;
-      pos += sizeof(ObNewRow);
-      new_row->count_ = column_count_;
-      new_row->cells_ = (ObObj*)new (buf + pos) ObObj[column_count_];
-      pos += additional_size_;
-      if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, *new_row, new_item))) {
-        if (OB_UNLIKELY(OB_ITER_END != ret)) {
-          LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
-        } else {
-          ret = OB_SUCCESS;
-          break;
-        }
+  while (OB_SUCC(ret)) {
+    KeyRow new_item;
+    new_row = new (buf + pos) ObNewRow;
+    new_item.row = new_row;
+    pos += sizeof(ObNewRow);
+    new_row->count_ = column_count_;
+    new_row->cells_ = (ObObj*)new (buf + pos) ObObj[column_count_];
+    pos += additional_size_;
+    if (OB_FAIL(csv_parser.fast_get_next_row_with_key_and_row(file_ptr, file_end, *new_row, new_item))) {
+      if (OB_UNLIKELY(OB_ITER_END != ret)) {
+        LOG_INFO("MMMMM fail to get next row", KR(ret), K(idx));
       } else {
-        if (OB_FAIL(item_list.push_back(new_item))) {
-          LOG_INFO("MMMMM fail to push back new item", K(ret));
-        }
+        ret = OB_SUCCESS;
+        break;
+      }
+    } else {
+      if (OB_FAIL(item_list.push_back(new_item))) {
+        LOG_INFO("MMMMM fail to push back new item", K(ret));
+      } else {
+        cnt++;
       }
     }
-  
-    LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(max_size), K(cnt));
-    // sort
-    std::sort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
-      return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
-    });
-    /*
-    quicksort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
-      return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
-    });
-    */
-    LOG_INFO("MMMMM sort done", KR(ret), K(idx));
-    if (ret == OB_ITER_END) {
-      ret = OB_SUCCESS;
-    }
-    for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
-      if (OB_FAIL(row_caster.unfold_get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
-        LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
-      } else if (OB_FAIL(sstable_writer_.append_datum_row(idx, *ob_datum_row))) {
-        LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
-      } if (sstable_writer_.has_wrote_block(idx)) {
-        row_caster.reuse();
-      }
-      /*
-      if (OB_FAIL(row_caster.get_casted_row(*item_list[i].row, datum_row))) {
-        LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
-      } else if (OB_FAIL(sstable_writer_.append_row(idx, *datum_row))) {
-        LOG_INFO("MMMMM fail to append row", KR(ret), K(idx), K(i));
-      }
-      */
-    }
-    if (item_list.size() > 0) {
-      if (OB_FAIL(sstable_writer_.build_micro_block(idx))) {
-        LOG_INFO("MMMMM build micro fail");
-      } else if (OB_FAIL(sstable_writer_.switch_macro_block(idx))) {
-        LOG_INFO("MMMMM build macro fail", KR(ret));
-      }
+  }
+
+  LOG_INFO("MMMMM read done", KR(ret), K(idx), K(item_list.size()), K(pos), K(cnt));
+  // sort
+  std::sort(item_list.begin(), item_list.end(), [](const KeyRow &s1, const KeyRow &s2) {
+    return s1.key1 < s2.key1 || (s1.key1 == s2.key1 && s1.key2 < s2.key2);
+  });
+
+  LOG_INFO("MMMMM sort done", KR(ret), K(idx));
+  if (ret == OB_ITER_END) {
+    ret = OB_SUCCESS;
+  }
+  for (int i = 0; i < item_list.size() && OB_SUCC(ret); i++) {
+    
+    if (OB_FAIL(row_caster.unfold_get_casted_datum_row(*item_list[i].row, ob_datum_row))) {
+      LOG_INFO("MMMMM fail to cast row", KR(ret), K(idx), K(i));
+    } else if (OB_FAIL(macro_block_writer.append_row(*ob_datum_row))) {
+      LOG_INFO("MMMMM fail to append", K(ret));
     }
     
-    LOG_INFO("MMMMM write done", KR(ret), K(idx));
+  }
+  return ret;
+}*/
+
+// we don't use allocator:D
+// thread_num_ | split_num_
+void ObReadSortWriteThread::run(int64_t idx) 
+{
+  ObTenantStatEstGuard stat_est_guard(MTL_ID());
+  ObTenantBase *tenant_base = MTL_CTX();
+  Worker::CompatMode mode = ((omt::ObTenant *)tenant_base)->get_compat_mode();
+  Worker::set_compatibility_mode(mode);
+
+  int ret = OB_SUCCESS;
+
+  blocksstable::ObDemoMacroBlockWriter macro_block_writer;
+  ObMacroDataSeq data_seq;
+  data_seq.set_parallel_degree(idx);
+  if (OB_FAIL(macro_block_writer.open(data_store_desc_, data_seq))) {
+    LOG_INFO("MMMMM fail to open macro block writer", K(ret));
+    rets_[idx] = ret;
+    return;
+  }
+
+  ObNewRow *new_row = nullptr;
+  const ObLoadDatumRow *datum_row = nullptr;
+  const blocksstable::ObDatumRow *ob_datum_row = nullptr;
+  ObLoadCSVPaser &csv_parser = csv_parsers_[idx];
+  ObLoadRowCaster &row_caster = row_casters_[idx];
+  ObLoadDataBuffer &buffer = buffers_[idx];
+  ObLoadDatumRowCompare &compare = external_sorts_[idx].compare();
+  char *&buf = bufs_[idx];
+  
+  int64_t max_size = sizeof(ObNewRow) + additional_size_;
+  
+  int n = (split_num_) / thread_num_;
+  for (int i = idx * n; i < (idx + 1) * n && OB_SUCC(ret); i++) {
+    int fd = open(file_paths_[i].c_str(), O_RDONLY);
+    int64_t  len = lseek(fd,0,SEEK_END);  
+    char *file_data = (char *) mmap(NULL, len, PROT_READ, MAP_PRIVATE,fd, 0);
+    close(fd);
+
+    if (OB_FAIL(handle_file_decrypt(idx, i, file_data, len, macro_block_writer))) {
+      LOG_INFO("MMMMM write fail", KR(ret), K(idx));
+    } else {
+      LOG_INFO("MMMMM write done", KR(ret), K(idx));
+    }
+    
     // data of new_row is still in mmap
     munmap(file_data, len);
+    LOG_INFO("MMMMM readsortwrite", K(i));
   }
+
+  if (OB_FAIL(macro_block_writer.close())) {
+    LOG_INFO("MMMMM fail to close macro writer", K(idx), K(ret));
+  }
+
   LOG_INFO("MMMMM", K(max_size), KR(ret));
   rets_[idx] = ret;
+}
+
+int ObLoadDataDirectDemo::pre_processV3()
+{
+  int ret = OB_SUCCESS;
+  std::string tmp(filepath_.ptr(), filepath_.length());
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    std::string tmpp = tmp + "." + std::to_string(i);
+    // LOG_INFO("MMMMM", K(tmpp.c_str()));
+    filepaths_.push_back(tmpp);
+    ObString file_path(tmpp.size(), tmpp.c_str());
+    // file_writers_[i].open(file_path, SPLIT_BUF_SIZE);
+    single_file_writers_[i].open(file_path, true, true);
+  }
+
+  ObLoadDataBuffer buffers[1300];
+  ObLoadDataBuffer *file_buffers[SPLIT_NUM];
+  common::ObLightyQueue buffer_queue;
+  buffer_queue.init(1000 * 1024, ObModIds::OB_SQL_LOAD_DATA, MTL_ID());
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    buffers[i].create(READ_BUF_SIZE);
+    file_buffers[i] = &buffers[i];
+  }
+  for (int i = SPLIT_NUM; i < 1300; i++) {
+    buffers[i].create(READ_BUF_SIZE);
+    buffer_queue.push(&buffers[i]);
+  }
+  LOG_INFO("MMMMM malloc done");
+  ObCompressWritePool pools(buffer_queue, single_file_writers_, file_pos_);
+  if (OB_FAIL(pools.init(32, SPLIT_NUM * 10, "compress pool", MTL_ID()))) {
+    LOG_INFO("MMMMM init pool fails");
+    return ret;
+  }
+  pools.start();
+  
+  int fd = open(tmp.c_str(), O_RDONLY);
+  /* Advise the kernel of our access pattern.  */
+  posix_fadvise(fd, 0, 0, 1);  // FDADVICE_SEQUENTIAL
+  int64_t bytes_read;
+  int64_t len;
+  int group_id;
+  int cnt = 0;
+  const char *buf;
+  void *tmp_ptr;
+  while (true) {
+    buffer_.reuse();
+    if (cnt % 100 == 0) {
+      LOG_INFO("MMMMM", K(cnt));
+    }
+    // LOG_INFO("MMMMM", K(cnt));
+    cnt++;
+    char *buf_begin = buffer_.begin();
+    bytes_read = read(fd, buf_begin, READ_BUF_SIZE);
+    if (bytes_read == 0) {
+      break;
+    }
+    char *ptr = buf_begin + bytes_read - 1;
+    while (*ptr != '\n') {
+      ptr--;
+    }
+    ptr++;
+    len = ptr - buf_begin;
+    buffer_.produce(len);
+    lseek(fd, -(bytes_read - len), SEEK_CUR);
+    while (true) {
+      if (OB_FAIL(fast_get_row_data(buffer_, buf, len, group_id, SPLIT_NUM))) {
+        if (OB_UNLIKELY(OB_ITER_END != ret)) {
+          LOG_WARN("MMMMM fail to get next row", KR(ret));
+        } else {
+          ret = OB_SUCCESS;
+        }
+        break;
+      } else {
+        ObLoadDataBuffer *buffer = file_buffers[group_id];
+        if (len >= buffer->get_remain_size()) {
+          // LOG_INFO("MMMMM push");
+          CompWriteTask *task = new CompWriteTask(buffer, group_id);
+          pools.push(task);
+          buffer_queue.pop(tmp_ptr);
+          buffer = (ObLoadDataBuffer*) tmp_ptr;
+          file_buffers[group_id] = buffer;
+        }
+        MEMCPY(buffer->end(), buf, len);
+        buffer->produce(len);
+      }
+      // 
+    } 
+  }
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    pools.push(new CompWriteTask(file_buffers[i], i));
+  }
+  pools.destroy();
+  for (int i = 0; i < SPLIT_NUM; i++) {
+    single_file_writers_[i].close();
+    // file_writers_[i].close();
+  }
+  
+  return ret;
 }
 
 
@@ -2377,7 +2882,7 @@ int ObLoadDataDirectDemo::pre_processV2()
   std::string tmp(filepath_.ptr(), filepath_.length());
   for (int i = 0; i < SPLIT_NUM; i++) {
     std::string tmpp = tmp + "." + std::to_string(i);
-    LOG_INFO("MMMMM", K(tmpp.c_str()));
+    // LOG_INFO("MMMMM", K(tmpp.c_str()));
     filepaths_.push_back(tmpp);
     ObString file_path(tmpp.size(), tmpp.c_str());
     // file_writers_[i].open(file_path, SPLIT_BUF_SIZE);
@@ -2421,7 +2926,7 @@ int ObLoadDataDirectDemo::pre_processV2()
         break;
       } else if (OB_FAIL(single_file_writers_[group_id].append(buf, len, false))) {
       // } else if (OB_FAIL(file_writers_[group_id].write(buf, len))) {
-        LOG_INFO("MMMMM can't write!");
+        LOG_INFO("MMMMM can't write!", KR(ret));
         break;
       }
       // LOG_INFO("MMMMM write to", K(group_id));
@@ -2490,10 +2995,13 @@ int ObLoadDataDirectDemo::pre_process()
 int ObLoadDataDirectDemo::do_load()
 {
   int ret = OB_SUCCESS;
-  if (OB_FAIL(pre_processV2())) {
+  int64_t start = common::ObTimeUtility::current_time();
+  if (OB_FAIL(pre_processV3())) {
     LOG_INFO("MMMMM pre process fail", KR(ret));
     return ret;
   }
+  int64_t pre = common::ObTimeUtility::current_time() - start;
+  start = common::ObTimeUtility::current_time();
   LOG_INFO("MMMMM pre done", KR(ret));
   char *bufs[WRITER_THREAD_NUM];
   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
@@ -2503,7 +3011,8 @@ int ObLoadDataDirectDemo::do_load()
   LOG_INFO("MMMMM allocate memory done");
   int rets[WRITER_THREAD_NUM];
   ObReadSortWriteThread threads(SPLIT_NUM, WRITER_THREAD_NUM, filepaths_,
-    csv_parsers_, row_casters_, buffers_, sstable_writer_, table_schema_, external_sorts_, bufs, THREAD_BUF_SIZE, rets);
+    csv_parsers_, row_casters_, buffers_, sstable_writer_, table_schema_, external_sorts_, bufs, THREAD_BUF_SIZE, rets,
+    file_pos_, sstable_writer_.desc());
   threads.set_thread_count(WRITER_THREAD_NUM);
   threads.set_run_wrapper(MTL_CTX());
   threads.start();
@@ -2512,22 +3021,27 @@ int ObLoadDataDirectDemo::do_load()
     ret = rets[i] == OB_SUCCESS ? ret : rets[i];
   }
   LOG_INFO("MMMMM thread done", KR(ret));
+  int64_t thread = common::ObTimeUtility::current_time() - start;
+  start = common::ObTimeUtility::current_time();
   for (int i = 0; i < WRITER_THREAD_NUM; i++) {
     free(bufs[i]);
   }
   if (OB_SUCC(ret)) {
     if (OB_FAIL(sstable_writer_.close())) {
       LOG_INFO("MMMMM fail to close sstable writer", KR(ret));
-    }
-    for (auto &s : filepaths_) {
-      if (remove(s.c_str()) != 0) {
-        LOG_INFO("MMMMM remove fail", K(s.c_str()));
+    } else {
+      for (auto &s : filepaths_) {
+        if (remove(s.c_str()) != 0) {
+          LOG_INFO("MMMMM remove fail", K(s.c_str()));
+        }
       }
     }
+    
     LOG_INFO("MMMMM close done", KR(ret));
   }
-
-  
+  int64_t close = common::ObTimeUtility::current_time() - start;
+  double total = pre + thread + close;
+  LOG_INFO("MMMMM demo time", K(pre/total), K(thread/total), K(close/total));
   return ret;
 }
 
