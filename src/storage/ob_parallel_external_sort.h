@@ -1747,7 +1747,7 @@ int ObExternalSort<T, Compare>::init(
     } else {
       is_inited_ = true;
     }
-  }
+ } 
   return ret;
 }
 
