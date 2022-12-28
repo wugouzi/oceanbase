@@ -31,14 +31,34 @@
 
       通过二分搜索加速这个过程。
 
+      在写临时文件的时候，因为瓶颈主要在IO上，因此可以通过压缩的方法减少写的数据量，提升很大（24%）
+
     * 读取临时文件，根据键值排好序后进行格式转换跟写表。
 
     优点：
     * 排序只需要读两次，写一次，IO次数较少
     * 易于并行化
+    * 提升100%
 *** 并行化
+
+    并行读没有效果
+
+    并行写有效果，现在瓶颈在CPU上
+*** 优化Caster
 *** 小优化
-****
+
 
 ** 总结分析
     1.
+** 提升
+    | 59bc | 595861 | improve read                        |      |
+    | d7e9 | 587042 | simplies cast                       | 3.4% |
+    | 7cf1 | 567588 | no decompress                       | 7.5% |
+    | ob2e | 527815 | unfold for                          | 2.8% |
+    | 7d5b | 513613 | use 8 thread, sort in single thread | 7.1% |
+    | 1333 | 479397 | string_string no copy               | 2.1% |
+    | 3fac | 469513 | disable checks in cast              | 3.3% |
+    | f846 | 454281 | in memory new row for sort          | 175%, 15.6% |
+    | 2c8d | 393007 | bucket sort                         | 136% |
+    | a37f | 165165 |                                     |      |
+    | ef36 | 135713 |                                     |      |
